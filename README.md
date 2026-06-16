@@ -239,6 +239,7 @@ python3 -m flippergotchi gear <item-id>    # toggle equip / unequip
   amulet · weapon · fin** — each item rolls a PvP stat (ATK / DEF / LUCK) and a
   rarity (common→legendary). Loot them from captures and walks; only *equipped*
   pieces count.
+- **Distinct art + effects per rarity:** every slot has 5 looks (common grey → legendary radiant gold). Worn pieces glow by rarity (rare cyan · epic purple · **legendary gold, with a live pulse**).
 - **Gear only matters in PvP.** It does **not** help against WiFi monsters —
   cracking is a deterministic wordlist attack, not a stat check.
 

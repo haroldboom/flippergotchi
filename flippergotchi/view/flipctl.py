@@ -109,6 +109,8 @@ _HTML = """<!doctype html>
     filter:drop-shadow(0 2px 0 #0008);}}
   .character{{height:82px;display:block;}}
   .worn{{position:absolute;}}
+  .leg{{animation:legpulse 1.3s ease-in-out infinite;transform-origin:center;}}
+  @keyframes legpulse{{0%,100%{{transform:scale(1)}}50%{{transform:scale(1.08)}}}}
   .box{{position:absolute;background:#f6f1da;border:2px solid #39405a;border-radius:3px;
     box-shadow:inset 0 0 0 1px #ffffffcc;padding:2px 4px;z-index:3;}}
   .hp{{top:4px;left:4px;width:96px;}}
@@ -148,6 +150,12 @@ _HTML = """<!doctype html>
 
 _RARITY = {"common": "#b8c2cb", "uncommon": "#7fd1a6", "rare": "#5aa9ff",
            "epic": "#c07bf0", "legendary": "#ffcf4d"}
+# coloured glow for worn pieces by rarity (legendary strongest)
+_GLOW = {
+    "rare": "drop-shadow(0 0 2px #5aa9ff)",
+    "epic": "drop-shadow(0 0 2.5px #c07bf0)",
+    "legendary": "drop-shadow(0 0 2px #ffd24a) drop-shadow(0 0 4px #ffae1a)",
+}
 
 
 def render(state, cfg, line: str = "", mood_override: str | None = None,
@@ -167,15 +175,18 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
         for slot, r in (equipped or {}).items()
         if os.path.exists(os.path.join(_SPRITES, "gear", slot + ".png")))
     # worn gear: overlay each equipped piece on the character at its slot anchor,
-    # nudged per evolution stage (heads sit at different heights/sizes)
+    # nudged per evolution stage (heads sit at different heights/sizes). Higher
+    # rarities get a coloured glow; legendary pulses (live HTML).
     worn = ""
     dy, sc = _STAGE_ADJUST.get(state.stage, (0, 1.0))
     for slot, (L, T, Wd) in _WORN_ANCHOR.items():
         r = (equipped or {}).get(slot)
         b = _worn_b64(slot, r) if r else None
         if b:
-            worn += (f'<img class="worn" style="left:{L}%;top:{T + dy}%;'
-                     f'width:{Wd * sc}%" src="data:image/png;base64,{b}">')
+            cls = "worn leg" if r == "legendary" else "worn"
+            worn += (f'<img class="{cls}" style="left:{L}%;top:{T + dy}%;'
+                     f'width:{Wd * sc}%;filter:{_GLOW.get(r, "none")}" '
+                     f'src="data:image/png;base64,{b}">')
     html = _HTML.format(
         name=_html.escape(state.name), level=state.level,
         sprite=_sprite_b64(_sprite_for(state.stage, variant, mood)),
