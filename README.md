@@ -73,6 +73,8 @@ gps (walking)      ─┘     │            │
 | `game/battle.py` | hashcat+rockyou → cloud fallback, auth-gated | sim ✅; hw cmds = TODO |
 | `game/encounter.py` | detect → Capture/Run state machine | ✅ done & tested |
 | `game/home.py` | "are we home?" gate for battling | ✅ |
+| `game/ledger.py` | wins / losses / escalations database | ✅ done & tested |
+| `prefs.py` | persistent prefs (e.g. dismissed warning) | ✅ |
 | `view/animations.py` | net-gun / flee ASCII animation frames | ✅ |
 | `core/bluetooth.py` | BLE devices → mini-monsters | sim ✅; BlueZ = TODO |
 
@@ -125,9 +127,20 @@ game/battle.py      hashcat+rockyou → cloud, gated to your dojo, with a warnin
 ```bash
 python3 -m flippergotchi --simulate        # run: walk, encounter, capture, collect
 python3 -m flippergotchi encounter         # demo one encounter (popup + animation)
-python3 -m flippergotchi dex               # list your bestiary
-python3 -m flippergotchi battle Linksys --authorized   # crack a captured monster
+python3 -m flippergotchi dex               # bestiary + your W/L/escalate record
+python3 -m flippergotchi battle Linksys    # crack one (gated to home_networks)
+python3 -m flippergotchi battle --all      # auto-battle every captured monster
+python3 -m flippergotchi battle --all --dont-show-again   # ...and stop warning me
 ```
+
+- **Auto-battle** (`--all`) fights every captured, un-defeated WiFi monster one
+  at a time and prints a lifetime **W / L / escalated** tally.
+- The bestiary is keyed strictly by **BSSID**, so two different hidden networks
+  never collapse into one and the same AP is never duplicated.
+- Every battle is logged to `game/ledger.py` (**win** = cracked, **loss** =
+  failed, **escalate** = uploaded to the cloud cracker).
+- The crack **warning** has a *do-not-show-again* (`--dont-show-again`) that
+  persists in `prefs.json`.
 
 The **analyst** runs automatically on every capture (difficulty + suggested
 attack + the exact hashcat command); on the `cpu`/`npu` AI backend it's narrated

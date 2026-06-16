@@ -5,8 +5,58 @@ from dataclasses import dataclass, field, fields
 
 try:
     import tomllib  # py3.11+
-except ModuleNotFoundError:  # pragma: no cover - 3.10 falls back to defaults
+except ModuleNotFoundError:  # pragma: no cover
     tomllib = None
+
+
+def _coerce_scalar(v: str):
+    v = v.strip()
+    if len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+        return v[1:-1]
+    low = v.lower()
+    if low in ("true", "false"):
+        return low == "true"
+    for cast in (int, float):
+        try:
+            return cast(v)
+        except ValueError:
+            pass
+    return v
+
+
+def _coerce(v: str):
+    v = v.strip()
+    if v.startswith("[") and v.endswith("]"):
+        inner = v[1:-1].strip()
+        return [_coerce_scalar(x) for x in inner.split(",") if x.strip()] if inner else []
+    return _coerce_scalar(v)
+
+
+def _strip_comment(val: str) -> str:
+    """Drop an inline '#' comment, respecting double-quoted strings."""
+    out, inq = [], False
+    for ch in val:
+        if ch == '"':
+            inq = not inq
+        elif ch == "#" and not inq:
+            break
+        out.append(ch)
+    return "".join(out)
+
+
+def _parse_toml_lite(text: str) -> dict:
+    """Minimal TOML subset (key = string|number|bool|flat-array) for Python 3.10,
+    which lacks tomllib. Good enough for this project's flat config."""
+    out = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith("["):
+            continue
+        key, sep, val = line.partition("=")
+        if not sep:
+            continue
+        out[key.strip()] = _coerce(_strip_comment(val))
+    return out
 
 
 @dataclass
@@ -45,6 +95,8 @@ class Config:
 
     # --- RPG: monsters, battles, cracking ---
     bestiary_path: str = "~/.flippergotchi/bestiary.json"
+    ledger_path: str = "~/.flippergotchi/ledger.json"
+    prefs_path: str = "~/.flippergotchi/prefs.json"
     scan_bluetooth: bool = True
     # cracking is ONLY allowed against networks matching these (ssid/bssid
     # substrings) - your own "dojo". Empty => battles are refused by default.
@@ -72,11 +124,12 @@ class Config:
         p = os.path.expanduser(path)
         if not os.path.exists(p):
             return cfg
-        if tomllib is None:
-            print("[config] python<3.11 has no tomllib; using defaults + CLI flags")
-            return cfg
-        with open(p, "rb") as f:
-            data = tomllib.load(f)
+        if tomllib is not None:
+            with open(p, "rb") as f:
+                data = tomllib.load(f)
+        else:
+            with open(p) as f:
+                data = _parse_toml_lite(f.read())
         names = {fld.name for fld in fields(cls)}
         for k, v in data.items():
             if k in names:

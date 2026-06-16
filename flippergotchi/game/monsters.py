@@ -43,6 +43,8 @@ class Monster:
     captured: bool = False  # handshake/scan obtained
     defeated: bool = False  # cracked / tamed
     key: str = ""           # recovered PSK, once defeated
+    attempts: int = 0       # battles fought against it
+    last_result: str = ""   # raw result of the most recent battle
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -51,6 +53,21 @@ class Monster:
     def from_dict(cls, d: dict) -> "Monster":
         known = set(cls.__dataclass_fields__)
         return cls(**{k: v for k, v in d.items() if k in known})
+
+
+_PLACEHOLDER_ID = "00:00:00:00:00:00"
+
+
+def is_valid_id(bssid: str) -> bool:
+    return bool(bssid) and bssid not in ("?", _PLACEHOLDER_ID)
+
+
+def label(m: "Monster") -> str:
+    """Display name; hidden/unnamed APs fall back to a per-BSSID label so two
+    different hidden networks never look like the same one."""
+    if m.name and m.name not in ("<hidden>", "(unnamed)", "?", ""):
+        return m.name
+    return f"<hidden {m.id[-5:]}>"
 
 
 def from_ap(ev: dict) -> Monster:

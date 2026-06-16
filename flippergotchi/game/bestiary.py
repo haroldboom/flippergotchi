@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import os
 
-from .monsters import Monster
+from .monsters import Monster, is_valid_id
 
 
 class Bestiary:
@@ -32,7 +32,11 @@ class Bestiary:
         os.replace(tmp, self.path)
 
     def add(self, m: Monster) -> bool:
-        """Add or update. Returns True if this monster is newly discovered."""
+        """Add or update, keyed strictly by BSSID so two different hidden
+        networks stay distinct and the same AP is never duplicated. Returns True
+        if this monster is newly discovered."""
+        if not is_valid_id(m.id):
+            return False
         existing = self.monsters.get(m.id)
         if existing:
             existing.seen += 1

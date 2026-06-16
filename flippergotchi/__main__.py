@@ -32,6 +32,10 @@ def main() -> None:
     ap.add_argument("target", nargs="?", help="monster name/bssid for `battle`")
     ap.add_argument("--authorized", action="store_true",
                     help="confirm you're cleared to crack this target (battle)")
+    ap.add_argument("--all", dest="all", action="store_true",
+                    help="battle: auto-battle every captured monster, one at a time")
+    ap.add_argument("--dont-show-again", dest="dont_show_again", action="store_true",
+                    help="battle: dismiss the crack warning permanently")
     args = ap.parse_args()
 
     cfg = Config.load(args.config)
@@ -55,10 +59,11 @@ def main() -> None:
         cmd_encounter(cfg)
         return
     if args.command == "battle":
-        if not args.target:
-            ap.error("battle needs a monster name/bssid, e.g. `battle Linksys`")
+        if not args.target and not args.all:
+            ap.error("battle needs a monster name/bssid (e.g. `battle Linksys`) "
+                     "or --all")
         from .commands import cmd_battle
-        cmd_battle(cfg, args.target, args.authorized)
+        cmd_battle(cfg, args.target, args.authorized, args.all, args.dont_show_again)
         return
 
     state = PetState() if args.reset else persistence.load(cfg.state_path)

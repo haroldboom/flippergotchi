@@ -17,9 +17,12 @@ from .analysis import assess
 
 
 def is_authorized(monster, cfg) -> bool:
-    needles = [n.lower() for n in getattr(cfg, "home_networks", [])]
+    home = getattr(cfg, "home_networks", []) or []
+    if isinstance(home, str):          # defensive: never iterate a string's chars
+        home = [home]
+    needles = [str(n).lower() for n in home if n]
     hay = f"{monster.name} {monster.id}".lower()
-    return any(n and n in hay for n in needles)
+    return any(n in hay for n in needles)
 
 
 class LocalCracker:

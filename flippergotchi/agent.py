@@ -72,6 +72,8 @@ class Agent:
 
     def _encounter(self, ev: dict) -> None:
         bssid, ssid = ev.get("bssid", "?"), ev.get("ssid", "?")
+        if not monsters.is_valid_id(bssid):
+            return  # can't uniquely track this AP
         self._note_visible(ssid)
         last = self._cooldown.get(bssid)
         if last is not None and self._tick_i - last < self.cfg.encounter_cooldown:
