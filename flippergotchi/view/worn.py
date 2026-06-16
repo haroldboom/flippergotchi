@@ -30,16 +30,18 @@ def _worn_b64(slot: str, rarity: str) -> str | None:
 
 
 # anchor on the forward-facing shark: (left%, top%, width%, rotate-deg).
-#   helmet  -> crown sits centred on top of the head, just above the eyes
+#   helmet  -> crown seats down on the head, front band across the brow
 #   eyepiece-> HUD lens over the viewer-left eye
 #   amulet  -> pendant hangs at the chest, below the mouth
 #   fin     -> augment fin riding the back, behind the dorsal mohawk
-#   weapon  -> glowing blade floats at the right flank, hilt low, blade up
-# z-order (dict order): fin and weapon behind the head furniture, face last.
+#   weapon  -> blade slung over the right shoulder, samurai-style, hilt low
+# pieces in _BEHIND paint behind the character (sheathed on the back); the rest
+# paint in front. Within a layer, dict order is the paint order (later = front).
+_BEHIND = {"weapon", "fin"}
 _WORN_ANCHOR = {
-    "fin":      (49, 0, 32, 15),
-    "weapon":   (70, 44, 40, -36),
-    "helmet":   (26, -6, 49, 0),
+    "fin":      (49, 2, 32, 12),
+    "weapon":   (52, 4, 46, -33),
+    "helmet":   (27, 4, 47, 0),
     "eyepiece": (30, 33, 19, 0),
     "amulet":   (40, 80, 21, 0),
 }
@@ -62,8 +64,13 @@ _GLOW = {
 }
 
 # CSS the host template must include for the worn overlay to animate/anchor.
+# The character img sits at z-index 2; "back" pieces (sheathed weapon, back fin)
+# paint behind it at 1, everything else in front at 3. The charwrap must be its
+# own stacking context (it is -- it's positioned with a z-index).
 CSS = (
-    ".worn{position:absolute;}"
+    ".character{position:relative;z-index:2;}"
+    ".worn{position:absolute;z-index:3;}"
+    ".worn.back{z-index:1;}"
     ".leg{animation:legpulse 1.3s ease-in-out infinite;}"
     "@keyframes legpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}"
 )
@@ -92,7 +99,9 @@ def html(equipped: dict, stage: str) -> str:
         b = _worn_b64(slot, r) if r else None
         if not b:
             continue
-        cls = "worn leg" if r == "legendary" else "worn"
+        cls = "worn back" if slot in _BEHIND else "worn"
+        if r == "legendary":
+            cls += " leg"
         xform = f"rotate({rot}deg)" if rot else ""
         out += (f'<img class="{cls}" style="left:{L}%;top:{T + dy}%;'
                 f'width:{Wd * sc}%;transform:{xform};'

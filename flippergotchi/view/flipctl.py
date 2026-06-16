@@ -76,8 +76,9 @@ _HTML = """<!doctype html>
   .charwrap{{position:absolute;left:50%;bottom:33px;transform:translateX(-50%);
     height:82px;display:inline-block;z-index:1;
     filter:drop-shadow(0 2px 0 #0008);}}
-  .character{{height:82px;display:block;}}
-  .worn{{position:absolute;}}
+  .character{{height:82px;display:block;position:relative;z-index:2;}}
+  .worn{{position:absolute;z-index:3;}}
+  .worn.back{{z-index:1;}}
   .leg{{animation:legpulse 1.3s ease-in-out infinite;}}
   @keyframes legpulse{{0%,100%{{filter:brightness(1)}}50%{{filter:brightness(1.35)}}}}
   .box{{position:absolute;background:#f6f1da;border:2px solid #39405a;border-radius:3px;
