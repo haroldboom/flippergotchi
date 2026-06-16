@@ -58,7 +58,7 @@ def main() -> None:
     if args.manual:
         cfg.manual = True
     if args.variant:
-        cfg.mascot_variant = args.variant
+        cfg.character_variant = args.variant
 
     if args.command == "dex":
         from .commands import cmd_dex

@@ -65,6 +65,6 @@ encounter_cooldown = 5       # ticks before the same AP can re-appear
 
 # --- view / io ---
 tui = true
-mascot_variant = "blue"      # shark colour: classic | blue | tiger | gold | reef
+character_variant = "classic"      # shark colour: classic | blue | tiger | gold | reef
 flipctl_html_out = "/tmp/flippergotchi/face.html"
 state_path = "~/.flippergotchi/state.json"

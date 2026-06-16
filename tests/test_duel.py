@@ -70,8 +70,8 @@ def _inv():
 
 def test_equip_and_gear_power():
     inv = _inv()
-    a = inv.add(eq.Item("i1", "Tuned Antenna", "antenna", "rare", 11))
-    inv.add(eq.Item("i2", "Scuffed Hull", "hull", "common", 3))
+    a = inv.add(eq.Item("i1", "Tuned Helm", "helmet", "rare", 11))
+    inv.add(eq.Item("i2", "Scuffed Crest", "fin", "common", 3))
     assert inv.gear_power() == 0          # nothing equipped yet
     inv.equip("i1")
     assert inv.gear_power() == 11 and inv.is_equipped("i1")
@@ -79,15 +79,15 @@ def test_equip_and_gear_power():
 
 def test_pick_forfeit_prefers_weakest_unequipped():
     inv = _inv()
-    inv.add(eq.Item("strong", "Mythic Cell", "battery", "legendary", 28))
-    weak = inv.add(eq.Item("weak", "Scuffed Charm", "charm", "common", 3))
+    inv.add(eq.Item("strong", "Mythic Cutlass", "weapon", "legendary", 28))
+    weak = inv.add(eq.Item("weak", "Scuffed Monocle", "eyepiece", "common", 3))
     inv.equip("strong")
     assert inv.pick_forfeit().id == weak.id
 
 
 def test_remove_unequips():
     inv = _inv()
-    inv.add(eq.Item("i1", "Tuned CPU", "cpu", "rare", 11))
+    inv.add(eq.Item("i1", "Tuned Amulet", "amulet", "rare", 11))
     inv.equip("i1")
     inv.remove("i1")
     assert "i1" not in inv.items and inv.gear_power() == 0
@@ -96,11 +96,23 @@ def test_remove_unequips():
 def test_inventory_persists():
     p = os.path.join(tempfile.mkdtemp(), "inv.json")
     inv = eq.Inventory(p)
-    inv.add(eq.Item("i1", "Sturdy Antenna", "antenna", "uncommon", 6))
+    inv.add(eq.Item("i1", "Sturdy Helm", "helmet", "uncommon", 6))
     inv.equip("i1")
     inv.save()
     reloaded = eq.Inventory(p)
     assert "i1" in reloaded.items and reloaded.is_equipped("i1")
+
+
+def test_roll_item_uses_new_slots():
+    import random
+    random.seed(0)
+    slots=set(); stats=set()
+    for _ in range(80):
+        it=eq.roll_item()
+        slots.add(it.slot); stats.add(it.bonus_stat)
+        assert it.power>0 and it.bonus_val==it.power
+    assert slots <= set(eq.SLOTS) and "weapon" in slots
+    assert stats <= {"atk","def","luck"}
 
 
 if __name__ == "__main__":

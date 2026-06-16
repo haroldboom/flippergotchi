@@ -1,8 +1,10 @@
-"""Equipment system: gear you loot, equip for stat bonuses, and can lose in duels.
+"""Equipment: find gear pieces, slot them onto your character, win duels with them.
 
-Slots (one item each): antenna, battery, cpu, charm, hull.
-Only *equipped* gear contributes to your power. Gear is looted from captures and
-won in duels; the loser of a duel forfeits a piece of gear to the winner.
+Slots (one item each): helmet, eyepiece, amulet, weapon, fin. Each item rolls a
+PvP stat (ATK / DEF / LUCK). Equipped gear's combined power boosts your strength
+in **PvP duels ONLY** — it does NOT help against WiFi monsters, since cracking is
+a deterministic wordlist attack, not a stat check. Gear is looted from captures
+and walks; the loser of a duel forfeits a piece to the winner.
 """
 from __future__ import annotations
 
@@ -11,22 +13,25 @@ import os
 import random
 from dataclasses import asdict, dataclass
 
-SLOTS = ["antenna", "battery", "cpu", "charm", "hull"]
+# body-part / hand slots you can equip a piece into
+SLOTS = ["helmet", "eyepiece", "amulet", "weapon", "fin"]
 RARITIES = ["common", "uncommon", "rare", "epic", "legendary"]
 _RARITY_POWER = {"common": 3, "uncommon": 6, "rare": 11, "epic": 18, "legendary": 28}
 _RARITY_WEIGHT = [50, 28, 14, 6, 2]
 _ADJ = {"common": "Scuffed", "uncommon": "Sturdy", "rare": "Tuned",
         "epic": "Prismatic", "legendary": "Mythic"}
-_NOUN = {"antenna": "Antenna", "battery": "Cell", "cpu": "Coprocessor",
-         "charm": "Charm", "hull": "Hull"}
-# each slot mainly buffs one stat (hooks for capture/crack/xp/duel/luck)
-_SLOT_BONUS = {
-    "antenna": ("capture", 0.04),
-    "battery": ("energy", 0.10),
-    "cpu": ("crack", 0.05),
-    "charm": ("luck", 0.03),
-    "hull": ("duel", 1.0),
+# a few flavour names per slot (weapons get the most variety)
+_NOUN = {
+    "helmet": ["Helm", "War Crown", "Battle Hood", "Skull Cap", "Visor-Helm"],
+    "eyepiece": ["Monocle", "Targeting Visor", "HUD Lens", "Optic Spike", "Scope"],
+    "amulet": ["Amulet", "Tooth Pendant", "Power Core", "Sigil", "Reef Charm"],
+    "weapon": ["Shiv", "Net Cannon", "Shock Prod", "Plasma Cutlass", "Rail Spear",
+               "Buzz-Saw", "Harpoon"],
+    "fin": ["Crest", "Razor Fin", "Aero Blade", "War Spine", "Spoiler"],
 }
+# each slot's primary PvP stat (ATK = offense, DEF = defense, LUCK = upset odds)
+_SLOT_STAT = {"weapon": "atk", "fin": "atk", "helmet": "def",
+              "amulet": "luck", "eyepiece": "luck"}
 
 
 @dataclass
@@ -36,7 +41,7 @@ class Item:
     slot: str
     rarity: str
     power: int
-    bonus_stat: str = ""
+    bonus_stat: str = ""     # atk | def | luck (PvP)
     bonus_val: float = 0.0
 
     def to_dict(self) -> dict:
@@ -53,10 +58,10 @@ def roll_item(rng=random, boost: int = 0) -> Item:
     slot = rng.choice(SLOTS)
     rarity = rng.choices(RARITIES, weights=_RARITY_WEIGHT)[0]
     power = _RARITY_POWER[rarity] + max(0, boost)
-    stat, base = _SLOT_BONUS[slot]
-    val = round(base * (1 + RARITIES.index(rarity)), 3)
+    stat = _SLOT_STAT[slot]
+    val = power  # the PvP stat scales with the item's power
     iid = f"{slot}-{rarity[:3]}-{rng.randrange(1 << 24):06x}"
-    return Item(id=iid, name=f"{_ADJ[rarity]} {_NOUN[slot]}", slot=slot,
+    return Item(id=iid, name=f"{_ADJ[rarity]} {rng.choice(_NOUN[slot])}", slot=slot,
                 rarity=rarity, power=power, bonus_stat=stat, bonus_val=val)
 
 

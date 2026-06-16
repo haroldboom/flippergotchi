@@ -169,15 +169,23 @@ def cmd_gear(cfg, target: str | None) -> None:
             print(f"Equipped {it.name} in [{it.slot}].")
         inv.save()
         return
-    rows = inv.all()
-    if not rows:
-        print("No gear yet. Capture monsters and win duels to loot some!")
-        return
-    print(f"  INVENTORY  ({len(rows)} items)   equipped gear power: {inv.gear_power()}")
-    for it in rows:
-        mark = "*" if inv.is_equipped(it.id) else " "
-        print(f"  {mark} [{it.slot:<7}] {it.name:<20} {it.rarity:<9} "
-              f"pow {it.power:>2}  (+{it.bonus_val} {it.bonus_stat})  {it.id}")
+    # equipment screen: a row per slot (equipped item or empty) + the loot bag
+    print(f"  EQUIPMENT   PvP gear power: {inv.gear_power()}  "
+          f"(boosts duels only -- gear can't crack WiFi)")
+    for slot in equip_mod.SLOTS:
+        iid = inv.equipped.get(slot)
+        it = inv.items.get(iid) if iid else None
+        if it:
+            print(f"  {slot:<9}: {it.name:<22} {it.rarity:<9} "
+                  f"+{it.bonus_val:g} {it.bonus_stat.upper()}")
+        else:
+            print(f"  {slot:<9}: (empty)")
+    bag = [it for it in inv.all() if not inv.is_equipped(it.id)]
+    if bag:
+        print(f"\n  BAG ({len(bag)}) -- `gear <id>` to equip/unequip:")
+        for it in bag:
+            print(f"    [{it.slot:<8}] {it.name:<22} {it.rarity:<9} "
+                  f"+{it.bonus_val:g} {it.bonus_stat.upper()}   {it.id}")
 
 
 def _show_warning(cfg, dont_show: bool) -> None:

@@ -15,13 +15,13 @@ a pwning machine.
 - **WiFi APs are monsters you catch.** Each access point is a creature; net its
   handshake to add it to your **bestiary** (Pokémon-style) — *not* food.
 - **Walking is the fitness core.** GPS movement → XP → levels → evolutions
-  (egg → hatchling → … → legend), and your dolphin **forages food** (and, rarely,
+  (egg → hatchling → … → legend), and your shark **forages food** (and, rarely,
   gear) as you walk — that's how the pet actually stays fed.
 - **Crack & duel for loot.** Cracking a captured monster (at home) or duelling a
   rival Flippergotchi drops **equipment** you can equip.
 - **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
   phrases) narrates what the pet feels and what it just caught.
-- **A cyberpunk pixel-art shark mascot** (AI-generated sprites) in an **old-school
+- **A cyberpunk pixel-art shark character** (AI-generated sprites) in an **old-school
   Pokémon-style 2D HUD**, at the Flipper One's native **256×144**. It **evolves**
   egg→legend and comes in 5 colour variants.
 
@@ -37,11 +37,11 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![Flippergotchi gameplay](docs/demo.gif)
 
-| Idle | Geared (gear shows on the shark) | Hungry |
+| Idle | Equipped loadout | Hungry |
 |:---:|:---:|:---:|
 | ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
 
-**Action faces** — the mascot image changes by mood/action: idle · happy · chomp
+**Action faces** — the character image changes by mood/action: idle · happy · chomp
 (catching) · hungry · sleeping · hurt. **Every evolution stage** has the full set
 (hatchling → legend), so the pet emotes at any age:
 
@@ -51,7 +51,7 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![evolution stages](docs/evolutions.png)
 
-**Colour variants** (`--variant` / `mascot_variant`): classic · blue · tiger · gold · reef
+**Colour variants** (`--variant` / `character_variant`): classic · blue · tiger · gold · reef
 
 ![colour variants](docs/variants.png)
 
@@ -59,7 +59,7 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![variant through evolution](docs/variant-evo.png)
 
-> ℹ️ The mascot sprites are **AI-generated** (Google Gemini image models,
+> ℹ️ The character sprites are **AI-generated** (Google Gemini image models,
 > `gemini-3-pro-image`) as original cyberpunk pixel art, then background-keyed to
 > true alpha and packed into `flippergotchi/view/sprites/`. The device chassis is
 > omitted (Flipper Devices' IP). Simulation renders — the hardware isn't out yet.
@@ -80,12 +80,12 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 ## Run it now (no hardware)
 
 Everything runs on a normal Linux box in **simulation mode** — fake WiFi + GPS
-events drive the real game loop, so you can watch the dolphin before a Flipper
+events drive the real game loop, so you can watch the shark before a Flipper
 One exists on your desk.
 
 ```bash
 cd flippergotchi
-./run-dev.sh                       # live full-screen dolphin, fast-forwarded
+./run-dev.sh                       # live full-screen character, fast-forwarded
 # or:
 python3 -m flippergotchi --simulate --plain --ticks 60   # log-only, no clear
 ```
@@ -110,7 +110,7 @@ bettercap (radio)  ─┐
 gps (walking)      ─┘     │            │
                           │            ├─► AIService ──► [canned | cpu-llama | rkllm-npu]
                           │            │
-                          └────────────┴─► view ──► [TUI dolphin | FlipCTL HTML/LCD]
+                          └────────────┴─► view ──► [TUI text | FlipCTL HTML/LCD]
 ```
 
 | Module | Role | Status |
@@ -123,7 +123,7 @@ gps (walking)      ─┘     │            │
 | `ai/canned.py` | phrase pools, zero deps | ✅ default |
 | `ai/cpu_llama.py` | local GGUF via llama.cpp | works with a model |
 | `ai/rkllm_npu.py` | NPU LLM (6 TOPS) | **stub** — waits on driver |
-| `view/faces.py` | dolphin ASCII expressions | ✅ |
+| `view/faces.py` | shark ASCII expressions (TUI) | ✅ |
 | `view/tui.py` | dev terminal view | ✅ |
 | `view/flipctl.py` | 256×144 Pokémon-style HUD + pixel sprite | ✅ render; plugin = TODO |
 | `view/sprites/` | AI-generated cyberpunk shark sprites (evos + variants) | ✅ |
@@ -235,9 +235,12 @@ python3 -m flippergotchi gear <item-id>    # toggle equip / unequip
   (clamped 8–92%), so a strong loadout matters but never guarantees a win.
 - **Stakes:** the loser forfeits a slice of their **handshakes** *and* **a bit
   of gear** (weakest *unequipped* item first — equipped gear is protected).
-- **Gear** drops from captures (`loot_chance`) and is won in duels. Five slots
-  (antenna / battery / cpu / charm / hull), five rarities (common→legendary);
-  only equipped items count toward your power.
+- **Gear = findable pieces you slot on:** five slots — **helmet · eyepiece ·
+  amulet · weapon · fin** — each item rolls a PvP stat (ATK / DEF / LUCK) and a
+  rarity (common→legendary). Loot them from captures and walks; only *equipped*
+  pieces count.
+- **Gear only matters in PvP.** It does **not** help against WiFi monsters —
+  cracking is a deterministic wordlist attack, not a stat check.
 
 The **analyst** runs automatically on every capture (difficulty + suggested
 attack + the exact hashcat command); on the `cpu`/`npu` AI backend it's narrated
@@ -298,7 +301,7 @@ or are authorized to test.
 
 ## Trademarks & affiliation
 
-Flippergotchi is an **independent, unofficial fan project**. The mascot is
+Flippergotchi is an **independent, unofficial fan project**. The character art is
 original art; its colour variants are *inspired by* classic '90s shark-toon
 characters but use generic descriptive names and original artwork — those
 characters are trademarks of their respective owners and aren't used here. It is

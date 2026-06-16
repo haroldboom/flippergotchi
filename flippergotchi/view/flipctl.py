@@ -8,8 +8,8 @@ from ..pet import mechanics
 
 # Screen authored at the Flipper One's native 256x144, scaled up nearest-neighbour
 # (see docs render pipeline) for a crisp retro look. Old-school Pokemon-style HUD
-# with compact corner boxes (kept small so they don't cover the mascot). The
-# mascot is a pre-rendered cyberpunk pixel sprite that SWAPS by action/mood
+# with compact corner boxes (kept small so they don't cover the character). The
+# character is a pre-rendered cyberpunk pixel sprite that SWAPS by action/mood
 # (Pwnagotchi-style "the image just changes").
 _SPRITES = os.path.join(os.path.dirname(__file__), "sprites")
 _cache: dict = {}
@@ -45,19 +45,16 @@ def _exists(name: str) -> bool:
     return os.path.exists(os.path.join(_SPRITES, name + ".png"))
 
 
-def _sprite_for(stage: str, variant: str, mood: str, geared: bool = False) -> str:
+def _sprite_for(stage: str, variant: str, mood: str) -> str:
     # a non-classic colour variant: use its per-stage sprite (no action faces),
     # falling back to the classic stage sprite (e.g. the shared egg)
     if variant not in ("classic", ""):
         cand = f"{variant}-{stage}"
         return cand if _exists(cand) else stage
-    # classic: an active action/mood face wins (so the pet still emotes)...
+    # classic: swap to the action/mood face for this stage if it exists
     m = _MOOD_SPRITE.get(mood)
     if m and _exists(f"{stage}-{m}"):
         return f"{stage}-{m}"
-    # ...otherwise, if you've got gear on, show the geared (decked-out) sprite
-    if geared and _exists(f"geared-{stage}"):
-        return f"geared-{stage}"
     return stage
 
 
@@ -75,7 +72,7 @@ _HTML = """<!doctype html>
   .platform{{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);
     width:120px;height:22px;border-radius:50%;
     background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);}}
-  .mascot{{position:absolute;left:50%;bottom:33px;transform:translateX(-50%);
+  .character{{position:absolute;left:50%;bottom:33px;transform:translateX(-50%);
     height:82px;filter:drop-shadow(0 2px 0 #0008);z-index:1;}}
   .box{{position:absolute;background:#f6f1da;border:2px solid #39405a;border-radius:3px;
     box-shadow:inset 0 0 0 1px #ffffffcc;padding:2px 4px;z-index:3;}}
@@ -99,7 +96,7 @@ _HTML = """<!doctype html>
 </style></head><body>
   <div class="screen">
     <div class="platform"></div>
-    <img class="mascot" src="data:image/png;base64,{sprite}"/>
+    <img class="character" src="data:image/png;base64,{sprite}"/>
     <div class="gear">{gear}</div>
     <div class="box hp">
       <div class="row"><span class="nm">{name}</span><span class="lv">:L{level}</span></div>
@@ -124,7 +121,7 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
     d = os.path.dirname(path)
     if d:
         os.makedirs(d, exist_ok=True)
-    variant = getattr(cfg, "mascot_variant", "classic")
+    variant = getattr(cfg, "character_variant", "classic")
     mood = mood_override or mechanics.mood(state)
     nxt = mechanics.xp_to_next(state.level, cfg)
     health = int(max(0, min(100, state.health)))
@@ -136,7 +133,7 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
         if os.path.exists(os.path.join(_SPRITES, "gear", slot + ".png")))
     html = _HTML.format(
         name=_html.escape(state.name), level=state.level,
-        sprite=_sprite_b64(_sprite_for(state.stage, variant, mood, bool(equipped))),
+        sprite=_sprite_b64(_sprite_for(state.stage, variant, mood)),
         gear=gear,
         health=health, hpcol=_hp_color(health),
         energy=int(max(0, state.energy)),
