@@ -29,17 +29,15 @@ a pwning machine.
 
 ### What it looks like
 
-The **catch sequence** on a (stylised) Flipper One — the screen is the real
-FlipCTL layout at the device's exact **256×144** orange-backlit spec:
+The **catch sequence** on the device's **256×144** orange-backlit LCD — the real
+FlipCTL screen layout from the simulation:
 
 ![Flippergotchi catch sequence](docs/demo.gif)
 
-> ℹ️ The **chassis is original art**, not an official asset. The Flipper One docs
-> ship no openly-licensed device image, and Flipper Devices' brand policy requires
-> *written authorization* to use their renders/logos/marks — so an official render
-> is **not** dropped in here. (These are simulation renders — the hardware isn't out.)
+> ℹ️ Only the LCD screen is shown (the device chassis is Flipper Devices' IP and
+> is deliberately omitted). These are simulation renders — the hardware isn't out.
 
-Individual LCD states (bare screen):
+Individual LCD states:
 
 | Idle / happy | Foraged a snack | Hungry |
 |:---:|:---:|:---:|

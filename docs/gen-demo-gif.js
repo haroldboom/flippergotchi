@@ -67,15 +67,9 @@ const CSS = `
     box-shadow:0 3px 4px rgba(0,0,0,.4),inset 0 2px 3px rgba(255,255,255,.6);}
 `;
 function chassis(screenHTML) {
+  // Just the LCD screen — no chassis (the device body is Flipper IP).
   return `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head>
-  <body><div class="device">
-    <div class="brand">FLIPPER ONE</div>
-    <div class="bezel"><div class="screen">${screenHTML}</div></div>
-    <div class="controls">
-      <div class="dpad"><div class="h"></div><div class="v"></div><div class="c"></div></div>
-      <div class="abtns"><b>B</b><b>A</b></div>
-    </div>
-  </div></body></html>`;
+  <body><div class="screen">${screenHTML}</div></body></html>`;
 }
 
 const frames = [
@@ -94,7 +88,7 @@ const frames = [
   const meta = [];
   for (let i = 0; i < frames.length; i++) {
     await page.setContent(chassis(frames[i].html));
-    const el = await page.$('.device');
+    const el = await page.$('.screen');
     const file = `${OUT}/f${String(i).padStart(2, '0')}.png`;
     await el.screenshot({ path: file });
     meta.push({ file, ms: frames[i].ms });
