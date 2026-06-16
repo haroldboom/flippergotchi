@@ -1,39 +1,54 @@
 """Visual net-gun capture animation, authored at the Flipper One's native 256x144.
 
-The capture is the same beat sequence as the ASCII version in ``animations`` —
-aim -> fire -> net -> GOTCHA / got-away — but rendered as 256x144 frames the
-device can swap through (Pwnagotchi-style "the image just changes"). The monster
-art comes from ``view/monster_art``; the net-gun, net mesh and banner are CSS.
+Same beat sequence as the ASCII version in ``animations`` — aim -> fire -> net ->
+GOTCHA / got-away — but rendered as 256x144 frames the device can swap through
+(Pwnagotchi-style "the image just changes"). All the art is real pixel-art
+sprites (monster from ``view/monster_art``; the net-gun and energy net from
+``sprites/fx/``) composited with CSS — no hand-drawn CSS shapes.
 
 ``render_sequence`` writes one HTML file per frame and returns their paths; the
 docs pipeline screenshots them into the animated GIF shown in the README.
 """
 from __future__ import annotations
 
+import base64
 import html as _html
 import os
 
 from . import encounter_screen, monster_art
 
+_FX = os.path.join(os.path.dirname(__file__), "sprites", "fx")
+_cache: dict = {}
+
+
+def _fx_b64(name: str) -> str:
+    if name not in _cache:
+        with open(os.path.join(_FX, name + ".png"), "rb") as f:
+            _cache[name] = base64.b64encode(f.read()).decode()
+    return _cache[name]
+
+
 # --- per-beat scene specs --------------------------------------------------
-# Each beat positions the net-gun, an optional in-flight projectile, an optional
-# net mesh over the monster, an optional centre banner, the monster's own
-# transform, and the dialogue line. {name}/{species} are filled per monster.
-_AIM = {"gun": "left:10px;bottom:24px;transform:rotate(0deg)",
-        "muzzle": 0.5, "proj": None, "net": None, "banner": None,
-        "mon": "none", "line": "{name} takes aim with the net-gun..."}
-_FIRE = {"gun": "left:4px;bottom:22px;transform:rotate(-12deg)",
-         "muzzle": 1.0, "proj": (118, 66, 1.0), "net": None, "banner": None,
-         "mon": "none", "line": "*fwoomp* -- net away!"}
-_NET = {"gun": "left:10px;bottom:24px;transform:rotate(0deg)",
-        "muzzle": 0.2, "proj": None, "net": (146, 4, 92, 1.0, ""),
-        "banner": None, "mon": "translateX(2px)", "line": "...will it hold?"}
-_CAUGHT = {"gun": "left:10px;bottom:24px;transform:rotate(0deg)",
-           "muzzle": 0.0, "proj": None, "net": (148, 6, 88, 1.0, "tight"),
+# gun:  inline style for the net-gun img (position + transform)
+# proj: (left, top, size) for a net in flight, or None
+# net:  (left, top, size, opacity) for the net over the monster, or None
+# banner/mon/line as before.
+_AIM = {"gun": "left:6px;bottom:18px;transform:rotate(-20deg)", "gunfx": "",
+        "proj": None, "net": None, "banner": None, "mon": "none",
+        "line": "{name} takes aim with the net-gun..."}
+_FIRE = {"gun": "left:2px;bottom:16px;transform:rotate(-30deg)",
+         "gunfx": "drop-shadow(0 0 5px #8ef)",
+         "proj": (104, 58, 34), "net": None, "banner": None, "mon": "none",
+         "line": "*fwoomp* -- net away!"}
+_NET = {"gun": "left:6px;bottom:18px;transform:rotate(-20deg)", "gunfx": "",
+        "proj": None, "net": (150, 6, 92, 1.0), "banner": None,
+        "mon": "translateX(2px)", "line": "...will it hold?"}
+_CAUGHT = {"gun": "left:6px;bottom:18px;transform:rotate(-20deg)", "gunfx": "",
+           "proj": None, "net": (152, 8, 86, 1.0),
            "banner": ("GOTCHA!", "#58d858"), "mon": "scale(0.92)",
            "line": "{name}'s handshake was netted!"}
-_AWAY = {"gun": "left:10px;bottom:24px;transform:rotate(0deg)",
-         "muzzle": 0.0, "proj": None, "net": (150, 64, 78, 0.45, "drop"),
+_AWAY = {"gun": "left:6px;bottom:18px;transform:rotate(-20deg)", "gunfx": "",
+         "proj": None, "net": (150, 70, 78, 0.5),
          "banner": ("GOT AWAY!", "#e85040"), "mon": "translateY(-8px)",
          "mon_op": 0.25, "line": "{name} broke free -- no handshake."}
 
@@ -51,30 +66,12 @@ _CSS = """
     background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);}
   .mon{position:absolute;right:20px;top:6px;height:80px;z-index:1;
     filter:drop-shadow(0 2px 0 #0008);}
-  /* net-gun (CSS): dark body + angled barrel + glowing muzzle */
-  .gun{position:absolute;width:48px;height:28px;z-index:4;}
-  .gun .body{position:absolute;left:0;bottom:0;width:34px;height:18px;
-    background:linear-gradient(#39405a,#222838);border:2px solid #5a6480;
-    border-radius:5px;}
-  .gun .barrel{position:absolute;left:22px;bottom:9px;width:26px;height:8px;
-    background:linear-gradient(#4a5270,#2a3045);border:1px solid #6a76a0;
-    border-radius:3px;transform-origin:left center;transform:rotate(-32deg);}
-  .gun .muzzle{position:absolute;right:-3px;top:-1px;width:8px;height:8px;
-    border-radius:50%;background:#7df;box-shadow:0 0 6px #8ef,0 0 12px #4cf;}
-  /* net mesh over the monster */
-  .net{position:absolute;border-radius:50%;border:3px solid #e6f7ff;z-index:5;
-    background:
-      repeating-linear-gradient(45deg,#bfe8ff66 0 2px,transparent 2px 8px),
-      repeating-linear-gradient(-45deg,#bfe8ff66 0 2px,transparent 2px 8px);
-    box-shadow:0 0 8px #8ef,inset 0 0 9px #8ef7;}
-  .net.tight{box-shadow:0 0 12px #aff,inset 0 0 12px #8efb;}
-  /* in-flight projectile: a bright netball + a motion streak */
-  .proj{position:absolute;width:26px;height:26px;border-radius:50%;z-index:5;
-    border:3px solid #eaffff;
-    background:repeating-linear-gradient(45deg,#bfe8ff99 0 2px,transparent 2px 6px);
-    box-shadow:0 0 10px #8ef,0 0 18px #4cf;}
-  .proj::before{content:'';position:absolute;right:20px;top:11px;width:40px;height:4px;
-    background:linear-gradient(90deg,transparent,#aef);border-radius:2px;}
+  .gun{position:absolute;height:42px;z-index:4;transform-origin:left bottom;
+    filter:drop-shadow(0 1px 0 #0009);}
+  .net{position:absolute;z-index:5;filter:drop-shadow(0 0 6px #8ef);}
+  .proj{position:absolute;z-index:5;filter:drop-shadow(0 0 6px #8ef);}
+  .streak{position:absolute;z-index:4;height:4px;width:46px;border-radius:2px;
+    background:linear-gradient(90deg,transparent,#aef);}
   .banner{position:absolute;left:0;right:0;top:30px;text-align:center;z-index:6;
     font-size:26px;font-weight:800;letter-spacing:1px;
     text-shadow:0 2px 0 #0009,0 0 10px currentColor;}
@@ -84,16 +81,14 @@ _CSS = """
   .say{font-size:8px;font-weight:700;line-height:1.15;}
 """
 
-# NOTE: the CSS (with its literal { }) is injected via a __CSS__ marker AFTER
-# str.format runs, so format only ever sees the intended placeholders.
 _HTML = ("<!doctype html><html><head><meta charset='utf-8'><style>__CSS__"
          "</style></head><body><div class='screen'>"
          "<div class='platform'></div>"
          "<img class='mon' style='opacity:{mon_op};transform:{mon_tf}' "
          "src='data:image/png;base64,{sprite}'/>"
          "{net}{proj}"
-         "<div class='gun' style='{gun}'><div class='body'></div>"
-         "<div class='barrel'></div><div class='muzzle' style='opacity:{muzzle}'></div></div>"
+         "<img class='gun' style='{gun};filter:{gunfx}' "
+         "src='data:image/png;base64,{gun_b64}'/>"
          "{banner}"
          "<div class='box dlg'><span class='say'>{line}</span></div>"
          "</div></body></html>")
@@ -102,16 +97,20 @@ _HTML = ("<!doctype html><html><head><meta charset='utf-8'><style>__CSS__"
 def _net_html(spec):
     if not spec:
         return ""
-    left, top, size, op, cls = spec
-    return (f"<div class='net {cls}' style='left:{left}px;top:{top}px;"
-            f"width:{size}px;height:{size}px;opacity:{op}'></div>")
+    left, top, size, op = spec
+    return (f"<img class='net' style='left:{left}px;top:{top}px;width:{size}px;"
+            f"opacity:{op}' src='data:image/png;base64,{_fx_b64('net')}'/>")
 
 
 def _proj_html(spec):
     if not spec:
         return ""
-    left, top, _ = spec
-    return f"<div class='proj' style='left:{left}px;top:{top}px'></div>"
+    left, top, size = spec
+    streak = (f"<div class='streak' style='left:{left - 40}px;"
+              f"top:{top + size // 2 - 2}px'></div>")
+    img = (f"<img class='proj' style='left:{left}px;top:{top}px;width:{size}px' "
+           f"src='data:image/png;base64,{_fx_b64('net')}'/>")
+    return streak + img
 
 
 def _banner_html(spec):
@@ -123,10 +122,10 @@ def _banner_html(spec):
 
 def _frame_html(sprite_b64: str, name: str, beat: dict) -> str:
     body = _HTML.format(
-        sprite=sprite_b64,
+        sprite=sprite_b64, gun_b64=_fx_b64("netgun"),
         mon_op=beat.get("mon_op", 1.0), mon_tf=beat.get("mon", "none"),
         net=_net_html(beat.get("net")), proj=_proj_html(beat.get("proj")),
-        gun=beat["gun"], muzzle=beat["muzzle"],
+        gun=beat["gun"], gunfx=beat.get("gunfx") or "none",
         banner=_banner_html(beat.get("banner")),
         line=_html.escape(beat["line"].format(name=name, species=name)),
     )
