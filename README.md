@@ -33,13 +33,18 @@ a pwning machine.
 
 The game on the Flipper One's **256×144** screen — a retro Pokémon-style HUD
 (HP / XP / food / energy + dialogue box) with the cyberpunk shark, scaled crisp
-with nearest-neighbour:
+with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![Flippergotchi gameplay](docs/demo.gif)
 
-| Idle (adult) | Geared (gold) | Hungry (juvenile) |
+| Idle | Geared (gold) | Hungry |
 |:---:|:---:|:---:|
 | ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
+
+**Action faces** — the mascot image changes by mood/action: idle · happy · chomp
+(catching) · hungry · sleeping · hurt:
+
+![action faces](docs/moods.png)
 
 **Evolutions** — egg → hatchling → fingerling → juvenile → adult → alpha → legend:
 

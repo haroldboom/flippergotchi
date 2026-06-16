@@ -6,12 +6,20 @@ import os
 
 from ..pet import mechanics
 
-# The screen is authored at the Flipper One's native 256x144 and meant to be
-# scaled up with nearest-neighbour (see docs render pipeline) for a crisp,
-# old-school 2D look. UI is a Pokemon-style HUD: cream boxes, HP bar, a bottom
-# dialogue box. The mascot is a pre-rendered cyberpunk pixel sprite.
+# Screen authored at the Flipper One's native 256x144, scaled up nearest-neighbour
+# (see docs render pipeline) for a crisp retro look. Old-school Pokemon-style HUD
+# with compact corner boxes (kept small so they don't cover the mascot). The
+# mascot is a pre-rendered cyberpunk pixel sprite that SWAPS by action/mood
+# (Pwnagotchi-style "the image just changes").
 _SPRITES = os.path.join(os.path.dirname(__file__), "sprites")
 _cache: dict = {}
+
+# mood/action -> adult expression sprite suffix (only the classic adult has the
+# full expression set; other stages/variants use their single sprite)
+_MOOD_SPRITE = {
+    "happy": "happy", "excited": "chomp", "eating": "chomp",
+    "hungry": "hungry", "tired": "sleeping", "sleeping": "sleeping", "sick": "hurt",
+}
 
 
 def _sprite_b64(name: str) -> str:
@@ -24,8 +32,11 @@ def _sprite_b64(name: str) -> str:
     return _cache[name]
 
 
-def _sprite_for(stage: str, variant: str) -> str:
-    if variant and variant not in ("classic", "") and stage == "adult":
+def _sprite_for(stage: str, variant: str, mood: str) -> str:
+    if stage == "adult" and variant in ("classic", ""):
+        m = _MOOD_SPRITE.get(mood)
+        return f"adult-{m}" if m else "adult"
+    if variant not in ("classic", "") and stage == "adult":
         return f"var-{variant}"
     return stage
 
@@ -41,30 +52,28 @@ _HTML = """<!doctype html>
   .screen{{width:256px;height:144px;position:relative;overflow:hidden;
     font-family:'DejaVu Sans Mono',monospace;color:#283044;
     background:linear-gradient(#13213e 0%,#0d1730 55%,#0a1226 100%);}}
-  .platform{{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);
-    width:128px;height:26px;border-radius:50%;
-    background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);
-    box-shadow:0 0 0 1px #2ee9ff33;}}
-  .mascot{{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);
-    height:96px;filter:drop-shadow(0 2px 0 #0008);}}
-  .box{{position:absolute;background:#f6f1da;border:2px solid #39405a;border-radius:4px;
-    box-shadow:inset 0 0 0 1px #ffffffcc, 0 1px 0 #00000066;padding:3px 5px;}}
-  .hp{{top:5px;left:5px;width:150px;}}
-  .row{{display:flex;justify-content:space-between;align-items:center;}}
-  .nm{{font-size:11px;font-weight:800;letter-spacing:.5px;}}
-  .lv{{font-size:9px;font-weight:800;}}
-  .bar{{display:flex;align-items:center;gap:3px;margin-top:2px;}}
-  .tag{{font-size:7px;font-weight:800;color:#fff;background:#c88018;border-radius:2px;padding:0 2px;}}
+  .platform{{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);
+    width:120px;height:22px;border-radius:50%;
+    background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);}}
+  .mascot{{position:absolute;left:50%;bottom:33px;transform:translateX(-50%);
+    height:82px;filter:drop-shadow(0 2px 0 #0008);z-index:1;}}
+  .box{{position:absolute;background:#f6f1da;border:2px solid #39405a;border-radius:3px;
+    box-shadow:inset 0 0 0 1px #ffffffcc;padding:2px 4px;z-index:3;}}
+  .hp{{top:4px;left:4px;width:96px;}}
+  .row{{display:flex;justify-content:space-between;align-items:center;gap:3px;}}
+  .nm{{font-size:9px;font-weight:800;letter-spacing:.3px;}}
+  .lv{{font-size:8px;font-weight:800;}}
+  .bar{{display:flex;align-items:center;gap:2px;margin-top:1px;}}
+  .tag{{font-size:6px;font-weight:800;color:#fff;background:#c88018;border-radius:2px;padding:0 2px;}}
   .tag.x{{background:#3a7fd0;}}
-  .track{{flex:1;height:5px;background:#5a6072;border:1px solid #2a3045;border-radius:2px;overflow:hidden;}}
+  .track{{flex:1;height:4px;background:#5a6072;border:1px solid #2a3045;border-radius:2px;overflow:hidden;}}
   .fill{{height:100%;}}
-  .sub{{font-size:7px;font-weight:700;color:#7a4a12;letter-spacing:1px;margin-top:1px;}}
-  .fe{{top:5px;right:5px;width:74px;}}
-  .fe .l{{font-size:7px;font-weight:800;width:18px;}}
-  .dlg{{left:5px;right:5px;bottom:5px;height:30px;display:flex;align-items:center;}}
-  .say{{font-size:9px;font-weight:700;line-height:1.15;}}
-  .gear{{position:absolute;top:46px;right:6px;display:flex;flex-direction:column;gap:3px;}}
-  .slot{{width:8px;height:8px;border:1px solid #0008;border-radius:2px;}}
+  .fe{{top:4px;right:4px;width:58px;}}
+  .fe .l{{font-size:6px;font-weight:800;width:15px;}}
+  .dlg{{left:4px;right:4px;bottom:4px;height:24px;display:flex;align-items:center;}}
+  .say{{font-size:8px;font-weight:700;line-height:1.1;}}
+  .gear{{position:absolute;top:33px;right:5px;display:flex;flex-direction:column;gap:3px;z-index:3;}}
+  .slot{{width:7px;height:7px;border:1px solid #0008;border-radius:2px;}}
 </style></head><body>
   <div class="screen">
     <div class="platform"></div>
@@ -74,7 +83,6 @@ _HTML = """<!doctype html>
       <div class="row"><span class="nm">{name}</span><span class="lv">:L{level}</span></div>
       <div class="bar"><span class="tag">HP</span><div class="track"><div class="fill" style="width:{health}%;background:{hpcol}"></div></div></div>
       <div class="bar"><span class="tag x">XP</span><div class="track"><div class="fill" style="width:{xp}%;background:#3a7fd0"></div></div></div>
-      <div class="sub">{stage}</div>
     </div>
     <div class="box fe">
       <div class="bar"><span class="l">FOOD</span><div class="track"><div class="fill" style="width:{food}%;background:#e0863a"></div></div></div>
@@ -95,6 +103,7 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
     if d:
         os.makedirs(d, exist_ok=True)
     variant = getattr(cfg, "mascot_variant", "classic")
+    mood = mood_override or mechanics.mood(state)
     nxt = mechanics.xp_to_next(state.level, cfg)
     health = int(max(0, min(100, state.health)))
     gear = "".join(
@@ -102,8 +111,7 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
         for r in (equipped or {}).values())
     html = _HTML.format(
         name=_html.escape(state.name), level=state.level,
-        stage=_html.escape(state.stage.upper()),
-        sprite=_sprite_b64(_sprite_for(state.stage, variant)), gear=gear,
+        sprite=_sprite_b64(_sprite_for(state.stage, variant, mood)), gear=gear,
         health=health, hpcol=_hp_color(health),
         energy=int(max(0, state.energy)),
         food=int(max(0, min(100, 100 - state.hunger))),
