@@ -45,16 +45,19 @@ def _exists(name: str) -> bool:
     return os.path.exists(os.path.join(_SPRITES, name + ".png"))
 
 
-def _sprite_for(stage: str, variant: str, mood: str) -> str:
+def _sprite_for(stage: str, variant: str, mood: str, geared: bool = False) -> str:
     # a non-classic colour variant: use its per-stage sprite (no action faces),
     # falling back to the classic stage sprite (e.g. the shared egg)
     if variant not in ("classic", ""):
         cand = f"{variant}-{stage}"
         return cand if _exists(cand) else stage
-    # classic: swap to the action/mood face for this stage if it exists
+    # classic: an active action/mood face wins (so the pet still emotes)...
     m = _MOOD_SPRITE.get(mood)
     if m and _exists(f"{stage}-{m}"):
         return f"{stage}-{m}"
+    # ...otherwise, if you've got gear on, show the geared (decked-out) sprite
+    if geared and _exists(f"geared-{stage}"):
+        return f"geared-{stage}"
     return stage
 
 
@@ -133,7 +136,8 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
         if os.path.exists(os.path.join(_SPRITES, "gear", slot + ".png")))
     html = _HTML.format(
         name=_html.escape(state.name), level=state.level,
-        sprite=_sprite_b64(_sprite_for(state.stage, variant, mood)), gear=gear,
+        sprite=_sprite_b64(_sprite_for(state.stage, variant, mood, bool(equipped))),
+        gear=gear,
         health=health, hpcol=_hp_color(health),
         energy=int(max(0, state.energy)),
         food=int(max(0, min(100, 100 - state.hunger))),

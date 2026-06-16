@@ -37,7 +37,7 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![Flippergotchi gameplay](docs/demo.gif)
 
-| Idle | Geared (gold) | Hungry |
+| Idle | Geared (gear shows on the shark) | Hungry |
 |:---:|:---:|:---:|
 | ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
 
