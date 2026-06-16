@@ -75,14 +75,17 @@ class Config:
     # tamagotchi mechanics
     hunger_per_hour: float = 50.0      # how fast it gets hungry
     energy_per_hour: float = 18.0      # how fast it tires while awake
-    food_value_handshake: float = 14.0  # hunger restored by a full handshake
-    food_value_pmkid: float = 9.0       # hunger restored by a PMKID snack
-    xp_per_handshake: float = 12.0
+    xp_per_handshake: float = 12.0     # XP for catching an AP-monster
     xp_per_pmkid: float = 7.0
-    xp_per_meter: float = 0.15          # walking = exercise = xp
+    xp_per_meter: float = 0.15         # walking = exercise = xp
+    xp_per_snack: float = 2.0          # XP from eating a foraged snack
     energy_per_meter: float = 0.02
-    base_xp: float = 120.0              # xp_to_next = base_xp * level**level_exp
+    base_xp: float = 120.0             # xp_to_next = base_xp * level**level_exp
     level_exp: float = 1.6
+    # foraging: walking is how the pet finds FOOD (and, rarely, gear)
+    forage_food: float = 12.0          # hunger restored per foraged snack
+    forage_food_per_m: float = 0.06    # snack chance per metre walked (capped)
+    forage_gear_per_m: float = 0.0016  # gear-find chance per metre walked (capped)
 
     # ai backend: "canned" (no deps) | "cpu" (llama.cpp) | "npu" (RKLLM, future)
     ai_backend: str = "canned"
@@ -101,7 +104,6 @@ class Config:
     inventory_path: str = "~/.flippergotchi/inventory.json"
     scan_bluetooth: bool = True
     duel_stake_frac: float = 0.20            # share of handshakes the loser forfeits
-    loot_chance: float = 0.12                # chance a capture drops a gear item
     # cracking is ONLY allowed against networks matching these (ssid/bssid
     # substrings) - your own "dojo". Empty => battles are refused by default.
     home_networks: list = field(default_factory=list)

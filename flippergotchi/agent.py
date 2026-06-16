@@ -99,14 +99,11 @@ class Agent:
 
         if enc.state == encounter.CAUGHT:
             self.dex.add(m)
-            ups = mechanics.feed(self.state, "handshake", self.cfg)  # handshake = food
-            self._fx_set("eating")
-            self.log(f"[catch] {m.species} '{ssid}' Lv{m.level} "
+            ups = mechanics.collect(self.state, "handshake", self.cfg)  # catch it
+            self._fx_set("excited")
+            self.log(f"[catch] caught {m.species} '{ssid}' Lv{m.level} "
                      f"[{m.encryption}] -- {self.ai.analyze(ev)}")
-            self.speak("fed", ssid, "handshake")
-            if random.random() < self.cfg.loot_chance:
-                it = self.inv.add(equipment.roll_item(boost=m.level // 3))
-                self.log(f"[loot] dropped {it.rarity} gear: {it.name} (+{it.power} pow)")
+            self.speak("caught", ssid)
             self._progress(ups)
         elif enc.state == encounter.ESCAPED:
             m.captured = False
@@ -114,6 +111,17 @@ class Agent:
             self.log(f"[escape] {ssid} broke free - no handshake")
         else:  # FLED
             self.log(f"[run] fled from {m.species} '{ssid}'")
+
+    def _forage(self, meters: float) -> None:
+        """Walking is how the pet finds FOOD (and, rarely, gear)."""
+        if random.random() < min(0.9, meters * self.cfg.forage_food_per_m):
+            self._fx_set("eating")
+            self.log("[forage] nibbled a snack found on the walk")
+            self.speak("fed", "snack")
+            self._progress(mechanics.snack(self.state, self.cfg))
+        if random.random() < min(0.5, meters * self.cfg.forage_gear_per_m):
+            it = self.inv.add(equipment.roll_item(boost=self.state.level // 3))
+            self.log(f"[loot] foraged {it.rarity} gear: {it.name} (+{it.power} pow)")
 
     def _spawn_ble(self) -> None:
         if not self.ble:
@@ -153,6 +161,7 @@ class Agent:
         meters = self.gps.distance()
         if meters > 0:
             self._progress(mechanics.walk(self.state, meters, self.cfg))
+            self._forage(meters)
         mechanics.tick(self.state, dt * self.cfg.time_scale, self.cfg)
         # occasional mood-driven chatter when nothing else is happening
         now = time.time()

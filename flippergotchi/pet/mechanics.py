@@ -85,18 +85,26 @@ def _gain_xp(state: PetState, amount: float, cfg) -> list:
     return events
 
 
-def feed(state: PetState, kind: str, cfg) -> list:
-    """A captured handshake / PMKID is food."""
+def collect(state: PetState, kind: str, cfg) -> list:
+    """Capture a handshake/PMKID = CATCH a monster. Adds it to your handshake
+    pool (duel stakes) and grants XP. APs are monsters, NOT food, so this does
+    not touch hunger."""
     if kind == "pmkid":
-        state.hunger = clamp(state.hunger - cfg.food_value_pmkid)
         state.pmkids += 1
         xp = cfg.xp_per_pmkid
     else:
-        state.hunger = clamp(state.hunger - cfg.food_value_handshake)
         state.handshakes += 1
         xp = cfg.xp_per_handshake
-    state.happiness = clamp(state.happiness + 6)
-    return [{"type": "fed", "kind": kind}] + _gain_xp(state, xp, cfg)
+    state.happiness = clamp(state.happiness + 5)
+    return [{"type": "caught", "kind": kind}] + _gain_xp(state, xp, cfg)
+
+
+def snack(state: PetState, cfg) -> list:
+    """Eat a foraged snack (found while walking). This is the pet's FOOD: it
+    lowers hunger. No handshake counters change."""
+    state.hunger = clamp(state.hunger - cfg.forage_food)
+    state.happiness = clamp(state.happiness + 3)
+    return [{"type": "fed", "kind": "snack"}] + _gain_xp(state, cfg.xp_per_snack, cfg)
 
 
 def walk(state: PetState, meters: float, cfg) -> list:

@@ -11,20 +11,26 @@ from flippergotchi.pet import mechanics
 from flippergotchi.pet.state import PetState
 
 
-def test_feeding_reduces_hunger_and_counts():
+def test_capture_collects_handshake_without_feeding():
+    # APs are monsters, not food: catching counts a handshake but does NOT
+    # change hunger.
     cfg, s = Config(), PetState(hunger=60.0)
-    mechanics.feed(s, "handshake", cfg)
-    assert s.hunger < 60.0
+    mechanics.collect(s, "handshake", cfg)
     assert s.handshakes == 1
+    assert s.hunger == 60.0
 
 
-def test_pmkid_is_a_smaller_snack():
-    cfg = Config()
-    a, b = PetState(hunger=80.0), PetState(hunger=80.0)
-    mechanics.feed(a, "handshake", cfg)
-    mechanics.feed(b, "pmkid", cfg)
-    assert a.hunger < b.hunger  # full handshake feeds more than a pmkid
-    assert b.pmkids == 1
+def test_pmkid_capture_counts_pmkid():
+    cfg, s = Config(), PetState()
+    mechanics.collect(s, "pmkid", cfg)
+    assert s.pmkids == 1 and s.handshakes == 0
+
+
+def test_snack_is_the_food_and_reduces_hunger():
+    cfg, s = Config(), PetState(hunger=80.0)
+    mechanics.snack(s, cfg)
+    assert s.hunger < 80.0
+    assert s.handshakes == 0  # foraged food, not a capture
 
 
 def test_walking_grants_xp_and_can_level_up():

@@ -72,13 +72,14 @@ class AIService:
 
     @staticmethod
     def _describe(event_key: str, arg: str, sub: str = "") -> str:
-        food = "PMKID" if sub == "pmkid" else "handshake"
         return {
-            "fed": f"You just captured a {food} from '{arg or 'a network'}' (food!). React.",
+            "caught": f"You just CAUGHT a wild AP-monster ('{arg or 'one'}') in your "
+                      "net! React with triumph.",
+            "fed": "You ate a tasty snack you foraged while walking. React happily.",
             "level_up": f"You reached level {arg}. Celebrate briefly.",
             "evolved": f"You evolved into a {arg}. React with awe.",
             "walk": "You're out walking and exploring new ground. React.",
-            "hungry": "You're very hungry and need handshakes. Complain cutely.",
+            "hungry": "You're very hungry and need to forage a snack. Complain cutely.",
             "sick": "You feel sick from neglect. React sadly.",
             "tired": "You're low on energy. React sleepily.",
             "happy": "You're delighted with life right now. React.",

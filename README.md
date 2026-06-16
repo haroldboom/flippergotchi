@@ -12,13 +12,20 @@ a pwning machine.
 > **simulation** on any Linux box; the radio/GPS/Bluetooth/NPU hooks are
 > clearly-marked TODOs that light up when the device ships.
 
-- **Handshakes are food.** Every WPA handshake / PMKID the radio captures feeds
-  the pet and lowers its hunger. Full handshakes are a meal; PMKIDs are snacks.
-- **Walking levels you up.** GPS movement is exercise → XP → levels → evolutions
-  (egg → hatchling → … → legend).
+- **WiFi APs are monsters you catch.** Each access point is a creature; net its
+  handshake to add it to your **bestiary** (Pokémon-style) — *not* food.
+- **Walking is the fitness core.** GPS movement → XP → levels → evolutions
+  (egg → hatchling → … → legend), and your dolphin **forages food** (and, rarely,
+  gear) as you walk — that's how the pet actually stays fed.
+- **Crack & duel for loot.** Cracking a captured monster (at home) or duelling a
+  rival Flippergotchi drops **equipment** you can equip.
 - **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
   phrases) narrates what the pet feels and what it just caught.
 - **The face is the Flipper dolphin**, rendered to the 256×144 LCD via FlipCTL.
+
+> **The economy at a glance:** walk → forage *food* (+ rare gear) · encounter →
+> *catch* AP-monsters · crack at home → *loot* + score · duel rivals → *steal*
+> gear & handshakes. APs are monsters; food comes from foraging.
 
 ### What it looks like
 

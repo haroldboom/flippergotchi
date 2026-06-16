@@ -12,6 +12,8 @@ from .game.bestiary import Bestiary
 from .game.home import WARNING
 from .game.ledger import Ledger
 from .game.monsters import label
+from .pet import mechanics
+from .pet.state import PetState
 from .view import animations
 
 _ICON = {"cracked": "WIN", "tamed": "TAMED", "failed": "LOSS",
@@ -157,7 +159,7 @@ def _show_warning(cfg, dont_show: bool) -> None:
         print("  [ ] do not show again  (pass --dont-show-again to tick this)\n")
 
 
-def _fight(m, cfg, authorized: bool, ledger: Ledger) -> str:
+def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None) -> str:
     res = battle_mod.battle(m, cfg, force_authorized=authorized)
     m.attempts += 1
     m.last_result = res["result"]
@@ -166,6 +168,13 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger) -> str:
     extra = (f" -- key: {res['key']}" if res.get("key") else "")
     note = (f"\n    note: {res['note']}" if res.get("note") else "")
     print(f"  [{icon}] {label(m):<22} {res['result']} via {res['via']}{extra}{note}")
+    # defeating a monster is the reward loop: loot + a treat for the pet
+    if res["result"] == "cracked":
+        if inv is not None:
+            loot = inv.add(equip_mod.roll_item(boost=m.level // 2))
+            print(f"      loot: {loot.rarity} {loot.name} (+{loot.power} pow)")
+        if state is not None:
+            mechanics.snack(state, cfg)  # a treat for cracking it
     return cat or ""
 
 
@@ -173,6 +182,8 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
                all_: bool = False, dont_show: bool = False) -> None:
     dex = Bestiary(cfg.bestiary_path)
     ledger = Ledger(cfg.ledger_path)
+    inv = equip_mod.Inventory(cfg.inventory_path)
+    state = persistence.load(cfg.state_path)
     _show_warning(cfg, dont_show)
 
     if all_:
@@ -188,9 +199,11 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
             return
         print(f"Auto-battling {len(queue)} unique target(s)...\n")
         for m in queue:
-            _fight(m, cfg, authorized, ledger)
+            _fight(m, cfg, authorized, ledger, inv, state)
         ledger.save()
         dex.save()
+        inv.save()
+        persistence.save(cfg.state_path, state)
         c = ledger.counts()
         print(f"\nLifetime record: {c['win']} wins / {c['loss']} losses / "
               f"{c['escalate']} escalated to cloud")
@@ -205,6 +218,8 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
         return
     print(f"Engaging {m.species} '{label(m)}' (Lv{m.level}, "
           f"{m.encryption or m.kind}, defense {m.defense})...")
-    _fight(m, cfg, authorized, ledger)
+    _fight(m, cfg, authorized, ledger, inv, state)
     ledger.save()
     dex.save()
+    inv.save()
+    persistence.save(cfg.state_path, state)

@@ -14,14 +14,17 @@ bettercap_url = "http://127.0.0.1:8081"
 # --- tamagotchi mechanics ---
 hunger_per_hour = 50.0
 energy_per_hour = 18.0
-food_value_handshake = 14.0
-food_value_pmkid = 9.0
-xp_per_handshake = 12.0
+xp_per_handshake = 12.0     # XP for catching an AP-monster
 xp_per_pmkid = 7.0
 xp_per_meter = 0.15
+xp_per_snack = 2.0
 energy_per_meter = 0.02
 base_xp = 120.0
 level_exp = 1.6
+# foraging: walking is how the pet finds FOOD (and, rarely, gear)
+forage_food = 12.0          # hunger restored per foraged snack
+forage_food_per_m = 0.06    # snack chance per metre walked (capped)
+forage_gear_per_m = 0.0016  # gear-find chance per metre walked (capped)
 
 # --- ai ---
 # "canned" = no deps; "cpu" = llama.cpp + a .gguf; "npu" = RKLLM (future)

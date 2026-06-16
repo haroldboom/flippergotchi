@@ -7,10 +7,16 @@ from .base import AIBackend
 # event/mood -> phrase pool. No model required, so this is the always-available
 # fallback. The `user` arg arrives as "key:arg" (e.g. "fed:Linksys").
 _LINES = {
+    "caught": [
+        "Gotcha! {arg} is in the bestiary now!",
+        "Caught {arg}! Another one for the collection.",
+        "Net's full -- {arg} captured! (^o^)",
+        "*triumphant dolphin noises* got {arg}!",
+    ],
     "fed": [
-        "Nom nom -- fresh handshake! Tastes like WPA2.",
-        "Mmm, crunchy EAPOL frames. More!",
-        "Yum! That {arg} handshake hit the spot.",
+        "Nom nom -- tasty little snack!",
+        "Mmm, found a treat on the walk. More!",
+        "Yum! That snack hit the spot.",
         "*happy dolphin noises* foooood!",
     ],
     "fed_pmkid": [
