@@ -21,8 +21,9 @@ a pwning machine.
   rival Flippergotchi drops **equipment** you can equip.
 - **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
   phrases) narrates what the pet feels and what it just caught.
-- **An original cartoon mascot**, rendered to the 256×144 LCD via FlipCTL — it
-  **evolves** as it levels up and visibly **wears your equipped gear**.
+- **An original badass shark mascot** (Street-Sharks '90s energy), rendered to
+  the 256×144 LCD via FlipCTL — it **evolves** egg→legend as it levels up and
+  visibly **wears your equipped gear**.
 
 > **The economy at a glance:** walk → forage *food* (+ rare gear) · encounter →
 > *catch* AP-monsters · crack at home → *loot* + score · duel rivals → *steal*
@@ -36,8 +37,8 @@ FlipCTL screen layout from the simulation:
 ![Flippergotchi catch sequence](docs/demo.gif)
 
 > ℹ️ Only the LCD screen is shown (the device chassis is Flipper Devices' IP and
-> is deliberately omitted), and the mascot is **original art** — not the
-> trademarked Flipper dolphin. These are simulation renders; the hardware isn't out.
+> is deliberately omitted), and the mascot is **original art** (a cartoon shark,
+> not the trademarked Flipper dolphin). These are simulation renders; HW isn't out.
 
 **Evolutions** — the mascot grows from an egg to a legend as it levels up:
 

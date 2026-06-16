@@ -1,189 +1,181 @@
-"""Original vector mascot for the LCD — evolutions, moods, and wearable gear.
+"""Original vector mascot for the LCD — a badass cartoon shark (Street-Sharks
+'90s vibe): evolutions, moods, and wearable equipment.
 
-The mascot is drawn in a 220x220 SVG space and scaled to the 256x144 screen.
-It changes shape across the evolution stages (egg -> hatchling -> fingerling ->
-juvenile -> adult -> alpha -> legend) and wears gear on distinct zones (head /
-forehead / neck / belly / side) so up to five slots read even when small.
+Drawn in a 220x220 SVG space, scaled to the 256x144 screen. It changes shape
+across the evolution stages (egg -> hatchling -> fingerling -> juvenile -> adult
+-> alpha -> legend) and wears gear on distinct zones (head / brow / neck / chest
+/ shoulder) so up to five slots read even when small.
 
-This is ORIGINAL art (a chunky cartoon cetacean) — deliberately unlike the
-trademarked Flipper Devices dolphin logo. See the README trademark note.
+ORIGINAL art — not based on any trademarked logo. See the README trademark note.
 """
 from __future__ import annotations
 
-_OUT = '#27343d'
+_OUT = '#1d2a33'
+_MOUTH = '#3a2230'
+_TONGUE = '#d9617a'
 
 _DEFS = (
     '<defs>'
     '<linearGradient id="body" x1="0" y1="0" x2="0" y2="1">'
-    '<stop offset="0" stop-color="#f4f8fb"/><stop offset=".55" stop-color="#cfe0ea"/>'
-    '<stop offset="1" stop-color="#a9c6d6"/></linearGradient>'
+    '<stop offset="0" stop-color="#86a9bb"/><stop offset=".55" stop-color="#5f8294"/>'
+    '<stop offset="1" stop-color="#4a6b7c"/></linearGradient>'
     '<linearGradient id="fin" x1="0" y1="0" x2="0" y2="1">'
-    '<stop offset="0" stop-color="#9db9c8"/><stop offset="1" stop-color="#7ba0b3"/></linearGradient>'
-    '<radialGradient id="belly" cx=".5" cy=".35" r=".7">'
-    '<stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#eaf3f8"/></radialGradient>'
+    '<stop offset="0" stop-color="#6f93a6"/><stop offset="1" stop-color="#4a6b7c"/></linearGradient>'
+    '<radialGradient id="belly" cx=".5" cy=".4" r=".7">'
+    '<stop offset="0" stop-color="#eef5f8"/><stop offset="1" stop-color="#cfe0e8"/></radialGradient>'
     '<filter id="glow" x="-80%" y="-80%" width="260%" height="260%">'
     '<feGaussianBlur stdDeviation="4"/></filter>'
     '</defs>'
 )
 
-# pectoral fins + tail flukes (behind body)
-_FINS = (
-    f'<path d="M110 150 C150 150 178 170 196 196 C170 188 150 188 132 196 C124 178 116 164 110 150Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
-    f'<path d="M110 150 C70 150 42 170 24 196 C50 188 70 188 88 196 C96 178 104 164 110 150Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
-    f'<path d="M60 150 C40 150 26 168 22 186 C44 178 58 168 70 152Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
-    f'<path d="M160 150 C180 150 194 168 198 186 C176 178 162 168 150 152Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
+_TORSO = (
+    f'<path d="M18 212 C22 166 52 148 86 150 L134 150 C168 148 198 166 202 212 Z" fill="url(#body)" stroke="{_OUT}" stroke-width="5" stroke-linejoin="round"/>'
+    f'<ellipse cx="48" cy="176" rx="26" ry="22" fill="url(#body)" stroke="{_OUT}" stroke-width="4"/>'
+    f'<ellipse cx="172" cy="176" rx="26" ry="22" fill="url(#body)" stroke="{_OUT}" stroke-width="4"/>'
+    '<path d="M88 158 Q110 150 132 158 Q134 188 110 196 Q86 188 88 158Z" fill="url(#belly)"/>'
 )
 
-# body core (ellipse + belly + blowhole + cheeks) — no fins, no dorsal, no face
-_CORE = (
-    f'<ellipse cx="110" cy="120" rx="72" ry="76" fill="url(#body)" stroke="{_OUT}" stroke-width="5"/>'
-    '<ellipse cx="110" cy="138" rx="48" ry="50" fill="url(#belly)"/>'
-    f'<ellipse cx="110" cy="64" rx="5" ry="3" fill="{_OUT}"/>'
-    '<circle cx="74" cy="126" r="11" fill="#ff8aa0" opacity=".45"/>'
-    '<circle cx="146" cy="126" r="11" fill="#ff8aa0" opacity=".45"/>'
+_HEAD = (
+    f'<path d="M110 42 C154 44 182 78 180 112 C178 140 152 160 110 162 C68 160 42 140 40 112 C38 78 66 44 110 42 Z" fill="url(#body)" stroke="{_OUT}" stroke-width="5" stroke-linejoin="round"/>'
+    '<path d="M80 116 Q110 104 140 116 Q142 146 110 156 Q78 146 80 116Z" fill="url(#belly)"/>'
 )
 
-# ----- evolution: scale + dorsal fin + crest + markings + aura per stage -----
-_SCALE = {"hatchling": 0.64, "fingerling": 0.82, "juvenile": 1.0,
-          "adult": 1.06, "alpha": 1.12, "legend": 1.15}
+_GILLS = (
+    f'<path d="M50 104 q7 10 0 20 M58 102 q7 10 0 20 M66 101 q7 10 0 20" fill="none" stroke="{_OUT}" stroke-width="3" stroke-linecap="round"/>'
+    f'<path d="M170 104 q-7 10 0 20 M162 102 q-7 10 0 20 M154 101 q-7 10 0 20" fill="none" stroke="{_OUT}" stroke-width="3" stroke-linecap="round"/>'
+)
 
-# the bigger dorsal fins (adult/alpha/legend) need the antenna shifted right so
-# it clears the fin instead of poking through it
-_ANTENNA_SHIFT = {"adult": (7, 1), "alpha": (12, 2), "legend": (14, 2)}
-
-_DORSAL_NORMAL = f'<path d="M96 56 C100 26 112 12 122 14 C128 30 126 46 128 58Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
-_DORSAL_TALL = f'<path d="M94 58 C98 18 112 0 124 4 C130 26 128 46 130 60Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
-_DORSAL_HUGE = f'<path d="M92 60 C96 8 114 -12 132 -4 C136 22 132 46 134 62Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
+_HEADFIN_N = f'<path d="M96 50 C98 16 120 0 136 8 C130 28 130 46 136 54 Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
+_HEADFIN_T = f'<path d="M94 52 C96 8 124 -10 142 0 C134 24 132 46 138 56 Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
+_HEADFIN_H = f'<path d="M92 54 C94 0 130 -22 152 -10 C142 18 136 46 140 58 Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
 
 
-def _dorsal(stage):
+def _headfin(stage):
     if stage == "adult":
-        return _DORSAL_TALL
+        return _HEADFIN_T
     if stage in ("alpha", "legend"):
-        return _DORSAL_HUGE
-    return _DORSAL_NORMAL
+        return _HEADFIN_H
+    return _HEADFIN_N
 
 
-def _crest(stage):
-    if stage == "hatchling":   # bit of eggshell still on the head
-        return ('<path d="M82 50 l9 -12 9 12 9 -13 9 13 9 -11 5 8 '
-                f'q-30 8 -59 0Z" fill="#fdf4dd" stroke="{_OUT}" stroke-width="3" stroke-linejoin="round"/>')
-    return ""
+_SCALE = {"hatchling": 0.62, "fingerling": 0.82, "juvenile": 1.0,
+          "adult": 1.06, "alpha": 1.12, "legend": 1.15}
+_ANTENNA_SHIFT = {"adult": (6, 1), "alpha": (10, 2), "legend": (12, 2)}
+
+# --- face pieces -----------------------------------------------------------
+_BROW = (f'<path d="M62 84 L104 98" stroke="{_OUT}" stroke-width="8" stroke-linecap="round"/>'
+         f'<path d="M158 84 L116 98" stroke="{_OUT}" stroke-width="8" stroke-linecap="round"/>')
+_BROW_UP = (f'<path d="M64 90 L104 92" stroke="{_OUT}" stroke-width="8" stroke-linecap="round"/>'
+            f'<path d="M156 90 L116 92" stroke="{_OUT}" stroke-width="8" stroke-linecap="round"/>')
+_EYES = (f'<path d="M70 100 L98 106 L93 117 L72 112 Z" fill="#fff" stroke="{_OUT}" stroke-width="3" stroke-linejoin="round"/>'
+         f'<path d="M150 100 L122 106 L127 117 L148 112 Z" fill="#fff" stroke="{_OUT}" stroke-width="3" stroke-linejoin="round"/>'
+         f'<circle cx="86" cy="108" r="4.5" fill="{_OUT}"/><circle cx="134" cy="108" r="4.5" fill="{_OUT}"/>')
+_EYES_FLAT = (f'<path d="M72 110 H96" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>'
+              f'<path d="M148 110 H124" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>')
+_EYES_CLOSED = (f'<path d="M72 106 Q84 114 96 108" fill="none" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>'
+                f'<path d="M148 106 Q136 114 124 108" fill="none" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>')
+_EYES_X = (f'<path d="M74 102 l18 12 M92 102 l-18 12" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>'
+           f'<path d="M128 102 l18 12 M146 102 l-18 12" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>')
+_NOSE = f'<path d="M101 116 l-3 5 M119 116 l3 5" stroke="{_OUT}" stroke-width="2.5" stroke-linecap="round"/>'
+
+_UTEETH = f'<path d="M76 127 l8 12 8 -12 8 12 8 -12 8 12 8 -12 8 12 8 -12 L144 127 Z" fill="#fff" stroke="{_OUT}" stroke-width="1.5" stroke-linejoin="round"/>'
+_LTEETH = f'<path d="M84 155 l7 -10 7 10 7 -10 7 10 7 -10 7 10 L138 155 Z" fill="#fff" stroke="{_OUT}" stroke-width="1.5" stroke-linejoin="round"/>'
+_MOUTH_GRIN = (f'<path d="M72 126 Q110 120 148 126 Q152 146 110 156 Q68 146 72 126 Z" fill="{_MOUTH}"/>'
+               f'<ellipse cx="110" cy="150" rx="14" ry="6" fill="{_TONGUE}"/>' + _UTEETH + _LTEETH)
+_MOUTH_CHOMP = (f'<path d="M70 122 Q110 113 150 122 Q156 150 110 164 Q64 150 70 122 Z" fill="{_MOUTH}"/>'
+                f'<ellipse cx="110" cy="156" rx="15" ry="7" fill="{_TONGUE}"/>'
+                f'<path d="M74 123 l9 14 9 -14 9 14 9 -14 9 14 9 -14 9 14 9 -14 L146 123 Z" fill="#fff" stroke="{_OUT}" stroke-width="1.5" stroke-linejoin="round"/>'
+                f'<path d="M82 163 l8 -12 8 12 8 -12 8 12 8 -12 8 12 L138 163 Z" fill="#fff" stroke="{_OUT}" stroke-width="1.5" stroke-linejoin="round"/>')
+_MOUTH_SMIRK = (f'<path d="M80 134 Q112 146 142 132" fill="none" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
+                f'<path d="M126 138 l3 8 4 -7Z" fill="#fff" stroke="{_OUT}" stroke-width="1.5" stroke-linejoin="round"/>')
+_MOUTH_WAVY = f'<path d="M82 138 q9 -8 18 0 q9 8 18 0 q9 -8 18 0" fill="none" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>'
+_DROOL = f'<path d="M124 154 q3 10 0 15 q-3 -5 0 -15Z" fill="{_TONGUE}"/>'
+_SWEAT = '<path d="M156 92 q5 9 0 13 q-5 -4 0 -13Z" fill="#8fd0ff" stroke="#4aa3e0" stroke-width="1.5"/>'
+_ZZZ = f'<text x="152" y="74" font-family="monospace" font-size="22" font-weight="700" fill="{_OUT}">z</text>'
+_STAR = '<path d="M%d %d l3 7 7 3 -7 3 -3 7 -3-7 -7-3 7-3Z" fill="#fff" stroke="%s" stroke-width="1.5"/>'
 
 
-def _markings(stage):
-    if stage == "alpha":       # fierce brows (hugging the eyes) + a battle scar
-        return (f'<path d="M73 91 L97 98" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
-                f'<path d="M147 91 L123 98" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
-                f'<path d="M152 100 l-7 17" stroke="{_OUT}" stroke-width="2.5" stroke-linecap="round"/>')
-    if stage == "legend":      # forehead gem + sparkles
-        star = '<path d="M%d %d l3 7 7 3 -7 3 -3 7 -3-7 -7-3 7-3Z" fill="#ffe7a0" stroke="%s" stroke-width="1.5"/>'
-        return (f'<path d="M110 44 l6 8 -6 8 -6 -8Z" fill="#ffcf4d" stroke="{_OUT}" stroke-width="2"/>'
-                + (star % (40, 78, _OUT)) + (star % (178, 84, _OUT)) + (star % (158, 36, _OUT)))
+def _face(mood):
+    if mood == "sleeping":
+        return _EYES_CLOSED + _NOSE + _MOUTH_SMIRK + _ZZZ
+    if mood == "sick":
+        return _EYES_X + _NOSE + _MOUTH_WAVY
+    if mood == "tired":
+        return _BROW_UP + _EYES_FLAT + _NOSE + _MOUTH_SMIRK
+    if mood in ("excited",):
+        return (_BROW_UP + _EYES + _NOSE + _MOUTH_CHOMP
+                + (_STAR % (40, 76, _OUT)) + (_STAR % (176, 80, _OUT)))
+    if mood == "eating":
+        return _BROW + _EYES + _NOSE + _MOUTH_CHOMP
+    if mood == "hungry":
+        return _BROW_UP + _EYES + _NOSE + _MOUTH_GRIN + _DROOL + _SWEAT
+    # content / happy / walking / default — confident toothy grin
+    return _BROW + _EYES + _NOSE + _MOUTH_GRIN
+
+
+def _scar(stage):
+    if stage in ("alpha", "legend"):
+        return f'<path d="M64 78 L92 120" stroke="{_OUT}" stroke-width="2.5" stroke-linecap="round"/><path d="M70 88 l8 -4 M76 100 l8 -4" stroke="{_OUT}" stroke-width="2" stroke-linecap="round"/>'
     return ""
 
 
 def _aura(stage):
     if stage == "legend":
-        return '<ellipse cx="110" cy="118" rx="98" ry="102" fill="#fff0bf" opacity=".4"/>'
+        return '<ellipse cx="110" cy="120" rx="104" ry="106" fill="#fff0bf" opacity=".4"/>'
     return ""
 
 
 def _egg():
-    return (f'<ellipse cx="110" cy="126" rx="56" ry="70" fill="#fdf2da" stroke="{_OUT}" stroke-width="5"/>'
-            '<ellipse cx="92" cy="112" rx="11" ry="8" fill="#e7c79a"/>'
-            '<ellipse cx="132" cy="140" rx="13" ry="9" fill="#e7c79a"/>'
-            '<ellipse cx="116" cy="170" rx="8" ry="6" fill="#e7c79a"/>'
-            f'<path d="M86 96 l10 9 -8 9 12 9" fill="none" stroke="{_OUT}" stroke-width="3" stroke-linecap="round"/>'
-            '<circle cx="98" cy="120" r="3" fill="%s"/><circle cx="122" cy="120" r="3" fill="%s"/>' % (_OUT, _OUT))
+    # a shark "mermaid's purse" egg case
+    return (f'<path d="M78 60 l-14 -16 M142 60 l14 -16 M78 188 l-14 16 M142 188 l14 16" stroke="{_OUT}" stroke-width="3" stroke-linecap="round" fill="none"/>'
+            f'<path d="M76 56 Q110 44 144 56 Q160 124 144 192 Q110 204 76 192 Q60 124 76 56 Z" fill="#6f5a3a" stroke="{_OUT}" stroke-width="5" stroke-linejoin="round"/>'
+            '<path d="M92 70 Q110 64 128 70 Q138 124 128 178 Q110 184 92 178 Q82 124 92 70Z" fill="#7d6743" opacity=".7"/>'
+            f'<path d="M110 70 V178" stroke="{_OUT}" stroke-width="2" opacity=".4"/>')
 
 
-def _eye_open(cx):
-    return (f'<ellipse cx="{cx}" cy="106" rx="13" ry="15" fill="#fff" stroke="{_OUT}" stroke-width="3"/>'
-            f'<circle cx="{cx-1}" cy="109" r="6.5" fill="{_OUT}"/>'
-            f'<circle cx="{cx+2}" cy="106.5" r="2.2" fill="#fff"/>')
-
-
-def _face(mood):
-    happy = (f'<path d="M76 109 Q88 95 100 109" fill="none" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
-             f'<path d="M120 109 Q132 95 144 109" fill="none" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>')
-    closed = (f'<path d="M78 106 Q88 114 98 106" fill="none" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>'
-              f'<path d="M122 106 Q132 114 142 106" fill="none" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>')
-    flat = (f'<path d="M78 107 H98" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>'
-            f'<path d="M122 107 H142" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>')
-    xeye = (f'<path d="M80 100 l16 14 M96 100 l-16 14" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>'
-            f'<path d="M124 100 l16 14 M140 100 l-16 14" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>')
-    both = _eye_open(88) + _eye_open(132)
-    smile = f'<path d="M92 134 Q110 150 128 134" fill="none" stroke="{_OUT}" stroke-width="4.5" stroke-linecap="round"/>'
-    big = f'<path d="M86 132 Q110 162 134 132 Q110 150 86 132Z" fill="{_OUT}"/><path d="M104 150 Q110 156 116 150Z" fill="#ff8aa0"/>'
-    openm = f'<ellipse cx="110" cy="140" rx="11" ry="9" fill="{_OUT}"/><ellipse cx="110" cy="144" rx="6" ry="3.5" fill="#ff8aa0"/>'
-    frown = f'<path d="M92 147 Q110 133 128 147" fill="none" stroke="{_OUT}" stroke-width="4.5" stroke-linecap="round"/>'
-    flatm = f'<path d="M97 140 H123" stroke="{_OUT}" stroke-width="4" stroke-linecap="round"/>'
-    sweat = '<path d="M150 96 q5 9 0 13 q-5 -4 0 -13Z" fill="#8fd0ff" stroke="#4aa3e0" stroke-width="1.5"/>'
-    zzz = f'<text x="150" y="70" font-family="monospace" font-size="22" font-weight="700" fill="{_OUT}">z</text>'
-    return {
-        "happy": happy + smile,
-        "content": both + smile,
-        "excited": happy + big,
-        "eating": happy + openm,
-        "hungry": both + frown + sweat,
-        "tired": flat + flatm,
-        "sick": xeye + frown,
-        "sleeping": closed + flatm + zzz,
-        "walking": both + smile,
-    }.get(mood, both + smile)
-
-
+# --- equipment -------------------------------------------------------------
 RARITY_COLOR = {"common": "#b8c2cb", "uncommon": "#7fd1a6", "rare": "#5aa9ff",
                 "epic": "#c07bf0", "legendary": "#ffcf4d"}
 
 
-# soft colored halo drawn behind a gear accent — legendary rarity only
 def _glow(slot, color):
     f = f'fill="{color}" filter="url(#glow)" opacity=".85"'
-    if slot == "antenna":
-        return f'<circle cx="153" cy="11" r="12" {f}/>'
-    if slot == "cpu":
-        return f'<circle cx="110" cy="78" r="11" {f}/>'
-    if slot == "charm":
-        return f'<circle cx="110" cy="164" r="12" {f}/>'
-    if slot == "hull":
-        return f'<path d="M66 158 Q110 178 154 158 L150 176 Q110 196 70 176Z" {f}/>'
-    if slot == "battery":
-        return f'<rect x="25" y="152" width="20" height="20" rx="4" {f}/>'
-    return ""
+    return {
+        "antenna": f'<circle cx="161" cy="15" r="12" {f}/>',
+        "cpu": f'<rect x="80" y="68" width="60" height="14" rx="7" {f}/>',
+        "charm": f'<circle cx="110" cy="170" r="12" {f}/>',
+        "hull": f'<path d="M74 162 Q110 178 146 162 L142 196 Q110 208 78 196Z" {f}/>',
+        "battery": f'<rect x="160" y="166" width="22" height="22" rx="5" {f}/>',
+    }.get(slot, "")
 
 
 def _gear(slot, color, glow=False):
     halo = _glow(slot, color) if glow else ""
-    if slot == "antenna":
-        return (halo
-                + f'<line x1="138" y1="58" x2="152" y2="12" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
-                f'<circle cx="153" cy="11" r="7" fill="{color}" stroke="{_OUT}" stroke-width="3"/>')
-    if slot == "cpu":          # sits higher on the forehead (clear of the eyes/brows)
-        return (halo
-                + f'<rect x="66" y="71" width="88" height="14" rx="7" fill="#3a4a55" stroke="{_OUT}" stroke-width="3"/>'
-                f'<circle cx="110" cy="78" r="5" fill="{color}" stroke="{_OUT}" stroke-width="2"/>')
-    if slot == "charm":
-        return (halo
-                + '<path d="M82 152 Q110 168 138 152" fill="none" stroke="#caa64a" stroke-width="3"/>'
-                f'<path d="M110 160 l7 9 -7 8 -7 -8Z" fill="{color}" stroke="{_OUT}" stroke-width="2.5" stroke-linejoin="round"/>')
-    if slot == "hull":
-        return (halo
-                + f'<path d="M66 158 Q110 178 154 158 L150 176 Q110 196 70 176Z" fill="{color}" stroke="{_OUT}" stroke-width="3" stroke-linejoin="round"/>'
-                f'<line x1="110" y1="168" x2="110" y2="188" stroke="{_OUT}" stroke-width="2.5"/>')
-    if slot == "battery":
-        return (halo
-                + f'<rect x="24" y="150" width="22" height="30" rx="4" fill="#3a4a55" stroke="{_OUT}" stroke-width="3"/>'
-                f'<rect x="31" y="146" width="8" height="5" rx="1.5" fill="{_OUT}"/>'
-                f'<rect x="28" y="156" width="14" height="4" rx="2" fill="{color}"/>'
-                f'<rect x="28" y="163" width="14" height="4" rx="2" fill="{color}"/>')
+    if slot == "antenna":     # antler-like aerial off the top of the head
+        return (halo + f'<line x1="148" y1="58" x2="160" y2="16" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
+                f'<circle cx="161" cy="15" r="7" fill="{color}" stroke="{_OUT}" stroke-width="3"/>')
+    if slot == "cpu":          # bandana headband across the forehead
+        return (halo + f'<path d="M64 78 Q110 66 156 78 L156 70 Q110 58 64 70 Z" fill="#3a4a55" stroke="{_OUT}" stroke-width="3" stroke-linejoin="round"/>'
+                f'<circle cx="110" cy="70" r="5" fill="{color}" stroke="{_OUT}" stroke-width="2"/>'
+                f'<path d="M64 74 l-12 6 6 8" fill="#3a4a55" stroke="{_OUT}" stroke-width="3" stroke-linejoin="round"/>')
+    if slot == "charm":        # chunky chain necklace + pendant
+        return (halo + f'<path d="M80 150 Q110 172 140 150" fill="none" stroke="#caa64a" stroke-width="5" stroke-dasharray="2 3" stroke-linecap="round"/>'
+                f'<path d="M110 164 l8 10 -8 9 -8 -9Z" fill="{color}" stroke="{_OUT}" stroke-width="2.5" stroke-linejoin="round"/>')
+    if slot == "hull":         # chest armor plate
+        return (halo + f'<path d="M74 162 Q110 178 146 162 L142 196 Q110 208 78 196Z" fill="{color}" stroke="{_OUT}" stroke-width="3" stroke-linejoin="round"/>'
+                f'<line x1="110" y1="172" x2="110" y2="200" stroke="{_OUT}" stroke-width="2.5"/>'
+                f'<circle cx="92" cy="180" r="2.5" fill="{_OUT}"/><circle cx="128" cy="180" r="2.5" fill="{_OUT}"/>')
+    if slot == "battery":      # gadget on the right shoulder
+        return (halo + f'<rect x="160" y="166" width="22" height="24" rx="4" fill="#3a4a55" stroke="{_OUT}" stroke-width="3"/>'
+                f'<rect x="167" y="162" width="8" height="5" rx="1.5" fill="{_OUT}"/>'
+                f'<rect x="164" y="172" width="14" height="4" rx="2" fill="{color}"/>'
+                f'<rect x="164" y="179" width="14" height="4" rx="2" fill="{color}"/>')
     return ""
 
 
 def mascot_svg(mood: str = "content", equipped: dict | None = None,
                stage: str = "juvenile") -> str:
-    """Inner SVG (for viewBox='0 0 220 220') of the mascot at this evolution
+    """Inner SVG (for viewBox='0 0 220 220') of the shark at this evolution
     stage, in this mood, wearing `equipped` (slot -> rarity name)."""
     if stage == "egg":
         return _DEFS + _egg()
@@ -196,7 +188,7 @@ def mascot_svg(mood: str = "content", equipped: dict | None = None,
         if dx or dy:
             ant = f'<g transform="translate({dx} {dy})">{ant}</g>'
         parts.append(ant)
-    parts += [_dorsal(stage), _FINS, _CORE, _face(mood), _crest(stage), _markings(stage)]
+    parts += [_headfin(stage), _TORSO, _HEAD, _GILLS, _face(mood), _scar(stage)]
     for slot in ("cpu", "charm", "hull", "battery"):
         if slot in equipped:
             rarity = equipped[slot]
