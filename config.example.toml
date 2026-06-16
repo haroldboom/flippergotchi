@@ -33,6 +33,17 @@ gps_mode = "sim"        # sim | gpsd | off
 gpsd_host = "127.0.0.1"
 gpsd_port = 2947
 
+# --- RPG: monsters, battles, cracking ---
+bestiary_path = "~/.flippergotchi/bestiary.json"
+scan_bluetooth = true
+# Cracking is ONLY allowed against networks whose SSID/BSSID matches one of
+# these substrings - your own "dojo". Empty = every battle is refused.
+home_networks = []           # e.g. ["MyHomeWiFi", "AA:BB:CC"]
+hashcat_bin = "hashcat"
+wordlist = "/usr/share/wordlists/rockyou.txt"
+cloud_enabled = false        # allow upload fallback on hard targets
+cloud_service = "wpa-sec"    # wpa-sec | onlinehashcrack
+
 # --- view / io ---
 tui = true
 flipctl_html_out = "/tmp/flippergotchi/face.html"

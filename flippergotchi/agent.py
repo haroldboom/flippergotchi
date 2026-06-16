@@ -5,6 +5,9 @@ import time
 from . import persistence
 from .ai.service import AIService
 from .core.bettercap import BettercapClient
+from .core.bluetooth import BluetoothScanner
+from .game import monsters
+from .game.bestiary import Bestiary
 from .pet import mechanics
 from .pet.gps import GpsReader
 from .view import flipctl, tui
@@ -17,8 +20,10 @@ class Agent:
         self.cfg = cfg
         self.state = state
         self.wifi = BettercapClient(cfg)
+        self.ble = BluetoothScanner(cfg) if cfg.scan_bluetooth else None
         self.gps = GpsReader(cfg)
         self.ai = AIService(cfg)
+        self.dex = Bestiary(cfg.bestiary_path)
         self._say = ""
         self._fx = None          # (mood, until_ts) transient face override
         self._last_save = 0.0
@@ -52,10 +57,32 @@ class Agent:
                 self.speak("level_up", str(u["level"]))
             self._fx_set("excited")
 
+    def _spawn_wifi(self, ev: dict, captured: bool) -> None:
+        m = monsters.from_ap(ev)
+        m.captured = m.captured or captured
+        new = self.dex.add(m)
+        if not new:
+            return
+        if captured:
+            self.log(f"[dex] CAUGHT {m.species} '{m.name}' Lv{m.level} "
+                     f"[{m.encryption}] -- {self.ai.analyze(ev)}")
+        else:
+            self.log(f"[dex] a wild {m.species} '{m.name}' appeared (Lv{m.level})")
+
+    def _spawn_ble(self) -> None:
+        if not self.ble:
+            return
+        for ev in self.ble.poll():
+            m = monsters.from_ble(ev)
+            if self.dex.add(m):
+                self.state.happiness = mechanics.clamp(self.state.happiness + 1)
+                self.log(f"[dex] a tiny {m.species} '{m.name}' blipped past (Lv{m.level})")
+
     def _events(self, events: list) -> None:
         for ev in events:
             if ev.get("type") == "ap":
                 self.state.networks_seen += 1
+                self._spawn_wifi(ev, captured=False)
             elif ev.get("type") == "handshake":
                 kind = ev.get("kind", "handshake")
                 ssid = ev.get("ssid", "?")
@@ -63,10 +90,12 @@ class Agent:
                 self.log(f"captured {kind} from {ssid} ({ev.get('bssid', '?')})")
                 self._fx_set("eating")
                 self.speak("fed", ssid, kind)
+                self._spawn_wifi(ev, captured=True)
                 self._progress(ups)
 
     def tick(self, dt: float) -> None:
         self._events(self.wifi.poll())
+        self._spawn_ble()
         meters = self.gps.distance()
         if meters > 0:
             self._progress(mechanics.walk(self.state, meters, self.cfg))
@@ -107,6 +136,7 @@ class Agent:
                 self.render()
                 if now - self._last_save > 10:
                     persistence.save(self.cfg.state_path, self.state)
+                    self.dex.save()
                     self._last_save = now
                 i += 1
                 time.sleep(self.cfg.tick_interval)
@@ -114,3 +144,4 @@ class Agent:
             self.log("going to sleep... (saving state)")
         finally:
             persistence.save(self.cfg.state_path, self.state)
+            self.dex.save()

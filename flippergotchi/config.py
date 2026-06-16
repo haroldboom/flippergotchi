@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 
 try:
     import tomllib  # py3.11+
@@ -42,6 +42,17 @@ class Config:
     gps_mode: str = "sim"
     gpsd_host: str = "127.0.0.1"
     gpsd_port: int = 2947
+
+    # --- RPG: monsters, battles, cracking ---
+    bestiary_path: str = "~/.flippergotchi/bestiary.json"
+    scan_bluetooth: bool = True
+    # cracking is ONLY allowed against networks matching these (ssid/bssid
+    # substrings) - your own "dojo". Empty => battles are refused by default.
+    home_networks: list = field(default_factory=list)
+    hashcat_bin: str = "hashcat"
+    wordlist: str = "/usr/share/wordlists/rockyou.txt"
+    cloud_enabled: bool = False              # allow upload fallback on hard targets
+    cloud_service: str = "wpa-sec"           # wpa-sec | onlinehashcrack
 
     # view / io
     tui: bool = True

@@ -67,6 +67,44 @@ gps (walking)      ─┘     │            │
 | `view/faces.py` | dolphin ASCII expressions | ✅ |
 | `view/tui.py` | dev terminal view | ✅ |
 | `view/flipctl.py` | 256×144 HTML → LCD | mock done; plugin wiring = TODO |
+| `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
+| `game/monsters.py` | AP/BLE → collectible monster + stats | ✅ |
+| `game/bestiary.py` | your captured collection (savefile) | ✅ |
+| `game/battle.py` | hashcat+rockyou → cloud fallback, auth-gated | sim ✅; hw cmds = TODO |
+| `core/bluetooth.py` | BLE devices → mini-monsters | sim ✅; BlueZ = TODO |
+
+## The RPG layer — a WiFi-pentest fitness game
+
+It's also an [Orna](https://orna.guide)-style GPS RPG layered on the same data:
+
+- **You level up by walking** (GPS = fitness/XP), same as the pet.
+- **APs are monsters.** Encryption = difficulty/defense, vendor = species, band =
+  element, clients = minions. *Spotting* one logs it; *capturing* the handshake
+  adds it to your **bestiary** ready to battle.
+- **Bluetooth devices are smaller monsters** — collected/"tamed" by scanning
+  (no handshake to crack), a distinct lighter tier.
+- **Battling = cracking.** `hashcat -m 22000` + rockyou locally; if a tough
+  target survives and you allow it, escalate to a **cloud crack**
+  (`wpa-sec` or `onlinehashcrack` — two separate services).
+- **WPA3/SAE & WPA2-Enterprise are "immune"** to wordlists — correctly modelled
+  as bosses you can't beat this way.
+
+> 🔒 **Battles are authorization-gated.** Capturing/collecting is passive and
+> always allowed, but *cracking* only runs against networks whose SSID/BSSID is
+> in `home_networks` (your dojo) — or a one-off `--authorized`. Crack only what
+> you own or are cleared to test.
+
+### CLI
+
+```bash
+python3 -m flippergotchi --simulate        # run: raise the pet + scan + collect
+python3 -m flippergotchi dex               # list your bestiary
+python3 -m flippergotchi battle Linksys --authorized   # fight a captured monster
+```
+
+The **analyst** runs automatically on every capture (difficulty + suggested
+attack + the exact hashcat command); on the `cpu`/`npu` AI backend it's narrated
+by the local LLM, on `canned` it's the deterministic heuristic.
 
 ## AI backends
 
@@ -101,9 +139,13 @@ hardware — that's the design.
 
 ## Roadmap ideas
 
-- LLM "analyst" mode: explain each capture (SSID pattern → crack difficulty,
-  suggested `hashcat -m 22000 …`).
-- Sleep cycle tied to time-of-day; "treats" for new/rare networks.
-- Reinforcement-learning channel hopper (the classic Pwnagotchi A2C brain) as an
-  optional capture optimizer — runs on CPU, independent of the LLM.
-- Save/share your dolphin's stats; multi-pet "pack" over BLE.
+- ~~LLM "analyst" mode~~ ✅ done (`game/analysis.py` + `AIService.analyze`).
+- ~~APs as catchable monsters; BLE as mini-monsters; hashcat/cloud battles~~ ✅
+  scaffolded (`game/`).
+- Real-hardware wiring: bettercap live capture, gpsd steps, BlueZ scan,
+  hcxpcapngtool→hashcat, wpa-sec/onlinehashcrack uploads (all marked TODO).
+- Step counter via the device IMU (true pedometer) alongside GPS distance.
+- Type/element advantages in battle; daily quests ("walk 2 km", "catch a WPA3").
+- Reinforcement-learning channel hopper (classic Pwnagotchi A2C) as an optional
+  capture optimizer — CPU, independent of the LLM.
+- Trade/share your bestiary; co-op "raids" on tough APs over BLE.

@@ -34,15 +34,26 @@ class BettercapClient:
     def _sim_poll(self) -> list:
         events = []
         if random.random() < 0.4:
-            events.append({"type": "ap", "bssid": _rand_bssid(), "ssid": _rand_ssid()})
+            events.append({"type": "ap", **_rand_ap()})
         r = random.random()
         if r < 0.18:
-            events.append({"type": "handshake", "kind": "handshake",
-                           "bssid": _rand_bssid(), "ssid": _rand_ssid()})
+            events.append({"type": "handshake", "kind": "handshake", **_rand_ap()})
         elif r < 0.30:
-            events.append({"type": "handshake", "kind": "pmkid",
-                           "bssid": _rand_bssid(), "ssid": _rand_ssid()})
+            events.append({"type": "handshake", "kind": "pmkid", **_rand_ap()})
         return events
+
+
+def _rand_ap() -> dict:
+    return {
+        "bssid": _rand_bssid(),
+        "ssid": _rand_ssid(),
+        "encryption": random.choice(
+            ["wpa2", "wpa2", "wpa2", "wpa", "open", "wep", "wpa3", "wpa2-eap"]),
+        "band": random.choice(["2.4GHz", "2.4GHz", "5GHz", "6GHz"]),
+        "wps": random.random() < 0.3,
+        "clients": random.randint(0, 4),
+        "signal": random.randint(-85, -40),
+    }
 
 
 def _rand_bssid() -> str:

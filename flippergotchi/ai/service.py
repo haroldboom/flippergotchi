@@ -54,6 +54,22 @@ class AIService:
         except Exception:
             return CannedBackend().generate("", f"{event_key}:{arg}")
 
+    def analyze(self, target: dict) -> str:
+        """Analyst line for a target AP: difficulty + suggested attack."""
+        from ..game.analysis import assess
+        a = assess(target)
+        if self.backend.name == "canned":
+            return f"{a.ssid} [{a.encryption}] -> {a.label} ({a.difficulty}/100). {a.attack}"
+        system = ("You are a witty WiFi-pentest coach inside a game. "
+                  "Reply in at most 2 short, practical sentences.")
+        facts = (f"SSID {a.ssid}, {a.encryption}, difficulty {a.label} "
+                 f"{a.difficulty}/100. Notes: {'; '.join(a.reasons) or 'none'}. "
+                 f"Plan: {a.attack} Cmd: {a.hashcat_cmd or 'n/a'}.")
+        try:
+            return self.backend.generate(system, "Coach the player: " + facts).strip()
+        except Exception:
+            return f"{a.ssid} [{a.encryption}] -> {a.label} ({a.difficulty}/100). {a.attack}"
+
     @staticmethod
     def _describe(event_key: str, arg: str, sub: str = "") -> str:
         food = "PMKID" if sub == "pmkid" else "handshake"

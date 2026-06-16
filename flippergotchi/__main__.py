@@ -25,6 +25,13 @@ def main() -> None:
     ap.add_argument("--plain", action="store_true",
                     help="log events only; no full-screen face")
     ap.add_argument("--reset", action="store_true", help="start a brand new pet")
+    # RPG subcommands (default is to just run the pet/scanner loop)
+    ap.add_argument("command", nargs="?", default="run",
+                    choices=["run", "dex", "battle"],
+                    help="run (default) | dex (list bestiary) | battle <name>")
+    ap.add_argument("target", nargs="?", help="monster name/bssid for `battle`")
+    ap.add_argument("--authorized", action="store_true",
+                    help="confirm you're cleared to crack this target (battle)")
     args = ap.parse_args()
 
     cfg = Config.load(args.config)
@@ -38,6 +45,17 @@ def main() -> None:
         cfg.time_scale = args.time_scale
     if args.plain:
         cfg.tui = False
+
+    if args.command == "dex":
+        from .commands import cmd_dex
+        cmd_dex(cfg)
+        return
+    if args.command == "battle":
+        if not args.target:
+            ap.error("battle needs a monster name/bssid, e.g. `battle Linksys`")
+        from .commands import cmd_battle
+        cmd_battle(cfg, args.target, args.authorized)
+        return
 
     state = PetState() if args.reset else persistence.load(cfg.state_path)
     if args.name or not state.name:
