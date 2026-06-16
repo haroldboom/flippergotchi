@@ -33,11 +33,15 @@ def _sprite_b64(name: str) -> str:
 
 
 def _sprite_for(stage: str, variant: str, mood: str) -> str:
-    if stage == "adult" and variant in ("classic", ""):
-        m = _MOOD_SPRITE.get(mood)
-        return f"adult-{m}" if m else "adult"
+    # a chosen colour variant (adult) overrides the action face
     if variant not in ("classic", "") and stage == "adult":
         return f"var-{variant}"
+    # action/mood face for this stage, if that sprite exists (egg has none)
+    m = _MOOD_SPRITE.get(mood)
+    if m:
+        cand = f"{stage}-{m}"
+        if os.path.exists(os.path.join(_SPRITES, cand + ".png")):
+            return cand
     return stage
 
 

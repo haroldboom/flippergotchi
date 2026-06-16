@@ -42,7 +42,8 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 | ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
 
 **Action faces** — the mascot image changes by mood/action: idle · happy · chomp
-(catching) · hungry · sleeping · hurt:
+(catching) · hungry · sleeping · hurt. **Every evolution stage** has the full set
+(hatchling → legend), so the pet emotes at any age:
 
 ![action faces](docs/moods.png)
 
