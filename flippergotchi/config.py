@@ -127,6 +127,12 @@ class Config:
     # --- WiFi capture stack (core/wifi) ---
     # backend: "auto" picks native (hcxdumptool/scapy) -> bettercap -> sim
     capture_backend: str = "auto"            # auto | native | bettercap | sim
+    # dry_run: drive the REAL hardware paths (monitor mode, scan, passive
+    # listen, validation, command-building) but suppress the two irreversible/
+    # expensive actions -- deauth INJECTION and actually running hashcat. For
+    # validating the stack on a monitor-mode dongle without attacking anything.
+    dry_run: bool = False
+    capture_timeout: int = 20          # seconds to listen per capture attempt
     channels: list = field(default_factory=list)   # explicit hop list (empty = full plan)
     capture_dir: str = "~/.flippergotchi/captures"
     regdomain: str = ""                # `iw reg set` country code (e.g. "AU")

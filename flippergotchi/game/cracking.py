@@ -81,6 +81,12 @@ class LocalCracker:
 
     # -- public ----------------------------------------------------------- #
     def crack(self, monster, handshake_path: str | None = None) -> CrackResult:
+        # Dry-run takes precedence over everything (incl. the sim shortcut): it
+        # validates the capture and shows the planned hashcat command WITHOUT
+        # running it, so the pipeline can be exercised on real hardware without
+        # burning a crack. Works even if hashcat isn't installed.
+        if bool(getattr(self.cfg, "dry_run", False)):
+            return self._crack_dry(monster, handshake_path)
         if self.sim or not handshake_path or not os.path.exists(handshake_path):
             return self._sim(monster)
         try:
@@ -88,6 +94,37 @@ class LocalCracker:
         except Exception:  # noqa: BLE001 - never raise out of a crack attempt
             log.debug("real crack path failed; falling back to sim", exc_info=True)
             return self._sim(monster)
+
+    # -- dry-run path ----------------------------------------------------- #
+    def _crack_dry(self, monster, handshake_path: str | None) -> CrackResult:
+        """Validate the capture and report the hashcat command we WOULD run,
+        without executing it. Never touches hashcat; capture validation is the
+        pure-python parser in ``core.handshake`` so this works tool-free."""
+        if not handshake_path or not os.path.exists(handshake_path):
+            return CrackResult(result="dry-run", via="dry-run", mode="",
+                               detail="DRY-RUN: no capture file to inspect "
+                                      "(nothing to crack)")
+        info = hs.analyze_capture(handshake_path)
+        cap = os.path.basename(handshake_path)
+        if not info.is_crackable:
+            return CrackResult(
+                result="dry-run", via="dry-run", mode="",
+                detail=f"DRY-RUN: {cap} has no PMKID or complete 4-way handshake "
+                       "-- would NOT crack")
+        mode = "pmkid" if (info.contains_pmkid and not info.has_complete_4way) \
+            else "handshake"
+        hashcat = shutil.which(getattr(self.cfg, "hashcat_bin", "hashcat")) \
+            or str(getattr(self.cfg, "hashcat_bin", "hashcat"))
+        wordlists = self._wordlists() or ["<wordlist>"]
+        rules = getattr(self.cfg, "hashcat_rules", "") or ""
+        cmd = [hashcat, "-m", "22000", "<capture.hc22000>", *wordlists,
+               "--potfile-disable", "-o", "<out>", "--quiet"]
+        if rules:
+            cmd += ["-r", rules]
+        plan = " ".join(cmd)
+        log.info("DRY-RUN crack (%s): %s", mode, plan)
+        return CrackResult(result="dry-run", via="dry-run", mode=mode,
+                           detail=f"DRY-RUN {mode}: valid capture; would run: {plan}")
 
     # -- real path -------------------------------------------------------- #
     def _crack_real(self, monster, handshake_path: str) -> CrackResult:

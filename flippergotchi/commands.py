@@ -30,7 +30,7 @@ def _today() -> str:
     return time.strftime("%Y-%m-%d")
 
 _ICON = {"cracked": "WIN", "tamed": "TAMED", "failed": "LOSS",
-         "refused": "BLOCKED", "submitted": "ESCALATED"}
+         "refused": "BLOCKED", "submitted": "ESCALATED", "dry-run": "DRY-RUN"}
 
 
 def cmd_dex(cfg) -> None:
@@ -413,3 +413,106 @@ def cmd_shop(cfg, action: str | None, item: str | None) -> None:
         afford = "  " if wallet.can_afford(it.cost) else " x"
         print(f"  [{afford}] {it.id:<14} {it.cost:>4} scrap   {it.name} -- "
               f"{it.description}")
+
+
+def _make_backend(cfg):
+    """Build the capture backend + the authorizer that gates its active actions
+    (imported lazily so non-WiFi commands stay cheap)."""
+    from .core.authz import Authorizer
+    from .core.wifi.backends import make_backend
+    authz = Authorizer(cfg)
+    return make_backend(cfg, is_authorized=authz.is_authorized), authz
+
+
+def cmd_scan(cfg, rounds: int = 8) -> None:
+    """Passive AP discovery via the selected capture backend.
+
+    Read-only: no deauth, no injection -- safe to run on real hardware to
+    validate monitor mode + scanning (see `doctor` for prerequisites). In sim
+    it shows synthesised APs."""
+    backend, _ = _make_backend(cfg)
+    tag = " (dry-run)" if getattr(cfg, "dry_run", False) else ""
+    print(f"  SCAN  backend={type(backend).__name__}{tag}  -- passive, no "
+          f"active actions")
+    try:
+        backend.start()
+    except Exception as e:  # noqa: BLE001
+        print(f"  backend start failed: {e}")
+    found: dict = {}
+    try:
+        for _ in range(max(1, int(rounds))):
+            for ap in backend.scan() or []:
+                b = ap.get("bssid")
+                if b:
+                    found[b] = ap
+    except Exception as e:  # noqa: BLE001
+        print(f"  scan error: {e}")
+    finally:
+        try:
+            backend.stop()
+        except Exception:  # noqa: BLE001
+            pass
+    if not found:
+        print("  no APs discovered. On hardware run `doctor` to confirm a "
+              "monitor-capable interface + tools; in sim it's random per tick.")
+        return
+    print(f"  {len(found)} AP(s) seen:")
+    print(f"  {'bssid':<18} {'enc':<5} {'band':<6} {'sig':>4} {'cl':>3}  ssid")
+    for ap in sorted(found.values(), key=lambda a: a.get("signal", -99),
+                     reverse=True):
+        print(f"  {str(ap.get('bssid','')):<18} {str(ap.get('encryption','')):<5} "
+              f"{str(ap.get('band','')):<6} {int(ap.get('signal',0) or 0):>4} "
+              f"{int(ap.get('clients',0) or 0):>3}  {ap.get('ssid','')}")
+
+
+def cmd_capture(cfg, target: str | None, authorized: bool = False) -> None:
+    """Attempt a single handshake/PMKID capture and validate the result.
+
+    Honors --dry-run (never transmits -- passive listen only, logs what it
+    WOULD deauth) and the authorization scope (active deauth only against your
+    dojo). The capture file, if any, is validated by core.handshake."""
+    if not target:
+        print("Usage: capture <bssid|ssid>  [--dry-run] [--authorized]")
+        return
+    from .core import handshake as hs
+    backend, authz = _make_backend(cfg)
+    bssid, ssid = target, ""
+    dry = bool(getattr(cfg, "dry_run", False))
+    in_scope = authorized or authz.is_authorized(bssid, ssid)
+    if dry:
+        mode = "DRY-RUN (passive; would-deauth logged, none sent)"
+    elif in_scope:
+        mode = "ACTIVE (authorized -> deauth nudge allowed)"
+    else:
+        mode = "PASSIVE (out of scope -> no deauth)"
+    # audit the intent either way (allowed/denied is recorded in the log)
+    authz.require("capture", bssid, ssid)
+    print(f"  CAPTURE {bssid}  backend={type(backend).__name__}  mode={mode}")
+    try:
+        backend.start()
+        path = backend.capture_handshake(
+            bssid, ssid, timeout=getattr(cfg, "capture_timeout", 20))
+    except Exception as e:  # noqa: BLE001
+        print(f"  capture failed: {e}")
+        path = None
+    finally:
+        try:
+            backend.stop()
+        except Exception:  # noqa: BLE001
+            pass
+    if not path:
+        print("  no capture produced (expected in sim / without a monitor radio "
+              "in range of the target).")
+        return
+    info = hs.analyze_capture(path)
+    print(f"  capture file: {path}")
+    print(f"  valid={bool(info)}  pmkid={info.contains_pmkid}  "
+          f"eapol_msgs={sorted(info.eapol_messages)}  "
+          f"complete_4way={info.has_complete_4way}")
+    if bool(info):
+        nextstep = ("crack it with `battle <name> --authorized`"
+                    if not dry else
+                    "re-run without --dry-run (and --authorized) to crack it")
+        print(f"  -> crackable. {nextstep}")
+    else:
+        print("  -> not yet crackable (need a PMKID or a complete 4-way).")

@@ -16,6 +16,9 @@ def main() -> None:
     ap.add_argument("-c", "--config", help="path to a config.toml (py3.11+)")
     ap.add_argument("--simulate", action="store_true",
                     help="fake wifi/gps events - dev without hardware")
+    ap.add_argument("--dry-run", dest="dry_run", action="store_true",
+                    help="drive real capture/crack paths but suppress deauth "
+                         "injection + hashcat (validate the stack on hardware)")
     ap.add_argument("--name", help="override pet name")
     ap.add_argument("--ticks", type=int, default=None,
                     help="run N ticks then exit (default: run forever)")
@@ -32,12 +35,13 @@ def main() -> None:
     # RPG subcommands (default is to just run the pet/scanner loop)
     ap.add_argument("command", nargs="?", default="run",
                     choices=["run", "dex", "battle", "encounter", "duel", "gear",
-                             "quests", "doctor", "shop", "achievements"],
+                             "quests", "doctor", "shop", "achievements", "scan",
+                             "capture"],
                     help="run | dex | battle <name> | encounter | duel <peer> | "
                          "gear [item] | quests | doctor | shop [buy <item>] | "
-                         "achievements")
+                         "achievements | scan | capture <bssid>")
     ap.add_argument("target", nargs="?", help="monster name/bssid for `battle`; "
-                    "or `buy`/item-id for `shop`")
+                    "bssid/ssid for `capture`; or `buy`/item-id for `shop`")
     ap.add_argument("extra", nargs="?", help="item id for `shop buy <item>`")
     ap.add_argument("--authorized", action="store_true",
                     help="confirm you're cleared to crack this target (battle)")
@@ -50,6 +54,8 @@ def main() -> None:
     cfg = Config.load(args.config)
     if args.simulate:
         cfg.simulate = True
+    if args.dry_run:
+        cfg.dry_run = True
     if args.name:
         cfg.name = args.name
     if args.interval is not None:
@@ -94,6 +100,14 @@ def main() -> None:
     if args.command == "achievements":
         from .commands import cmd_achievements
         cmd_achievements(cfg)
+        return
+    if args.command == "scan":
+        from .commands import cmd_scan
+        cmd_scan(cfg)
+        return
+    if args.command == "capture":
+        from .commands import cmd_capture
+        cmd_capture(cfg, args.target, args.authorized)
         return
     if args.command == "battle":
         if not args.target and not args.all:

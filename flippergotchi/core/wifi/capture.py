@@ -118,7 +118,18 @@ class HandshakeCapture:
         except (TypeError, ValueError):
             timeout = 25.0
         active = self._authorized(bssid, ssid)
-        if not active:
+        # Dry-run: exercise the real capture path on hardware but NEVER transmit.
+        # If the target IS authorized, say what we would have done, then drop to
+        # passive listen so no deauth/injection actually goes out.
+        if bool(getattr(self.cfg, "dry_run", False)):
+            if active:
+                log.info("DRY-RUN: would send %s deauth frame(s) to authorized "
+                         "target %s -- SUPPRESSED (passive listen only)",
+                         getattr(self.cfg, "deauth_count", 5), bssid)
+            else:
+                log.info("DRY-RUN: passive capture for %s (no active actions)", bssid)
+            active = False
+        elif not active:
             log.info("capture for %s is PASSIVE-only (not an authorized "
                      "/home network): no deauth/injection", bssid)
 

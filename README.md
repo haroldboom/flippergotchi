@@ -219,6 +219,9 @@ python3 -m flippergotchi quests            # today's daily quests + progress
 python3 -m flippergotchi duel ByteSurf     # PvP duel (moves + element matchups)
 python3 -m flippergotchi gear              # inventory / equip loadout
 python3 -m flippergotchi doctor            # preflight: tools/iface/wordlist/scope
+python3 -m flippergotchi scan              # passive AP discovery (no active actions)
+python3 -m flippergotchi --dry-run capture AA:BB:..  # capture+validate, no deauth
+python3 -m flippergotchi --dry-run battle MyAP --authorized   # crack path, no hashcat
 python3 -m flippergotchi achievements      # badges unlocked + scrap balance
 python3 -m flippergotchi shop              # browse; `shop buy <id>` to spend scrap
 python3 -m flippergotchi --simulate --manual   # choose [A]Capture/[B]Run yourself
@@ -325,6 +328,24 @@ networks you own or are authorized to test.
 (`hcxdumptool`/`hcxpcapngtool`/`hashcat`/`iw`/…), privileges (root / CAP_NET_ADMIN),
 the monitor interface, the wordlist, and your scope — then a plain-English
 "you can: [passive scan] [capture] [crack]" summary with fix-it hints.
+
+**Dry-run (validate on hardware safely).** `--dry-run` drives the *real* paths —
+monitor mode, passive scan, capture-listen, handshake validation, and hashcat
+command construction — but suppresses the two irreversible/expensive actions:
+**deauth injection** and **actually running hashcat**. Bring up a monitor-mode
+dongle and walk the stack end-to-end without attacking anything:
+
+```bash
+python3 -m flippergotchi doctor                         # 1. is the stack ready?
+python3 -m flippergotchi scan                           # 2. passive: do I see APs?
+python3 -m flippergotchi --dry-run capture <bssid>      # 3. capture+validate (no deauth)
+python3 -m flippergotchi --dry-run battle <name> --authorized   # 4. shows the exact
+                                                        #    hashcat cmd it WOULD run
+```
+
+`capture` prints whether the resulting file holds a PMKID / complete 4-way; the
+dry-run `battle` validates the capture and prints `would run: hashcat -m 22000 …`
+without executing it. Drop `--dry-run` (with proper authorization) to go live.
 
 ## Porting to real hardware (when the Flipper One arrives)
 
