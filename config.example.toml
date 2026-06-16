@@ -44,6 +44,12 @@ wordlist = "/usr/share/wordlists/rockyou.txt"
 cloud_enabled = false        # allow upload fallback on hard targets
 cloud_service = "wpa-sec"    # wpa-sec | onlinehashcrack
 
+# "home" = where battling is offered (geofence and/or a home network in range)
+home_location = []           # e.g. [-31.95, 115.86]
+home_radius_m = 80.0
+anim_delay = 0.18            # seconds between encounter animation frames (TUI)
+encounter_cooldown = 5       # ticks before the same AP can re-appear
+
 # --- view / io ---
 tui = true
 flipctl_html_out = "/tmp/flippergotchi/face.html"

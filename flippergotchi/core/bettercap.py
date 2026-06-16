@@ -32,15 +32,11 @@ class BettercapClient:
         return []
 
     def _sim_poll(self) -> list:
-        events = []
-        if random.random() < 0.4:
-            events.append({"type": "ap", **_rand_ap()})
-        r = random.random()
-        if r < 0.18:
-            events.append({"type": "handshake", "kind": "handshake", **_rand_ap()})
-        elif r < 0.30:
-            events.append({"type": "handshake", "kind": "pmkid", **_rand_ap()})
-        return events
+        # Emit AP *detections*; the agent turns each into an encounter and the
+        # capture attempt is what produces a handshake (see game/encounter.py).
+        if random.random() < 0.35:
+            return [{"type": "ap", **_rand_ap()}]
+        return []
 
 
 def _rand_ap() -> dict:

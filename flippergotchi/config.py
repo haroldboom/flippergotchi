@@ -53,6 +53,11 @@ class Config:
     wordlist: str = "/usr/share/wordlists/rockyou.txt"
     cloud_enabled: bool = False              # allow upload fallback on hard targets
     cloud_service: str = "wpa-sec"           # wpa-sec | onlinehashcrack
+    # "home" = where battling is offered: geofence and/or a home network in range
+    home_location: list = field(default_factory=list)  # [lat, lon]
+    home_radius_m: float = 80.0
+    anim_delay: float = 0.18                  # seconds between encounter frames (TUI)
+    encounter_cooldown: int = 5               # ticks before re-encountering an AP
 
     # view / io
     tui: bool = True

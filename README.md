@@ -71,6 +71,9 @@ gps (walking)      ─┘     │            │
 | `game/monsters.py` | AP/BLE → collectible monster + stats | ✅ |
 | `game/bestiary.py` | your captured collection (savefile) | ✅ |
 | `game/battle.py` | hashcat+rockyou → cloud fallback, auth-gated | sim ✅; hw cmds = TODO |
+| `game/encounter.py` | detect → Capture/Run state machine | ✅ done & tested |
+| `game/home.py` | "are we home?" gate for battling | ✅ |
+| `view/animations.py` | net-gun / flee ASCII animation frames | ✅ |
 | `core/bluetooth.py` | BLE devices → mini-monsters | sim ✅; BlueZ = TODO |
 
 ## The RPG layer — a WiFi-pentest fitness game
@@ -94,12 +97,36 @@ It's also an [Orna](https://orna.guide)-style GPS RPG layered on the same data:
 > in `home_networks` (your dojo) — or a one-off `--authorized`. Crack only what
 > you own or are cleared to test.
 
+### The encounter flow (Pokémon GO-style)
+
+```
+AP detected ─► POPUP "[A] Capture  [B] Run"
+                 │
+       ┌─────────┴─────────┐
+   Capture                Run
+       │                    │
+  net-gun animation     flee animation
+   ├─ caught  → bestiary (handshake = food for the pet)
+   └─ escaped → broke free, no handshake
+```
+
+Capture success is about **radio** (clients present, signal strength) — not
+encryption — so you can net a WPA3 handshake; you just can't crack it later.
+*Battling* (cracking) is a separate, deliberate step you do **at home**:
+
+```
+game/encounter.py   detect → Capture/Run → caught/escaped/fled  (+ animations)
+game/home.py        at_home(geofence OR home network in range) → battle unlocked
+game/battle.py      hashcat+rockyou → cloud, gated to your dojo, with a warning
+```
+
 ### CLI
 
 ```bash
-python3 -m flippergotchi --simulate        # run: raise the pet + scan + collect
+python3 -m flippergotchi --simulate        # run: walk, encounter, capture, collect
+python3 -m flippergotchi encounter         # demo one encounter (popup + animation)
 python3 -m flippergotchi dex               # list your bestiary
-python3 -m flippergotchi battle Linksys --authorized   # fight a captured monster
+python3 -m flippergotchi battle Linksys --authorized   # crack a captured monster
 ```
 
 The **analyst** runs automatically on every capture (difficulty + suggested

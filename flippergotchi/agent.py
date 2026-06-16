@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import os
 import time
 
 from . import persistence
 from .ai.service import AIService
 from .core.bettercap import BettercapClient
 from .core.bluetooth import BluetoothScanner
-from .game import monsters
+from .game import encounter, monsters
 from .game.bestiary import Bestiary
 from .pet import mechanics
 from .pet.gps import GpsReader
-from .view import flipctl, tui
+from .view import animations, flipctl, tui
 
 
 class Agent:
@@ -28,6 +29,9 @@ class Agent:
         self._fx = None          # (mood, until_ts) transient face override
         self._last_save = 0.0
         self._last_idle = 0.0
+        self._tick_i = 0
+        self._cooldown = {}      # bssid -> tick last encountered
+        self._visible = []       # recently-seen SSIDs (for 'home' detection)
 
     def log(self, msg: str) -> None:
         print(f"· {msg}")
@@ -57,17 +61,49 @@ class Agent:
                 self.speak("level_up", str(u["level"]))
             self._fx_set("excited")
 
-    def _spawn_wifi(self, ev: dict, captured: bool) -> None:
-        m = monsters.from_ap(ev)
-        m.captured = m.captured or captured
-        new = self.dex.add(m)
-        if not new:
+    def _scene(self, text: str) -> None:
+        os.system("clear")
+        print(text)
+
+    def _note_visible(self, ssid: str) -> None:
+        if ssid and ssid not in self._visible:
+            self._visible.append(ssid)
+            self._visible = self._visible[-20:]
+
+    def _encounter(self, ev: dict) -> None:
+        bssid, ssid = ev.get("bssid", "?"), ev.get("ssid", "?")
+        self._note_visible(ssid)
+        last = self._cooldown.get(bssid)
+        if last is not None and self._tick_i - last < self.cfg.encounter_cooldown:
             return
-        if captured:
-            self.log(f"[dex] CAUGHT {m.species} '{m.name}' Lv{m.level} "
+        self._cooldown[bssid] = self._tick_i
+
+        self.state.networks_seen += 1
+        m = monsters.from_ap(ev)
+        enc = encounter.Encounter(m)
+        if self.cfg.tui:
+            self._scene(animations.popup(m))
+            time.sleep(self.cfg.anim_delay * 2)
+
+        enc.choose(encounter.auto_choice(m))   # device: choice comes from a button
+        if self.cfg.tui:
+            animations.play(animations.frames(enc.animation, m),
+                            self._scene, self.cfg.anim_delay)
+
+        if enc.state == encounter.CAUGHT:
+            self.dex.add(m)
+            ups = mechanics.feed(self.state, "handshake", self.cfg)  # handshake = food
+            self._fx_set("eating")
+            self.log(f"[catch] {m.species} '{ssid}' Lv{m.level} "
                      f"[{m.encryption}] -- {self.ai.analyze(ev)}")
-        else:
-            self.log(f"[dex] a wild {m.species} '{m.name}' appeared (Lv{m.level})")
+            self.speak("fed", ssid, "handshake")
+            self._progress(ups)
+        elif enc.state == encounter.ESCAPED:
+            m.captured = False
+            self.dex.add(m)
+            self.log(f"[escape] {ssid} broke free - no handshake")
+        else:  # FLED
+            self.log(f"[run] fled from {m.species} '{ssid}'")
 
     def _spawn_ble(self) -> None:
         if not self.ble:
@@ -81,19 +117,10 @@ class Agent:
     def _events(self, events: list) -> None:
         for ev in events:
             if ev.get("type") == "ap":
-                self.state.networks_seen += 1
-                self._spawn_wifi(ev, captured=False)
-            elif ev.get("type") == "handshake":
-                kind = ev.get("kind", "handshake")
-                ssid = ev.get("ssid", "?")
-                ups = mechanics.feed(self.state, kind, self.cfg)
-                self.log(f"captured {kind} from {ssid} ({ev.get('bssid', '?')})")
-                self._fx_set("eating")
-                self.speak("fed", ssid, kind)
-                self._spawn_wifi(ev, captured=True)
-                self._progress(ups)
+                self._encounter(ev)
 
     def tick(self, dt: float) -> None:
+        self._tick_i += 1
         self._events(self.wifi.poll())
         self._spawn_ble()
         meters = self.gps.distance()

@@ -1,8 +1,12 @@
-"""`dex` and `battle` subcommands - inspect your collection and fight monsters."""
+"""`dex`, `battle`, `encounter` subcommands."""
 from __future__ import annotations
 
 from .game import battle as battle_mod
+from .game import encounter as enc_mod
+from .game import monsters
 from .game.bestiary import Bestiary
+from .game.home import WARNING
+from .view import animations
 
 
 def cmd_dex(cfg) -> None:
@@ -25,12 +29,34 @@ def cmd_dex(cfg) -> None:
               f"{m.defense:>3}  {status}")
 
 
+class _AlwaysHit:
+    @staticmethod
+    def random():
+        return 0.0  # deterministic catch, so the demo shows the net animation
+
+
+def cmd_encounter(cfg) -> None:
+    """Demo one encounter end-to-end (popup -> animation -> outcome)."""
+    ev = {"type": "ap", "ssid": "DemoNet", "bssid": "AA:BB:CC:11:22:33",
+          "encryption": "wpa2", "band": "5GHz", "clients": 3, "signal": -52}
+    m = monsters.from_ap(ev)
+    e = enc_mod.Encounter(m)
+    print(animations.popup(m))
+    print(f"\n  > you chose: CAPTURE\n")
+    e.choose("capture", rng=_AlwaysHit)
+    for frame in animations.frames(e.animation, m):
+        print(frame)
+        print()
+    print(f"  => {e.message}")
+
+
 def cmd_battle(cfg, target: str, authorized: bool) -> None:
     dex = Bestiary(cfg.bestiary_path)
     m = dex.get(target)
     if not m:
         print(f"No monster matching '{target}' in your bestiary. Try `dex`.")
         return
+    print(WARNING + "\n")
     print(f"Engaging {m.species} '{m.name}' (Lv{m.level}, {m.encryption or m.kind}, "
           f"defense {m.defense})...")
     res = battle_mod.battle(m, cfg, force_authorized=authorized)
