@@ -55,6 +55,10 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![colour variants](docs/variants.png)
 
+…and your chosen colour **persists through every evolution** (e.g. blue, egg → legend):
+
+![variant through evolution](docs/variant-evo.png)
+
 > ℹ️ The mascot sprites are **AI-generated** (Google Gemini image models,
 > `gemini-3-pro-image`) as original cyberpunk pixel art, then background-keyed to
 > true alpha and packed into `flippergotchi/view/sprites/`. The device chassis is

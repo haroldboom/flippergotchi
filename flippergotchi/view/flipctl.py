@@ -41,16 +41,20 @@ def _gear_icon_b64(slot: str) -> str:
     return _cache[key]
 
 
+def _exists(name: str) -> bool:
+    return os.path.exists(os.path.join(_SPRITES, name + ".png"))
+
+
 def _sprite_for(stage: str, variant: str, mood: str) -> str:
-    # a chosen colour variant (adult) overrides the action face
-    if variant not in ("classic", "") and stage == "adult":
-        return f"var-{variant}"
-    # action/mood face for this stage, if that sprite exists (egg has none)
+    # a non-classic colour variant: use its per-stage sprite (no action faces),
+    # falling back to the classic stage sprite (e.g. the shared egg)
+    if variant not in ("classic", ""):
+        cand = f"{variant}-{stage}"
+        return cand if _exists(cand) else stage
+    # classic: swap to the action/mood face for this stage if it exists
     m = _MOOD_SPRITE.get(mood)
-    if m:
-        cand = f"{stage}-{m}"
-        if os.path.exists(os.path.join(_SPRITES, cand + ".png")):
-            return cand
+    if m and _exists(f"{stage}-{m}"):
+        return f"{stage}-{m}"
     return stage
 
 
