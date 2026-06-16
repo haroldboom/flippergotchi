@@ -16,6 +16,14 @@ a pwning machine.
 > ⚠️ **Authorized use only.** Capturing handshakes / deauthing is for networks you
 > own or are explicitly permitted to test. Same rules as any WiFi audit tool.
 
+> 🤖 **Built with AI assistance.** This is a passion project I designed and
+> directed, but it was built hand-in-hand with an AI coding assistant — I
+> couldn't have written it to this standard on my own. The ideas, design
+> decisions, and direction are mine; much of the implementation was AI-assisted.
+> I'm sharing it openly in that spirit. If AI-assisted code isn't for you, no
+> hard feelings — feel free to give this one a miss. Otherwise, contributions
+> and feedback are very welcome. 🙏
+
 ---
 
 ## Run it now (no hardware)
