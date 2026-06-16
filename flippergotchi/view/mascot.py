@@ -45,6 +45,10 @@ _CORE = (
 _SCALE = {"hatchling": 0.64, "fingerling": 0.82, "juvenile": 1.0,
           "adult": 1.06, "alpha": 1.12, "legend": 1.15}
 
+# the bigger dorsal fins (adult/alpha/legend) need the antenna shifted right so
+# it clears the fin instead of poking through it
+_ANTENNA_SHIFT = {"adult": (7, 1), "alpha": (12, 2), "legend": (14, 2)}
+
 _DORSAL_NORMAL = f'<path d="M96 56 C100 26 112 12 122 14 C128 30 126 46 128 58Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
 _DORSAL_TALL = f'<path d="M94 58 C98 18 112 0 124 4 C130 26 128 46 130 60Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
 _DORSAL_HUGE = f'<path d="M92 60 C96 8 114 -12 132 -4 C136 22 132 46 134 62Z" fill="url(#fin)" stroke="{_OUT}" stroke-width="4" stroke-linejoin="round"/>'
@@ -66,14 +70,14 @@ def _crest(stage):
 
 
 def _markings(stage):
-    if stage == "alpha":       # fierce brows + a battle scar
-        return (f'<path d="M72 84 L98 92" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
-                f'<path d="M148 84 L122 92" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
-                f'<path d="M150 96 l-7 18" stroke="{_OUT}" stroke-width="2.5" stroke-linecap="round"/>')
+    if stage == "alpha":       # fierce brows (hugging the eyes) + a battle scar
+        return (f'<path d="M73 91 L97 98" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
+                f'<path d="M147 91 L123 98" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
+                f'<path d="M152 100 l-7 17" stroke="{_OUT}" stroke-width="2.5" stroke-linecap="round"/>')
     if stage == "legend":      # forehead gem + sparkles
         star = '<path d="M%d %d l3 7 7 3 -7 3 -3 7 -3-7 -7-3 7-3Z" fill="#ffe7a0" stroke="%s" stroke-width="1.5"/>'
-        return (f'<path d="M110 54 l7 9 -7 9 -7 -9Z" fill="#ffcf4d" stroke="{_OUT}" stroke-width="2"/>'
-                + (star % (40, 78, _OUT)) + (star % (178, 84, _OUT)) + (star % (150, 40, _OUT)))
+        return (f'<path d="M110 44 l6 8 -6 8 -6 -8Z" fill="#ffcf4d" stroke="{_OUT}" stroke-width="2"/>'
+                + (star % (40, 78, _OUT)) + (star % (178, 84, _OUT)) + (star % (158, 36, _OUT)))
     return ""
 
 
@@ -136,9 +140,9 @@ def _gear(slot, color):
     if slot == "antenna":
         return (f'<line x1="138" y1="58" x2="152" y2="12" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
                 f'<circle cx="153" cy="11" r="7" fill="{color}" stroke="{_OUT}" stroke-width="3"/>')
-    if slot == "cpu":
-        return (f'<rect x="66" y="76" width="88" height="15" rx="7.5" fill="#3a4a55" stroke="{_OUT}" stroke-width="3"/>'
-                f'<circle cx="110" cy="83.5" r="5" fill="{color}" stroke="{_OUT}" stroke-width="2"/>')
+    if slot == "cpu":          # sits higher on the forehead (clear of the eyes/brows)
+        return (f'<rect x="66" y="71" width="88" height="14" rx="7" fill="#3a4a55" stroke="{_OUT}" stroke-width="3"/>'
+                f'<circle cx="110" cy="78" r="5" fill="{color}" stroke="{_OUT}" stroke-width="2"/>')
     if slot == "charm":
         return ('<path d="M82 152 Q110 168 138 152" fill="none" stroke="#caa64a" stroke-width="3"/>'
                 f'<path d="M110 160 l7 9 -7 8 -7 -8Z" fill="{color}" stroke="{_OUT}" stroke-width="2.5" stroke-linejoin="round"/>')
@@ -162,7 +166,11 @@ def mascot_svg(mood: str = "content", equipped: dict | None = None,
     equipped = equipped or {}
     parts = [_aura(stage)]
     if "antenna" in equipped:
-        parts.append(_gear("antenna", RARITY_COLOR.get(equipped["antenna"], "#b8c2cb")))
+        ant = _gear("antenna", RARITY_COLOR.get(equipped["antenna"], "#b8c2cb"))
+        dx, dy = _ANTENNA_SHIFT.get(stage, (0, 0))
+        if dx or dy:
+            ant = f'<g transform="translate({dx} {dy})">{ant}</g>'
+        parts.append(ant)
     parts += [_dorsal(stage), _FINS, _CORE, _face(mood), _crest(stage), _markings(stage)]
     for slot in ("cpu", "charm", "hull", "battery"):
         if slot in equipped:
