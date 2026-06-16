@@ -37,8 +37,8 @@ _LINES = {
         "Step step step... gotta find more signal.",
     ],
     "hungry": [
-        "I'm starving... find me some handshakes?",
-        "So... hungry... need EAPOL...",
+        "I'm starving... let's walk and forage a snack?",
+        "So... hungry... need a treat...",
     ],
     "sick": [
         "I don't feel so good... (x_x)",

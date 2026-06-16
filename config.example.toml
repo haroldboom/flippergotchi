@@ -44,7 +44,6 @@ peers_path = "~/.flippergotchi/peers.json"       # detected Flippergotchi rivals
 inventory_path = "~/.flippergotchi/inventory.json"
 scan_bluetooth = true
 duel_stake_frac = 0.20       # share of handshakes the duel loser forfeits
-loot_chance = 0.12           # chance a capture drops a gear item
 # Cracking is ONLY allowed against networks whose SSID/BSSID matches one of
 # these substrings - your own "dojo". Empty = every battle is refused.
 home_networks = []           # e.g. ["MyHomeWiFi", "AA:BB:CC"]
