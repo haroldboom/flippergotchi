@@ -167,11 +167,21 @@ def _aura(stage):
 
 
 def _egg():
-    # a shark "mermaid's purse" egg case
-    return (f'<path d="M78 60 l-14 -16 M142 60 l14 -16 M78 188 l-14 16 M142 188 l14 16" stroke="{_OUT}" stroke-width="3" stroke-linecap="round" fill="none"/>'
-            f'<path d="M76 56 Q110 44 144 56 Q160 124 144 192 Q110 204 76 192 Q60 124 76 56 Z" fill="#6f5a3a" stroke="{_OUT}" stroke-width="5" stroke-linejoin="round"/>'
-            '<path d="M92 70 Q110 64 128 70 Q138 124 128 178 Q110 184 92 178 Q82 124 92 70Z" fill="#7d6743" opacity=".7"/>'
-            f'<path d="M110 70 V178" stroke="{_OUT}" stroke-width="2" opacity=".4"/>')
+    # a Port Jackson-style spiral (auger / corkscrew) shark egg case
+    cone = ("M110 44 C130 58 142 100 144 140 C145 174 131 200 110 206 "
+            "C89 200 75 174 76 140 C78 100 90 58 110 44 Z")
+    return (f'<pattern id="screw" width="17" height="17" patternTransform="rotate(-30)" patternUnits="userSpaceOnUse">'
+            f'<rect width="17" height="17" fill="#5b421f"/><rect width="8.5" height="17" fill="#86643a"/></pattern>'
+            f'<clipPath id="eggclip"><path d="{cone}"/></clipPath>'
+            f'<path d="{cone}" fill="#5b421f"/>'
+            f'<g clip-path="url(#eggclip)">'
+            f'<rect x="56" y="38" width="108" height="180" fill="url(#screw)"/>'
+            f'<path d="M86 60 Q74 130 88 196" fill="none" stroke="#caa877" stroke-width="5" opacity=".45" stroke-linecap="round"/>'
+            f'<path d="M138 64 Q150 132 134 196" fill="none" stroke="#2f2110" stroke-width="8" opacity=".35" stroke-linecap="round"/>'
+            f'</g>'
+            f'<path d="{cone}" fill="none" stroke="{_OUT}" stroke-width="5" stroke-linejoin="round"/>'
+            # anchoring tendril at the pointed top
+            f'<path d="M110 44 q-3 -18 -18 -22 q10 -2 16 4 q8 6 4 16" fill="none" stroke="{_OUT}" stroke-width="3" stroke-linecap="round"/>')
 
 
 # --- equipment -------------------------------------------------------------
@@ -247,7 +257,7 @@ def mascot_svg(mood: str = "content", equipped: dict | None = None,
 def _uniq(svg: str) -> str:
     """Suffix the shared ids so several mascots can share one HTML document."""
     u = f"_{next(_uid)}"
-    for name in ("body", "fin", "belly", "glow", "silho"):
+    for name in ("body", "fin", "belly", "glow", "silho", "screw", "eggclip"):
         svg = svg.replace(f'id="{name}"', f'id="{name}{u}"')
         svg = svg.replace(f'url(#{name})', f'url(#{name}{u})')
     return svg
