@@ -105,19 +105,35 @@ class Config:
     peers_path: str = "~/.flippergotchi/peers.json"
     inventory_path: str = "~/.flippergotchi/inventory.json"
     quests_path: str = "~/.flippergotchi/quests.json"
+    achievements_path: str = "~/.flippergotchi/achievements.json"
+    wallet_path: str = "~/.flippergotchi/wallet.json"     # "scrap" currency balance
     element: str = "Aether"            # your Flippergotchi's element (duel matchups)
     scan_bluetooth: bool = True
     bluetooth_scan_timeout: float = 2.5
     duel_stake_frac: float = 0.20            # share of handshakes the loser forfeits
+    duel_turn_cap: int = 30                  # max turns before HP-based decision
     # cracking is ONLY allowed against networks matching these (ssid/bssid
     # substrings) - your own "dojo". Empty => battles are refused by default.
     home_networks: list = field(default_factory=list)
     hashcat_bin: str = "hashcat"
     wordlist: str = "/usr/share/wordlists/rockyou.txt"
+    wordlists: list = field(default_factory=list)  # ordered; overrides `wordlist`
+    hashcat_rules: str = ""            # optional hashcat .rule file (-r)
     crack_timeout: int = 1800          # hashcat wall-clock cap (s)
     handshakes_file: str = ""          # bettercap wifi.handshakes.file (live)
     cloud_enabled: bool = False              # allow upload fallback on hard targets
     cloud_service: str = "wpa-sec"           # wpa-sec | onlinehashcrack
+
+    # --- WiFi capture stack (core/wifi) ---
+    # backend: "auto" picks native (hcxdumptool/scapy) -> bettercap -> sim
+    capture_backend: str = "auto"            # auto | native | bettercap | sim
+    channels: list = field(default_factory=list)   # explicit hop list (empty = full plan)
+    capture_dir: str = "~/.flippergotchi/captures"
+    regdomain: str = ""                # `iw reg set` country code (e.g. "AU")
+    deauth_count: int = 5              # deauth frames per authorized capture nudge
+    # authorization + audit (active RF actions are gated to your dojo)
+    allowlist_path: str = "~/.flippergotchi/allowlist.txt"  # extra BSSID/SSID scope
+    audit_log: str = "~/.flippergotchi/audit.log"           # JSONL of active actions
     # "home" = where battling is offered: geofence and/or a home network in range
     home_location: list = field(default_factory=list)  # [lat, lon]
     home_radius_m: float = 80.0

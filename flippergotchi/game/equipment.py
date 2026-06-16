@@ -43,6 +43,7 @@ class Item:
     power: int
     bonus_stat: str = ""     # atk | def | luck (PvP)
     bonus_val: float = 0.0
+    set: str = ""            # gear-set tag (see gearsets.py); "" = no set
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -54,15 +55,40 @@ class Item:
 
 
 def roll_item(rng=random, boost: int = 0) -> Item:
-    """Generate a random loot item; `boost` (e.g. peer level) sweetens power."""
+    """Generate a random loot item; `boost` (e.g. peer level) sweetens power.
+
+    Rarer drops (rare+) are more likely to belong to a named gear-set (see
+    gearsets.py); commons usually stay set-less. The set tag is purely a PvP
+    flavour layer — it never touches WiFi cracking.
+    """
     slot = rng.choice(SLOTS)
     rarity = rng.choices(RARITIES, weights=_RARITY_WEIGHT)[0]
     power = _RARITY_POWER[rarity] + max(0, boost)
     stat = _SLOT_STAT[slot]
     val = power  # the PvP stat scales with the item's power
     iid = f"{slot}-{rarity[:3]}-{rng.randrange(1 << 24):06x}"
+    set_tag = _roll_set_tag(rarity, rng)
     return Item(id=iid, name=f"{_ADJ[rarity]} {rng.choice(_NOUN[slot])}", slot=slot,
-                rarity=rarity, power=power, bonus_stat=stat, bonus_val=val)
+                rarity=rarity, power=power, bonus_stat=stat, bonus_val=val,
+                set=set_tag)
+
+
+# chance a drop carries a set tag, by rarity (commons mostly plain)
+_SET_CHANCE = {"common": 0.05, "uncommon": 0.20, "rare": 0.45,
+               "epic": 0.70, "legendary": 1.0}
+
+
+def _roll_set_tag(rarity: str, rng=random) -> str:
+    """Maybe assign a gear-set tag. Local import keeps equipment.py importable
+    even if gearsets.py is absent (back-compat / partial installs)."""
+    if rng.random() >= _SET_CHANCE.get(rarity, 0.0):
+        return ""
+    try:
+        from . import gearsets
+        names = gearsets.set_names()
+    except Exception:
+        return ""
+    return rng.choice(names) if names else ""
 
 
 class Inventory:
@@ -119,6 +145,22 @@ class Inventory:
 
     def gear_power(self) -> int:
         return sum(it.power for it in self.equipped_items())
+
+    def set_bonus(self) -> dict:
+        """PvP bonus from any completed/partial gear sets among equipped items.
+        Returns a dict like {"power": int, "atk": .., "def": .., "luck": ..}.
+        Empty/zero when no set thresholds are met. PvP ONLY."""
+        try:
+            from . import gearsets
+        except Exception:
+            return {}
+        return gearsets.set_bonus(self.equipped_items())
+
+    def pvp_power(self) -> int:
+        """Total PvP power: raw gear_power() plus any gear-set power bonus. This
+        is the duel-facing number; gear_power() keeps its original meaning so
+        existing callers/tests are untouched. NEVER used for WiFi cracking."""
+        return self.gear_power() + int(self.set_bonus().get("power", 0))
 
     def all(self) -> list:
         return sorted(self.items.values(), key=lambda x: (-x.power, x.slot))

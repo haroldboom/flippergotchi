@@ -67,6 +67,14 @@ def advantage_multiplier(attacker: str, defender: str) -> float:
     return NEUTRAL
 
 
+# Convenience alias used by the duel/move engine. Same semantics as
+# ``advantage_multiplier`` -- kept as a separate name so call sites can read
+# ``elements.advantage(att, def_)`` without coupling to the longer name.
+def advantage(attacker: str, defender: str) -> float:
+    """Alias for :func:`advantage_multiplier` (type-advantage multiplier)."""
+    return advantage_multiplier(attacker, defender)
+
+
 def matchup_note(attacker: str, defender: str) -> str:
     """Short human label for the matchup: "strong" / "weak" / "neutral"."""
     m = advantage_multiplier(attacker, defender)
