@@ -8,15 +8,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 # Base difficulty by encryption: 0 = trivial .. 100 = infeasible with a wordlist.
+# only crackable encryptions are modelled (WPA3/Enterprise/OWE aren't surfaced)
 ENC_DIFFICULTY = {
     "open": 0,
     "wep": 10,
     "wpa": 35,
     "wpa2": 55,
-    "wpa2-eap": 90,
-    "owe": 60,
-    "wpa3": 95,
-    "wpa3-sae": 95,
 }
 
 # SSID prefixes that hint at algorithmic / well-known default keys -> easier,
@@ -89,12 +86,6 @@ def assess(target: dict) -> Assessment:
         attack, cmd = "No key needed - just associate.", ""
     elif enc == "wep":
         attack, cmd = "WEP: collect IVs, aircrack-ng.", f"aircrack-ng {bss}.cap"
-    elif enc in ("wpa3", "wpa3-sae", "owe"):
-        attack = "WPA3/SAE: wordlists don't apply; needs online/clientless or downgrade."
-        cmd = ""
-    elif enc == "wpa2-eap":
-        attack = "WPA2-Enterprise: no PSK to crack; out of scope for rockyou."
-        cmd = ""
     else:
         attack = "WPA/WPA2-PSK: capture handshake -> hashcat -m 22000 + rockyou."
         cmd = f"hashcat -m 22000 {bss}.hc22000 rockyou.txt"

@@ -11,10 +11,6 @@ _WIFI_SPECIES = {
     "wep": "Rustbug",
     "wpa": "Wavemon",
     "wpa2": "Crypterion",
-    "wpa2-eap": "Bastion",
-    "wpa3": "Saebercat",
-    "wpa3-sae": "Saebercat",
-    "owe": "Mistwalker",
 }
 # band -> element
 _ELEMENT = {"2.4GHz": "Spark", "5GHz": "Tide", "6GHz": "Gale"}

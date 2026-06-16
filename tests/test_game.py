@@ -14,9 +14,9 @@ from flippergotchi.game.analysis import assess
 
 def test_difficulty_orders_by_encryption():
     o = assess({"ssid": "x", "encryption": "open"}).difficulty
+    p = assess({"ssid": "x", "encryption": "wpa"}).difficulty
     w = assess({"ssid": "x", "encryption": "wpa2"}).difficulty
-    t = assess({"ssid": "x", "encryption": "wpa3"}).difficulty
-    assert o < w < t
+    assert o < p < w
 
 
 def test_default_ssid_lowers_difficulty():
@@ -38,12 +38,10 @@ def test_battle_refused_without_authorization():
     assert battle.battle(m, cfg)["result"] == "refused"
 
 
-def test_battle_wpa3_is_immune():
-    cfg = Config()
-    cfg.home_networks = ["Mine"]
-    m = monsters.from_ap({"ssid": "Mine", "bssid": "11:22:33:44:55:66",
-                          "encryption": "wpa3", "kind": "handshake"})
-    assert battle.battle(m, cfg, force_authorized=True)["result"] == "immune"
+def test_only_crackable_encryptions_spawn():
+    # the sim never surfaces WPA3/Enterprise APs
+    from flippergotchi.core.bettercap import _rand_ap, CRACKABLE
+    assert all(_rand_ap()["encryption"] in CRACKABLE for _ in range(100))
 
 
 def test_battle_cracks_weak_when_authorized():

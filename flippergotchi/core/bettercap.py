@@ -160,6 +160,11 @@ class BettercapClient:
 # Field availability varies by bettercap version, so every access is defensive.
 # This mapping needs validation on real hardware.
 
+# encryptions that are potentially crackable with a wordlist (everything else,
+# e.g. WPA3/SAE, WPA2-Enterprise, OWE, is not surfaced as a monster)
+CRACKABLE = ("open", "wep", "wpa", "wpa2")
+
+
 def _translate_ap(data) -> dict | None:
     if not isinstance(data, dict):
         return None
@@ -173,6 +178,8 @@ def _translate_ap(data) -> dict | None:
         data.get("encryption"),
         data.get("authentication"),
     )
+    if encryption not in CRACKABLE:    # skip WPA3/Enterprise/OWE -- not crackable
+        return None
 
     channel = data.get("channel")
     band = _band_from_channel(channel)
@@ -244,8 +251,10 @@ def _rand_ap() -> dict:
     return {
         "bssid": _rand_bssid(),
         "ssid": _rand_ssid(),
+        # only crackable encryptions -- WPA3/Enterprise aren't wordlist-crackable,
+        # so they're not surfaced as monsters at all
         "encryption": random.choice(
-            ["wpa2", "wpa2", "wpa2", "wpa", "open", "wep", "wpa3", "wpa2-eap"]),
+            ["wpa2", "wpa2", "wpa2", "wpa2", "wpa", "open", "wep"]),
         "band": random.choice(["2.4GHz", "2.4GHz", "5GHz", "6GHz"]),
         "wps": random.random() < 0.3,
         "clients": random.randint(0, 4),

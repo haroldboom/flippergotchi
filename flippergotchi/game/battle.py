@@ -76,9 +76,6 @@ def battle(monster, cfg, handshake_path: str | None = None,
         monster.defeated = True
         return {"result": "tamed", "via": "scan",
                 "key": "", "note": "BLE creatures are tamed by scanning, not cracked"}
-    if monster.encryption in ("wpa3", "wpa3-sae", "owe", "wpa2-eap"):
-        return {"result": "immune", "via": "-", "key": "",
-                "note": f"{monster.encryption} can't be beaten with a wordlist"}
     if not (force_authorized or is_authorized(monster, cfg)):
         return {"result": "refused", "via": "-", "key": "",
                 "note": "not in your authorized dojo (cfg.home_networks)"}

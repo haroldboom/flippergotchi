@@ -25,7 +25,7 @@ def _today() -> str:
     return time.strftime("%Y-%m-%d")
 
 _ICON = {"cracked": "WIN", "tamed": "TAMED", "failed": "LOSS",
-         "refused": "BLOCKED", "immune": "IMMUNE", "submitted": "ESCALATED"}
+         "refused": "BLOCKED", "submitted": "ESCALATED"}
 
 
 def cmd_dex(cfg) -> None:

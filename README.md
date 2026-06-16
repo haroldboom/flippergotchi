@@ -151,8 +151,8 @@ It's also an [Orna](https://orna.guide)-style GPS RPG layered on the same data:
 - **Battling = cracking.** `hashcat -m 22000` + rockyou locally; if a tough
   target survives and you allow it, escalate to a **cloud crack**
   (`wpa-sec` or `onlinehashcrack` — two separate services).
-- **WPA3/SAE & WPA2-Enterprise are "immune"** to wordlists — correctly modelled
-  as bosses you can't beat this way.
+- **Only crackable networks are surfaced** (open / WEP / WPA / WPA2-PSK). WPA3,
+  WPA2-Enterprise and OWE aren't wordlist-crackable, so they're not shown at all.
 
 > 🔒 **Battles are authorization-gated.** Capturing/collecting is passive and
 > always allowed, but *cracking* only runs against networks whose SSID/BSSID is
@@ -173,8 +173,7 @@ AP detected ─► POPUP "[A] Capture  [B] Run"
 ```
 
 Capture success is about **radio** (clients present, signal strength) — not
-encryption — so you can net a WPA3 handshake; you just can't crack it later.
-*Battling* (cracking) is a separate, deliberate step you do **at home**:
+encryption. *Battling* (cracking) is a separate, deliberate step you do **at home**:
 
 ```
 game/encounter.py   detect → Capture/Run → caught/escaped/fled  (+ animations)
