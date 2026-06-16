@@ -21,6 +21,8 @@ _DEFS = (
     '<stop offset="0" stop-color="#9db9c8"/><stop offset="1" stop-color="#7ba0b3"/></linearGradient>'
     '<radialGradient id="belly" cx=".5" cy=".35" r=".7">'
     '<stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#eaf3f8"/></radialGradient>'
+    '<filter id="glow" x="-80%" y="-80%" width="260%" height="260%">'
+    '<feGaussianBlur stdDeviation="4"/></filter>'
     '</defs>'
 )
 
@@ -136,21 +138,43 @@ RARITY_COLOR = {"common": "#b8c2cb", "uncommon": "#7fd1a6", "rare": "#5aa9ff",
                 "epic": "#c07bf0", "legendary": "#ffcf4d"}
 
 
-def _gear(slot, color):
+# soft colored halo drawn behind a gear accent — legendary rarity only
+def _glow(slot, color):
+    f = f'fill="{color}" filter="url(#glow)" opacity=".85"'
     if slot == "antenna":
-        return (f'<line x1="138" y1="58" x2="152" y2="12" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
+        return f'<circle cx="153" cy="11" r="12" {f}/>'
+    if slot == "cpu":
+        return f'<circle cx="110" cy="78" r="11" {f}/>'
+    if slot == "charm":
+        return f'<circle cx="110" cy="164" r="12" {f}/>'
+    if slot == "hull":
+        return f'<path d="M66 158 Q110 178 154 158 L150 176 Q110 196 70 176Z" {f}/>'
+    if slot == "battery":
+        return f'<rect x="25" y="152" width="20" height="20" rx="4" {f}/>'
+    return ""
+
+
+def _gear(slot, color, glow=False):
+    halo = _glow(slot, color) if glow else ""
+    if slot == "antenna":
+        return (halo
+                + f'<line x1="138" y1="58" x2="152" y2="12" stroke="{_OUT}" stroke-width="5" stroke-linecap="round"/>'
                 f'<circle cx="153" cy="11" r="7" fill="{color}" stroke="{_OUT}" stroke-width="3"/>')
     if slot == "cpu":          # sits higher on the forehead (clear of the eyes/brows)
-        return (f'<rect x="66" y="71" width="88" height="14" rx="7" fill="#3a4a55" stroke="{_OUT}" stroke-width="3"/>'
+        return (halo
+                + f'<rect x="66" y="71" width="88" height="14" rx="7" fill="#3a4a55" stroke="{_OUT}" stroke-width="3"/>'
                 f'<circle cx="110" cy="78" r="5" fill="{color}" stroke="{_OUT}" stroke-width="2"/>')
     if slot == "charm":
-        return ('<path d="M82 152 Q110 168 138 152" fill="none" stroke="#caa64a" stroke-width="3"/>'
+        return (halo
+                + '<path d="M82 152 Q110 168 138 152" fill="none" stroke="#caa64a" stroke-width="3"/>'
                 f'<path d="M110 160 l7 9 -7 8 -7 -8Z" fill="{color}" stroke="{_OUT}" stroke-width="2.5" stroke-linejoin="round"/>')
     if slot == "hull":
-        return (f'<path d="M66 158 Q110 178 154 158 L150 176 Q110 196 70 176Z" fill="{color}" stroke="{_OUT}" stroke-width="3" stroke-linejoin="round"/>'
+        return (halo
+                + f'<path d="M66 158 Q110 178 154 158 L150 176 Q110 196 70 176Z" fill="{color}" stroke="{_OUT}" stroke-width="3" stroke-linejoin="round"/>'
                 f'<line x1="110" y1="168" x2="110" y2="188" stroke="{_OUT}" stroke-width="2.5"/>')
     if slot == "battery":
-        return (f'<rect x="24" y="150" width="22" height="30" rx="4" fill="#3a4a55" stroke="{_OUT}" stroke-width="3"/>'
+        return (halo
+                + f'<rect x="24" y="150" width="22" height="30" rx="4" fill="#3a4a55" stroke="{_OUT}" stroke-width="3"/>'
                 f'<rect x="31" y="146" width="8" height="5" rx="1.5" fill="{_OUT}"/>'
                 f'<rect x="28" y="156" width="14" height="4" rx="2" fill="{color}"/>'
                 f'<rect x="28" y="163" width="14" height="4" rx="2" fill="{color}"/>')
@@ -166,7 +190,8 @@ def mascot_svg(mood: str = "content", equipped: dict | None = None,
     equipped = equipped or {}
     parts = [_aura(stage)]
     if "antenna" in equipped:
-        ant = _gear("antenna", RARITY_COLOR.get(equipped["antenna"], "#b8c2cb"))
+        rarity = equipped["antenna"]
+        ant = _gear("antenna", RARITY_COLOR.get(rarity, "#b8c2cb"), rarity == "legendary")
         dx, dy = _ANTENNA_SHIFT.get(stage, (0, 0))
         if dx or dy:
             ant = f'<g transform="translate({dx} {dy})">{ant}</g>'
@@ -174,7 +199,9 @@ def mascot_svg(mood: str = "content", equipped: dict | None = None,
     parts += [_dorsal(stage), _FINS, _CORE, _face(mood), _crest(stage), _markings(stage)]
     for slot in ("cpu", "charm", "hull", "battery"):
         if slot in equipped:
-            parts.append(_gear(slot, RARITY_COLOR.get(equipped[slot], "#b8c2cb")))
+            rarity = equipped[slot]
+            parts.append(_gear(slot, RARITY_COLOR.get(rarity, "#b8c2cb"),
+                               rarity == "legendary"))
     s = _SCALE.get(stage, 1.0)
     inner = "".join(parts)
     g = f'<g transform="translate(110 120) scale({s}) translate(-110 -120)">{inner}</g>'
