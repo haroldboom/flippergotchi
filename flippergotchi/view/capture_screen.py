@@ -45,21 +45,21 @@ def _player_b64(stem: str = "adult") -> str:
 # proj: (left, top, size) for a net in flight, or None
 # net:  (left, top, size, opacity) for the net over the monster's HEAD, or None
 # banner: (text, colour, kind) where kind is "win" | "lose", or None
-_AIM = {"gun": "left:54px;bottom:48px;transform:rotate(-26deg)", "gunfx": "",
+_AIM = {"gun": "left:70px;bottom:30px;transform:rotate(-30deg)", "gunfx": "",
         "proj": None, "net": None, "banner": None, "mon": "none",
         "line": "{name} takes aim with the net-gun..."}
-_FIRE = {"gun": "left:50px;bottom:45px;transform:rotate(-36deg)",
+_FIRE = {"gun": "left:66px;bottom:27px;transform:rotate(-40deg)",
          "gunfx": "drop-shadow(0 0 5px #8ef)",
          "proj": (104, 44, 30), "net": None, "banner": None, "mon": "none",
          "line": "*fwoomp* -- net away!"}
-_NET = {"gun": "left:54px;bottom:48px;transform:rotate(-26deg)", "gunfx": "",
+_NET = {"gun": "left:70px;bottom:30px;transform:rotate(-30deg)", "gunfx": "",
         "proj": None, "net": (90, 8, 70, 1.0), "banner": None,
         "mon": "translateX(2px)", "line": "...will it hold?"}
-_CAUGHT = {"gun": "left:54px;bottom:48px;transform:rotate(-26deg)", "gunfx": "",
+_CAUGHT = {"gun": "left:70px;bottom:30px;transform:rotate(-30deg)", "gunfx": "",
            "proj": None, "net": (92, 10, 66, 1.0),
            "banner": ("GOTCHA!", "#7CFC00", "win"), "mon": "scale(0.94)",
            "line": "{name}'s handshake was netted!"}
-_AWAY = {"gun": "left:54px;bottom:48px;transform:rotate(-26deg)", "gunfx": "",
+_AWAY = {"gun": "left:70px;bottom:30px;transform:rotate(-30deg)", "gunfx": "",
          "proj": None, "net": (86, 60, 66, 0.5),
          "banner": ("GOT AWAY!", "#ff5a44", "lose"), "mon": "translateY(-9px)",
          "mon_op": 0.25, "line": "{name} broke free -- no handshake."}
@@ -80,7 +80,7 @@ _CSS = """
     filter:drop-shadow(0 2px 0 #0008);}
   .shark{position:absolute;left:-8px;bottom:26px;height:80px;z-index:4;
     filter:drop-shadow(0 2px 0 #0009);}
-  .gun{position:absolute;height:38px;z-index:6;transform-origin:left bottom;
+  .gun{position:absolute;height:34px;z-index:6;transform-origin:left bottom;
     filter:drop-shadow(0 1px 0 #0009);}
   .net{position:absolute;z-index:5;filter:drop-shadow(0 0 6px #8ef);}
   .proj{position:absolute;z-index:5;filter:drop-shadow(0 0 6px #8ef);}
