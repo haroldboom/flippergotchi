@@ -1,9 +1,16 @@
 # Flippergotchi 🐬
 
-A **Tamagotchi-style WiFi pet** for the [Flipper One](https://docs.flipper.net/one).
+A **Tamagotchi-style WiFi pet** for the [**Flipper One**](https://docs.flipper.net/one).
 It's a Pwnagotchi at heart — it hunts WPA handshakes with the radio — but the
 captures, walks, and AI personality are wired into a *pet you raise* instead of
 a pwning machine.
+
+> 📟 **This is for the Flipper One — NOT the Flipper Zero.** The Flipper One is
+> the new, **unreleased** Rockchip RK3576 Arm-**Linux** handheld (Wi-Fi 6E +
+> 6 TOPS NPU + FlipCTL UI) — a full Linux computer, not the Zero's
+> microcontroller. The hardware isn't out yet, so today this runs entirely in
+> **simulation** on any Linux box; the radio/GPS/Bluetooth/NPU hooks are
+> clearly-marked TODOs that light up when the device ships.
 
 - **Handshakes are food.** Every WPA handshake / PMKID the radio captures feeds
   the pet and lowers its hunger. Full handshakes are a meal; PMKIDs are snacks.
