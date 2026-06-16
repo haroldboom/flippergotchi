@@ -34,10 +34,10 @@ FlipCTL layout at the device's exact **256×144** orange-backlit spec:
 
 ![Flippergotchi catch sequence](docs/demo.gif)
 
-> ℹ️ The **chassis is original CSS art**, not an official asset: the Flipper One
-> docs ship no device image and official press renders are copyrighted, so I drew
-> a stylised one rather than bake a copyrighted image into an MIT repo. Swap in an
-> official render anytime. (These are simulation renders — the hardware isn't out.)
+> ℹ️ The **chassis is original art**, not an official asset. The Flipper One docs
+> ship no openly-licensed device image, and Flipper Devices' brand policy requires
+> *written authorization* to use their renders/logos/marks — so an official render
+> is **not** dropped in here. (These are simulation renders — the hardware isn't out.)
 
 Individual LCD states (bare screen):
 
@@ -275,3 +275,15 @@ hardware — that's the design.
 [MIT](LICENSE) © 2026 haroldboom. Built with AI assistance (see the note at the
 top). Use the WiFi/Bluetooth capabilities only on networks and devices you own
 or are authorized to test.
+
+## Trademarks & affiliation
+
+Flippergotchi is an **independent, unofficial fan project** and is **not
+affiliated with, endorsed by, or sponsored by Flipper Devices Inc.** "Flipper",
+"Flipper One", and the Flipper dolphin are trademarks of Flipper Devices Inc.,
+used here only **nominatively** to indicate the target hardware. **No official
+Flipper Devices artwork, renders, logos, or insignia are included in this
+repository** — the device mock-up is original art. Flipper Devices' brand policy
+requires written authorization to use their marks/assets, so if you fork or
+redistribute this, keep it clearly unofficial. The MIT license covers this
+project's own code and art only.
