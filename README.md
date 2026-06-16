@@ -1,5 +1,7 @@
 # Flippergotchi 🐬
 
+[![CI](https://github.com/haroldboom/flippergotchi/actions/workflows/ci.yml/badge.svg)](https://github.com/haroldboom/flippergotchi/actions/workflows/ci.yml)
+
 A **Tamagotchi-style WiFi pet** for the [**Flipper One**](https://docs.flipper.net/one).
 It's a Pwnagotchi at heart — it hunts WPA handshakes with the radio — but the
 captures, walks, and AI personality are wired into a *pet you raise* instead of
@@ -59,6 +61,13 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![variant through evolution](docs/variant-evo.png)
 
+**The monsters** — WiFi access points are catchable creatures, and the **species
+is set by encryption** (the AP's "armour class"). They're original cyberpunk
+aquatic-mutant villains — a flimsy jelly for open networks up to an armoured
+piranha-boss for WPA2:
+
+![bestiary — WiFi monsters](docs/monsters.png)
+
 **PvP duel screen** — `duel <name>` renders a Pokémon-style 1v1: the rival
 Flippergotchi (HP box, upper-left) faces your character (mirrored, lower-right)
 with a live blow-by-blow in the dialogue box:
@@ -97,8 +106,9 @@ One exists on your desk.
 
 ```bash
 cd flippergotchi
+pip install -e .                   # optional: installs the `flippergotchi` command
 ./run-dev.sh                       # live full-screen character, fast-forwarded
-# or:
+# or, with no install (pure stdlib):
 python3 -m flippergotchi --simulate --plain --ticks 60   # log-only, no clear
 ```
 
