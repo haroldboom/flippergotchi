@@ -32,6 +32,15 @@ def _sprite_b64(name: str) -> str:
     return _cache[name]
 
 
+def _gear_icon_b64(slot: str) -> str:
+    key = f"gear/{slot}"
+    if key not in _cache:
+        path = os.path.join(_SPRITES, "gear", slot + ".png")
+        with open(path, "rb") as f:
+            _cache[key] = base64.b64encode(f.read()).decode()
+    return _cache[key]
+
+
 def _sprite_for(stage: str, variant: str, mood: str) -> str:
     # a chosen colour variant (adult) overrides the action face
     if variant not in ("classic", "") and stage == "adult":
@@ -76,8 +85,10 @@ _HTML = """<!doctype html>
   .fe .l{{font-size:6px;font-weight:800;width:15px;}}
   .dlg{{left:4px;right:4px;bottom:4px;height:24px;display:flex;align-items:center;}}
   .say{{font-size:8px;font-weight:700;line-height:1.1;}}
-  .gear{{position:absolute;top:33px;right:5px;display:flex;flex-direction:column;gap:3px;z-index:3;}}
-  .slot{{width:7px;height:7px;border:1px solid #0008;border-radius:2px;}}
+  .gear{{position:absolute;top:32px;right:4px;display:flex;flex-direction:column;gap:2px;z-index:3;}}
+  .slot{{width:15px;height:15px;border:1px solid;border-radius:3px;background:#0b1430cc;
+    display:flex;align-items:center;justify-content:center;}}
+  .slot img{{width:13px;height:13px;}}
 </style></head><body>
   <div class="screen">
     <div class="platform"></div>
@@ -111,8 +122,11 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
     nxt = mechanics.xp_to_next(state.level, cfg)
     health = int(max(0, min(100, state.health)))
     gear = "".join(
-        f'<div class="slot" style="background:{_RARITY.get(r, "#b8c2cb")}"></div>'
-        for r in (equipped or {}).values())
+        f'<div class="slot" style="border-color:{_RARITY.get(r, "#b8c2cb")};'
+        f'box-shadow:0 0 4px {_RARITY.get(r, "#b8c2cb")}">'
+        f'<img src="data:image/png;base64,{_gear_icon_b64(slot)}"></div>'
+        for slot, r in (equipped or {}).items()
+        if os.path.exists(os.path.join(_SPRITES, "gear", slot + ".png")))
     html = _HTML.format(
         name=_html.escape(state.name), level=state.level,
         sprite=_sprite_b64(_sprite_for(state.stage, variant, mood)), gear=gear,
