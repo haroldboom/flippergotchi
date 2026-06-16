@@ -155,6 +155,8 @@ class Agent:
             animations.play(animations.frames(enc.animation, m),
                             self._scene, self.cfg.anim_delay)
 
+        if enc.state in (encounter.CAUGHT, encounter.ESCAPED):
+            self._render_capture(m, enc.state == encounter.CAUGHT)
         if enc.state == encounter.CAUGHT:
             self.dex.add(m)
             ups = mechanics.collect(self.state, "handshake", self.cfg)  # catch it
@@ -185,6 +187,18 @@ class Agent:
             })
         except Exception as e:  # noqa: BLE001 - never break the tick loop
             self.log(f"encounter render failed: {e}")
+
+    def _render_capture(self, m, caught: bool) -> None:
+        """Best-effort visual net-gun capture frames to cfg.capture_frames_dir."""
+        try:
+            from .view import capture_screen
+            out = getattr(self.cfg, "capture_frames_dir",
+                          "/tmp/flippergotchi/capture")
+            capture_screen.render_sequence(os.path.expanduser(out), {
+                "species": m.species, "name": monsters.label(m),
+            }, caught=caught)
+        except Exception as e:  # noqa: BLE001 - never break the tick loop
+            self.log(f"capture render failed: {e}")
 
     def _forage(self, meters: float) -> None:
         """Walking is how the pet finds FOOD (and, rarely, gear)."""

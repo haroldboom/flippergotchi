@@ -77,7 +77,25 @@ def cmd_encounter(cfg) -> None:
     for frame in animations.frames(e.animation, m):
         print(frame)
         print()
+    # render the visual net-gun capture frames (the device swaps through these)
+    caught = e.state == enc_mod.CAUGHT
+    frames = _render_capture(cfg, m, caught)
+    if frames:
+        print(f"  [screen] capture animation -> {os.path.dirname(frames[0])} "
+              f"({len(frames)} frames)")
     print(f"  => {e.message}")
+
+
+def _render_capture(cfg, m, caught: bool) -> list | None:
+    """Best-effort visual net-gun capture frames; never breaks the flow."""
+    try:
+        from .view import capture_screen
+        out = getattr(cfg, "capture_frames_dir", "/tmp/flippergotchi/capture")
+        return capture_screen.render_sequence(os.path.expanduser(out), {
+            "species": m.species, "name": label(m),
+        }, caught=caught)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _render_encounter(cfg, m, line: str = "") -> str | None:

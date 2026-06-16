@@ -75,6 +75,11 @@ and a Capture/Run menu:
 
 ![encounter screens](docs/encounter.png)
 
+**Capturing** plays a net-gun animation — aim → *fwoomp* → net → **GOTCHA!** (or
+the catch breaks free) — rendered as 256×144 frames the device swaps through:
+
+![net-gun capture animation](docs/capture.gif)
+
 **PvP duel screen** — `duel <name>` renders a Pokémon-style 1v1: the rival
 Flippergotchi (HP box, upper-left) faces your character (mirrored, lower-right)
 with a live blow-by-blow in the dialogue box:
@@ -165,6 +170,7 @@ gps (walking)      ─┘     │            │
 | `view/battle_screen.py` | Pokémon 1v1 PvP duel screen render | ✅ render |
 | `view/equip_screen.py` | character-wearing-gear loadout screen render | ✅ render |
 | `view/encounter_screen.py` | "A wild … appeared!" encounter card render | ✅ render |
+| `view/capture_screen.py` | net-gun capture animation frames (aim→net→GOTCHA) | ✅ render |
 | `view/monster_art.py` | species → enemy/mini-monster sprite lookup | ✅ done & tested |
 | `view/sprites/` | AI-generated cyberpunk sprites (character + monsters) | ✅ |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
