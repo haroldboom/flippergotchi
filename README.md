@@ -21,9 +21,9 @@ a pwning machine.
   rival Flippergotchi drops **equipment** you can equip.
 - **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
   phrases) narrates what the pet feels and what it just caught.
-- **An original badass shark mascot** (Street-Sharks '90s energy), rendered to
-  the 256×144 LCD via FlipCTL — it **evolves** egg→legend as it levels up and
-  visibly **wears your equipped gear**.
+- **A cyberpunk pixel-art shark mascot** (AI-generated sprites) in an **old-school
+  Pokémon-style 2D HUD**, at the Flipper One's native **256×144**. It **evolves**
+  egg→legend and comes in 5 colour variants.
 
 > **The economy at a glance:** walk → forage *food* (+ rare gear) · encounter →
 > *catch* AP-monsters · crack at home → *loot* + score · duel rivals → *steal*
@@ -31,29 +31,28 @@ a pwning machine.
 
 ### What it looks like
 
-The **catch sequence** on the device's **256×144** orange-backlit LCD — the real
-FlipCTL screen layout from the simulation:
+The game on the Flipper One's **256×144** screen — a retro Pokémon-style HUD
+(HP / XP / food / energy + dialogue box) with the cyberpunk shark, scaled crisp
+with nearest-neighbour:
 
-![Flippergotchi catch sequence](docs/demo.gif)
+![Flippergotchi gameplay](docs/demo.gif)
 
-> ℹ️ Only the LCD screen is shown (the device chassis is Flipper Devices' IP and
-> is deliberately omitted), and the mascot is **original art** (a cartoon shark,
-> not the trademarked Flipper dolphin). These are simulation renders; HW isn't out.
+| Idle (adult) | Geared (gold) | Hungry (juvenile) |
+|:---:|:---:|:---:|
+| ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
 
-**Colour variants** — pick your shark (`--variant` or `mascot_variant`), styled
-after the radical '90s shark-toons (original art, descriptive names):
-
-![colour variants](docs/variants.png)
-
-**Evolutions** — the mascot grows from an egg to a legend as it levels up:
+**Evolutions** — egg → hatchling → fingerling → juvenile → adult → alpha → legend:
 
 ![evolution stages](docs/evolutions.png)
 
-**LCD states** (idle · fully-geared adult · hungry) — gear is drawn on the mascot:
+**Colour variants** (`--variant` / `mascot_variant`): classic · blue · tiger · gold · reef
 
-| Idle / happy | Geared up | Hungry |
-|:---:|:---:|:---:|
-| ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
+![colour variants](docs/variants.png)
+
+> ℹ️ The mascot sprites are **AI-generated** (Google Gemini image models,
+> `gemini-3-pro-image`) as original cyberpunk pixel art, then background-keyed to
+> true alpha and packed into `flippergotchi/view/sprites/`. The device chassis is
+> omitted (Flipper Devices' IP). Simulation renders — the hardware isn't out yet.
 
 > ⚠️ **Authorized use only.** Capturing handshakes / deauthing is for networks you
 > own or are explicitly permitted to test. Same rules as any WiFi audit tool.
@@ -116,8 +115,8 @@ gps (walking)      ─┘     │            │
 | `ai/rkllm_npu.py` | NPU LLM (6 TOPS) | **stub** — waits on driver |
 | `view/faces.py` | dolphin ASCII expressions | ✅ |
 | `view/tui.py` | dev terminal view | ✅ |
-| `view/flipctl.py` | polished 256×144 LCD screen (mascot + UI) | ✅ render; plugin = TODO |
-| `view/mascot.py` | original mascot: evolutions + moods + gear | ✅ done |
+| `view/flipctl.py` | 256×144 Pokémon-style HUD + pixel sprite | ✅ render; plugin = TODO |
+| `view/sprites/` | AI-generated cyberpunk shark sprites (evos + variants) | ✅ |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
 | `game/monsters.py` | AP/BLE → collectible monster + stats | ✅ |
 | `game/bestiary.py` | your captured collection (savefile) | ✅ |

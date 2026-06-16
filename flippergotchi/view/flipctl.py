@@ -1,59 +1,91 @@
 from __future__ import annotations
 
+import base64
 import html as _html
 import os
 
 from ..pet import mechanics
-from .mascot import mascot_svg
 
-# Polished 256x144 LCD screen, rendered as HTML/CSS + an inline SVG mascot.
-# On the device this is what the FlipCTL view draws to the LCD; it also doubles
-# as the web/dev frontend and is what the README renders are screenshotted from.
-# Rendered here at 2x (512x288) for crispness; the layout is the 256x144 design.
-# TODO: register as a real FlipCTL plugin + map D-pad/soft-buttons to actions.
+# The screen is authored at the Flipper One's native 256x144 and meant to be
+# scaled up with nearest-neighbour (see docs render pipeline) for a crisp,
+# old-school 2D look. UI is a Pokemon-style HUD: cream boxes, HP bar, a bottom
+# dialogue box. The mascot is a pre-rendered cyberpunk pixel sprite.
+_SPRITES = os.path.join(os.path.dirname(__file__), "sprites")
+_cache: dict = {}
+
+
+def _sprite_b64(name: str) -> str:
+    if name not in _cache:
+        path = os.path.join(_SPRITES, name + ".png")
+        if not os.path.exists(path):
+            path = os.path.join(_SPRITES, "adult.png")
+        with open(path, "rb") as f:
+            _cache[name] = base64.b64encode(f.read()).decode()
+    return _cache[name]
+
+
+def _sprite_for(stage: str, variant: str) -> str:
+    if variant and variant not in ("classic", "") and stage == "adult":
+        return f"var-{variant}"
+    return stage
+
+
+def _hp_color(pct: float) -> str:
+    return "#58d858" if pct > 50 else "#f0c020" if pct > 20 else "#e85040"
+
+
 _HTML = """<!doctype html>
 <html><head><meta charset="utf-8"><title>{name}</title><style>
-  html,body{{margin:0;background:#222;}}
-  .screen{{width:512px;height:288px;border-radius:16px;position:relative;
-    overflow:hidden;box-sizing:border-box;color:#1f2d36;
-    font-family:'DejaVu Sans','Helvetica Neue',sans-serif;
-    background:radial-gradient(120% 120% at 50% 0%,#ffa436 0%,#ff8c12 55%,#f07e08 100%);}}
-  .top{{position:absolute;top:14px;left:18px;right:18px;display:flex;
-    justify-content:space-between;align-items:flex-start;}}
-  .name{{font-weight:800;font-size:21px;line-height:1;}}
-  .stage{{margin-top:5px;font-size:11px;font-weight:700;opacity:.6;
-    text-transform:uppercase;letter-spacing:1px;}}
-  .badges{{display:flex;gap:7px;}}
-  .chip{{display:flex;align-items:center;gap:4px;background:rgba(31,45,54,.14);
-    border-radius:999px;padding:4px 9px;font-size:12px;font-weight:800;}}
-  .mascot{{position:absolute;top:28px;left:50%;transform:translateX(-50%);}}
-  .stats{{position:absolute;left:18px;right:18px;bottom:52px;display:flex;
-    flex-direction:column;gap:7px;}}
-  .stat{{display:flex;align-items:center;gap:9px;}}
-  .stat .lbl{{width:34px;font-size:11px;font-weight:800;opacity:.7;}}
-  .track{{flex:1;height:11px;border-radius:999px;background:rgba(31,45,54,.16);overflow:hidden;}}
-  .fill{{height:100%;border-radius:999px;background:linear-gradient(90deg,#2c4350,#1f2d36);}}
-  .say{{position:absolute;left:18px;right:18px;bottom:14px;
-    background:rgba(255,255,255,.55);border-radius:12px;padding:7px 12px;
-    font-size:13px;font-style:italic;font-weight:600;}}
+  html,body{{margin:0;background:#000;}}
+  *{{box-sizing:border-box;image-rendering:pixelated;}}
+  .screen{{width:256px;height:144px;position:relative;overflow:hidden;
+    font-family:'DejaVu Sans Mono',monospace;color:#283044;
+    background:linear-gradient(#13213e 0%,#0d1730 55%,#0a1226 100%);}}
+  .platform{{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);
+    width:128px;height:26px;border-radius:50%;
+    background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);
+    box-shadow:0 0 0 1px #2ee9ff33;}}
+  .mascot{{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);
+    height:96px;filter:drop-shadow(0 2px 0 #0008);}}
+  .box{{position:absolute;background:#f6f1da;border:2px solid #39405a;border-radius:4px;
+    box-shadow:inset 0 0 0 1px #ffffffcc, 0 1px 0 #00000066;padding:3px 5px;}}
+  .hp{{top:5px;left:5px;width:150px;}}
+  .row{{display:flex;justify-content:space-between;align-items:center;}}
+  .nm{{font-size:11px;font-weight:800;letter-spacing:.5px;}}
+  .lv{{font-size:9px;font-weight:800;}}
+  .bar{{display:flex;align-items:center;gap:3px;margin-top:2px;}}
+  .tag{{font-size:7px;font-weight:800;color:#fff;background:#c88018;border-radius:2px;padding:0 2px;}}
+  .tag.x{{background:#3a7fd0;}}
+  .track{{flex:1;height:5px;background:#5a6072;border:1px solid #2a3045;border-radius:2px;overflow:hidden;}}
+  .fill{{height:100%;}}
+  .sub{{font-size:7px;font-weight:700;color:#7a4a12;letter-spacing:1px;margin-top:1px;}}
+  .fe{{top:5px;right:5px;width:74px;}}
+  .fe .l{{font-size:7px;font-weight:800;width:18px;}}
+  .dlg{{left:5px;right:5px;bottom:5px;height:30px;display:flex;align-items:center;}}
+  .say{{font-size:9px;font-weight:700;line-height:1.15;}}
+  .gear{{position:absolute;top:46px;right:6px;display:flex;flex-direction:column;gap:3px;}}
+  .slot{{width:8px;height:8px;border:1px solid #0008;border-radius:2px;}}
 </style></head><body>
   <div class="screen">
-    <div class="top">
-      <div><div class="name">{name}</div><div class="stage">Lv.{level} · {stage}</div></div>
-      <div class="badges">
-        <div class="chip"><svg width="13" height="13" viewBox="0 0 24 24"><path fill="#e8556e" d="M12 21s-7-4.6-9.3-9.1C1.1 8.6 2.6 5 6 5c2 0 3.2 1.2 4 2.3C10.8 6.2 12 5 14 5c3.4 0 4.9 3.6 3.3 6.9C19 16.4 12 21 12 21z"/></svg>{health}</div>
-        <div class="chip"><svg width="13" height="13" viewBox="0 0 24 24"><path fill="#f3b21b" d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>{energy}</div>
-      </div>
+    <div class="platform"></div>
+    <img class="mascot" src="data:image/png;base64,{sprite}"/>
+    <div class="gear">{gear}</div>
+    <div class="box hp">
+      <div class="row"><span class="nm">{name}</span><span class="lv">:L{level}</span></div>
+      <div class="bar"><span class="tag">HP</span><div class="track"><div class="fill" style="width:{health}%;background:{hpcol}"></div></div></div>
+      <div class="bar"><span class="tag x">XP</span><div class="track"><div class="fill" style="width:{xp}%;background:#3a7fd0"></div></div></div>
+      <div class="sub">{stage}</div>
     </div>
-    <svg class="mascot" width="150" height="150" viewBox="0 0 220 220">{mascot}</svg>
-    <div class="stats">
-      <div class="stat"><div class="lbl">FOOD</div><div class="track"><div class="fill" style="width:{food}%"></div></div></div>
-      <div class="stat"><div class="lbl">ENRG</div><div class="track"><div class="fill" style="width:{energy}%"></div></div></div>
-      <div class="stat"><div class="lbl">XP</div><div class="track"><div class="fill" style="width:{xp}%"></div></div></div>
+    <div class="box fe">
+      <div class="bar"><span class="l">FOOD</span><div class="track"><div class="fill" style="width:{food}%;background:#e0863a"></div></div></div>
+      <div class="bar"><span class="l">ENRG</span><div class="track"><div class="fill" style="width:{energy}%;background:#42c9d8"></div></div></div>
     </div>
-    <div class="say">{name}: {line}</div>
+    <div class="box dlg"><span class="say">{name}: {line}</span></div>
   </div>
 </body></html>"""
+
+_RARITY = {"common": "#b8c2cb", "uncommon": "#7fd1a6", "rare": "#5aa9ff",
+           "epic": "#c07bf0", "legendary": "#ffcf4d"}
 
 
 def render(state, cfg, line: str = "", mood_override: str | None = None,
@@ -62,18 +94,21 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
     d = os.path.dirname(path)
     if d:
         os.makedirs(d, exist_ok=True)
-    m = mood_override or mechanics.mood(state)
+    variant = getattr(cfg, "mascot_variant", "classic")
     nxt = mechanics.xp_to_next(state.level, cfg)
-    say = _html.escape(f'"{line}"') if line else ""
+    health = int(max(0, min(100, state.health)))
+    gear = "".join(
+        f'<div class="slot" style="background:{_RARITY.get(r, "#b8c2cb")}"></div>'
+        for r in (equipped or {}).values())
     html = _HTML.format(
         name=_html.escape(state.name), level=state.level,
-        stage=_html.escape(state.stage.capitalize()),
-        mascot=mascot_svg(m, equipped, state.stage,
-                          getattr(cfg, "mascot_variant", "classic")),
-        health=int(max(0, state.health)), energy=int(max(0, state.energy)),
+        stage=_html.escape(state.stage.upper()),
+        sprite=_sprite_b64(_sprite_for(state.stage, variant)), gear=gear,
+        health=health, hpcol=_hp_color(health),
+        energy=int(max(0, state.energy)),
         food=int(max(0, min(100, 100 - state.hunger))),
         xp=int(max(0, min(100, state.xp / nxt * 100))) if nxt else 0,
-        line=say,
+        line=_html.escape(f'"{line}"') if line else "",
     )
     with open(path, "w") as f:
         f.write(html)

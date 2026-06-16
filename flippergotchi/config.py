@@ -125,7 +125,7 @@ class Config:
     # view / io
     tui: bool = True
     manual: bool = False               # prompt [A]Capture/[B]Run per encounter
-    mascot_variant: str = "blue"       # shark colour: classic|blue|tiger|gold|reef
+    mascot_variant: str = "classic"       # shark colour: classic|blue|tiger|gold|reef
     flipctl_html_out: str = "/tmp/flippergotchi/face.html"
     state_path: str = "~/.flippergotchi/state.json"
 
