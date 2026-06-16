@@ -40,6 +40,11 @@ FlipCTL screen layout from the simulation:
 > is deliberately omitted), and the mascot is **original art** (a cartoon shark,
 > not the trademarked Flipper dolphin). These are simulation renders; HW isn't out.
 
+**Colour variants** — pick your shark (`--variant` or `mascot_variant`), styled
+after the radical '90s shark-toons (original art, descriptive names):
+
+![colour variants](docs/variants.png)
+
 **Evolutions** — the mascot grows from an egg to a legend as it levels up:
 
 ![evolution stages](docs/evolutions.png)
@@ -185,6 +190,7 @@ python3 -m flippergotchi quests            # today's daily quests + progress
 python3 -m flippergotchi duel ByteSurf     # PvP duel (element matchups apply)
 python3 -m flippergotchi gear              # inventory / equip loadout
 python3 -m flippergotchi --simulate --manual   # choose [A]Capture/[B]Run yourself
+python3 -m flippergotchi --simulate --variant tiger   # pick your shark colour
 ```
 
 - **Daily quests** (`quests`): walk N km, catch N monsters, crack one, win a duel,
@@ -284,8 +290,11 @@ or are authorized to test.
 
 ## Trademarks & affiliation
 
-Flippergotchi is an **independent, unofficial fan project** and is **not
-affiliated with, endorsed by, or sponsored by Flipper Devices Inc.** "Flipper",
+Flippergotchi is an **independent, unofficial fan project**. The mascot is
+original art; its colour variants are *inspired by* classic '90s shark-toon
+characters but use generic descriptive names and original artwork — those
+characters are trademarks of their respective owners and aren't used here. It is
+also **not affiliated with, endorsed by, or sponsored by Flipper Devices Inc.** "Flipper",
 "Flipper One", and the Flipper dolphin are trademarks of Flipper Devices Inc.,
 used here only **nominatively** to indicate the target hardware. **No official
 Flipper Devices artwork, renders, logos, or insignia are included in this

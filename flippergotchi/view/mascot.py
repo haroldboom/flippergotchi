@@ -10,33 +10,74 @@ ORIGINAL art — not based on any trademarked logo. See the README trademark not
 """
 from __future__ import annotations
 
+import itertools
+
 _OUT = '#1d2a33'
+# unique suffix per render so multiple mascots on one page don't share gradient
+# / clip / filter ids (url(#body) is document-global and would otherwise collide)
+_uid = itertools.count(1)
 _MOUTH = '#3a2230'
 _TONGUE = '#d9617a'
 
-_DEFS = (
-    '<defs>'
-    '<linearGradient id="body" x1="0" y1="0" x2="0" y2="1">'
-    '<stop offset="0" stop-color="#86a9bb"/><stop offset=".55" stop-color="#5f8294"/>'
-    '<stop offset="1" stop-color="#4a6b7c"/></linearGradient>'
-    '<linearGradient id="fin" x1="0" y1="0" x2="0" y2="1">'
-    '<stop offset="0" stop-color="#6f93a6"/><stop offset="1" stop-color="#4a6b7c"/></linearGradient>'
-    '<radialGradient id="belly" cx=".5" cy=".4" r=".7">'
-    '<stop offset="0" stop-color="#eef5f8"/><stop offset="1" stop-color="#cfe0e8"/></radialGradient>'
-    '<filter id="glow" x="-80%" y="-80%" width="260%" height="260%">'
-    '<feGaussianBlur stdDeviation="4"/></filter>'
-    '</defs>'
-)
+# color/pattern variants — original art whose palettes nod to classic '90s
+# shark-toon characters (names kept descriptive; those characters are
+# third-party trademarks). b=body gradient, f=fin gradient, belly=throat, pat=skin
+_PAL = {
+    "classic": dict(b=("#86a9bb", "#5f8294", "#4a6b7c"), f=("#6f93a6", "#4a6b7c"),
+                    belly=("#eef5f8", "#cfe0e8"), pat=None),
+    "blue":    dict(b=("#5b8fc9", "#3f6aa3", "#2f5180"), f=("#4d7cb5", "#2f5180"),
+                    belly=("#f0e4c8", "#e6d4ad"), pat=None),       # great-white, beige belly
+    "tiger":   dict(b=("#8fc4e8", "#6aa6d6", "#4f86bd"), f=("#79b3df", "#4f86bd"),
+                    belly=("#eef5fb", "#d4e6f4"), pat="stripes"),  # light blue + purple stripes
+    "gold":    dict(b=("#e8c453", "#c79e2e", "#a8821f"), f=("#d4b23e", "#a8821f"),
+                    belly=("#e8ecee", "#cfd6da"), pat=None),       # gold, grey belly
+    "reef":    dict(b=("#f3974a", "#e0792a", "#c5631a"), f=("#e8853a", "#c5631a"),
+                    belly=("#ffe9d6", "#f4d2b4"), pat="spots"),    # orange + peach spots
+}
+VARIANTS = list(_PAL)
+
+_HEAD_D = "M110 42 C154 44 182 78 180 112 C178 140 152 160 110 162 C68 160 42 140 40 112 C38 78 66 44 110 42 Z"
+_TORSO_D = "M18 212 C22 166 52 148 86 150 L134 150 C168 148 198 166 202 212 Z"
+
+
+def _defs(variant):
+    p = _PAL.get(variant, _PAL["classic"])
+    b, f, be = p["b"], p["f"], p["belly"]
+    return ('<defs>'
+            f'<linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{b[0]}"/>'
+            f'<stop offset=".55" stop-color="{b[1]}"/><stop offset="1" stop-color="{b[2]}"/></linearGradient>'
+            f'<linearGradient id="fin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{f[0]}"/>'
+            f'<stop offset="1" stop-color="{f[1]}"/></linearGradient>'
+            f'<radialGradient id="belly" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="{be[0]}"/>'
+            f'<stop offset="1" stop-color="{be[1]}"/></radialGradient>'
+            '<filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="4"/></filter>'
+            f'<clipPath id="silho"><path d="{_HEAD_D}"/><path d="{_TORSO_D}"/></clipPath>'
+            '</defs>')
+
+
+def _pattern(variant):
+    pat = _PAL.get(variant, {}).get("pat")
+    if pat == "stripes":
+        bars = "".join(f'<path d="M{x} 52 q-9 54 0 110" stroke="#6e46a8" stroke-width="7" fill="none" opacity=".8"/>'
+                       for x in (72, 96, 124, 148))
+        return f'<g clip-path="url(#silho)">{bars}</g>'
+    if pat == "spots":
+        pts = [(68, 70), (152, 70), (58, 102), (162, 102), (90, 58), (130, 58),
+               (44, 184), (176, 184), (78, 204), (142, 204), (110, 210)]
+        dots = "".join(f'<circle cx="{x}" cy="{y}" r="6" fill="#ffe2c2" opacity=".9"/>' for x, y in pts)
+        return f'<g clip-path="url(#silho)">{dots}</g>'
+    return ""
+
 
 _TORSO = (
-    f'<path d="M18 212 C22 166 52 148 86 150 L134 150 C168 148 198 166 202 212 Z" fill="url(#body)" stroke="{_OUT}" stroke-width="5" stroke-linejoin="round"/>'
+    f'<path d="{_TORSO_D}" fill="url(#body)" stroke="{_OUT}" stroke-width="5" stroke-linejoin="round"/>'
     f'<ellipse cx="48" cy="176" rx="26" ry="22" fill="url(#body)" stroke="{_OUT}" stroke-width="4"/>'
     f'<ellipse cx="172" cy="176" rx="26" ry="22" fill="url(#body)" stroke="{_OUT}" stroke-width="4"/>'
     '<path d="M88 158 Q110 150 132 158 Q134 188 110 196 Q86 188 88 158Z" fill="url(#belly)"/>'
 )
 
 _HEAD = (
-    f'<path d="M110 42 C154 44 182 78 180 112 C178 140 152 160 110 162 C68 160 42 140 40 112 C38 78 66 44 110 42 Z" fill="url(#body)" stroke="{_OUT}" stroke-width="5" stroke-linejoin="round"/>'
+    f'<path d="{_HEAD_D}" fill="url(#body)" stroke="{_OUT}" stroke-width="5" stroke-linejoin="round"/>'
     '<path d="M80 116 Q110 104 140 116 Q142 146 110 156 Q78 146 80 116Z" fill="url(#belly)"/>'
 )
 
@@ -174,11 +215,13 @@ def _gear(slot, color, glow=False):
 
 
 def mascot_svg(mood: str = "content", equipped: dict | None = None,
-               stage: str = "juvenile") -> str:
+               stage: str = "juvenile", variant: str = "classic") -> str:
     """Inner SVG (for viewBox='0 0 220 220') of the shark at this evolution
-    stage, in this mood, wearing `equipped` (slot -> rarity name)."""
+    stage, in this mood, wearing `equipped` (slot -> rarity), in colour `variant`
+    (one of VARIANTS)."""
+    defs = _defs(variant)
     if stage == "egg":
-        return _DEFS + _egg()
+        return _uniq(defs + _egg())
     equipped = equipped or {}
     parts = [_aura(stage)]
     if "antenna" in equipped:
@@ -188,7 +231,8 @@ def mascot_svg(mood: str = "content", equipped: dict | None = None,
         if dx or dy:
             ant = f'<g transform="translate({dx} {dy})">{ant}</g>'
         parts.append(ant)
-    parts += [_headfin(stage), _TORSO, _HEAD, _GILLS, _face(mood), _scar(stage)]
+    parts += [_headfin(stage), _TORSO, _HEAD, _pattern(variant), _GILLS,
+              _face(mood), _scar(stage)]
     for slot in ("cpu", "charm", "hull", "battery"):
         if slot in equipped:
             rarity = equipped[slot]
@@ -197,4 +241,13 @@ def mascot_svg(mood: str = "content", equipped: dict | None = None,
     s = _SCALE.get(stage, 1.0)
     inner = "".join(parts)
     g = f'<g transform="translate(110 120) scale({s}) translate(-110 -120)">{inner}</g>'
-    return _DEFS + g
+    return _uniq(defs + g)
+
+
+def _uniq(svg: str) -> str:
+    """Suffix the shared ids so several mascots can share one HTML document."""
+    u = f"_{next(_uid)}"
+    for name in ("body", "fin", "belly", "glow", "silho"):
+        svg = svg.replace(f'id="{name}"', f'id="{name}{u}"')
+        svg = svg.replace(f'url(#{name})', f'url(#{name}{u})')
+    return svg

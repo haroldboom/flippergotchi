@@ -26,6 +26,8 @@ def main() -> None:
                     help="log events only; no full-screen face")
     ap.add_argument("--manual", action="store_true",
                     help="prompt [A]Capture / [B]Run on each encounter")
+    ap.add_argument("--variant", choices=["classic", "blue", "tiger", "gold", "reef"],
+                    help="shark colour variant")
     ap.add_argument("--reset", action="store_true", help="start a brand new pet")
     # RPG subcommands (default is to just run the pet/scanner loop)
     ap.add_argument("command", nargs="?", default="run",
@@ -55,6 +57,8 @@ def main() -> None:
         cfg.tui = False
     if args.manual:
         cfg.manual = True
+    if args.variant:
+        cfg.mascot_variant = args.variant
 
     if args.command == "dex":
         from .commands import cmd_dex
