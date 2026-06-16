@@ -4,10 +4,13 @@ import os
 import time
 
 from . import persistence
+from . import prefs as prefs_mod
 from .ai.service import AIService
 from .core.bettercap import BettercapClient
 from .core.bluetooth import BluetoothScanner
-from .game import encounter, monsters
+import random
+
+from .game import encounter, equipment, monsters
 from .game.bestiary import Bestiary
 from .pet import mechanics
 from .pet.gps import GpsReader
@@ -25,6 +28,7 @@ class Agent:
         self.gps = GpsReader(cfg)
         self.ai = AIService(cfg)
         self.dex = Bestiary(cfg.bestiary_path)
+        self.inv = equipment.Inventory(cfg.inventory_path)
         self._say = ""
         self._fx = None          # (mood, until_ts) transient face override
         self._last_save = 0.0
@@ -32,6 +36,7 @@ class Agent:
         self._tick_i = 0
         self._cooldown = {}      # bssid -> tick last encountered
         self._visible = []       # recently-seen SSIDs (for 'home' detection)
+        self._peers = prefs_mod.load(cfg.peers_path)  # addr -> peer Flippergotchi
 
     def log(self, msg: str) -> None:
         print(f"· {msg}")
@@ -99,6 +104,9 @@ class Agent:
             self.log(f"[catch] {m.species} '{ssid}' Lv{m.level} "
                      f"[{m.encryption}] -- {self.ai.analyze(ev)}")
             self.speak("fed", ssid, "handshake")
+            if random.random() < self.cfg.loot_chance:
+                it = self.inv.add(equipment.roll_item(boost=m.level // 3))
+                self.log(f"[loot] dropped {it.rarity} gear: {it.name} (+{it.power} pow)")
             self._progress(ups)
         elif enc.state == encounter.ESCAPED:
             m.captured = False
@@ -111,10 +119,27 @@ class Agent:
         if not self.ble:
             return
         for ev in self.ble.poll():
+            if ev.get("type") == "peer":
+                self._note_peer(ev)
+                continue
             m = monsters.from_ble(ev)
             if self.dex.add(m):
                 self.state.happiness = mechanics.clamp(self.state.happiness + 1)
                 self.log(f"[dex] a tiny {m.species} '{m.name}' blipped past (Lv{m.level})")
+
+    def _note_peer(self, ev: dict) -> None:
+        addr = ev.get("addr")
+        if not monsters.is_valid_id(addr):
+            return
+        first = addr not in self._peers
+        self._peers[addr] = {"name": ev.get("name", "?"), "addr": addr,
+                             "level": ev.get("level", 1),
+                             "handshakes": ev.get("handshakes", 0)}
+        if first:
+            p = self._peers[addr]
+            self.log(f"[peer] another Flippergotchi nearby: {p['name']} "
+                     f"(Lv{p['level']}) -- duel it with `duel {p['name']}`")
+            self._fx_set("excited")
 
     def _events(self, events: list) -> None:
         for ev in events:
@@ -166,6 +191,8 @@ class Agent:
                 if now - self._last_save > 10:
                     persistence.save(self.cfg.state_path, self.state)
                     self.dex.save()
+                    self.inv.save()
+                    prefs_mod.save(self.cfg.peers_path, self._peers)
                     self._last_save = now
                 i += 1
                 time.sleep(self.cfg.tick_interval)
@@ -174,3 +201,5 @@ class Agent:
         finally:
             persistence.save(self.cfg.state_path, self.state)
             self.dex.save()
+            self.inv.save()
+            prefs_mod.save(self.cfg.peers_path, self._peers)

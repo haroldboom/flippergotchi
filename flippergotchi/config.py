@@ -97,7 +97,11 @@ class Config:
     bestiary_path: str = "~/.flippergotchi/bestiary.json"
     ledger_path: str = "~/.flippergotchi/ledger.json"
     prefs_path: str = "~/.flippergotchi/prefs.json"
+    peers_path: str = "~/.flippergotchi/peers.json"
+    inventory_path: str = "~/.flippergotchi/inventory.json"
     scan_bluetooth: bool = True
+    duel_stake_frac: float = 0.20            # share of handshakes the loser forfeits
+    loot_chance: float = 0.12                # chance a capture drops a gear item
     # cracking is ONLY allowed against networks matching these (ssid/bssid
     # substrings) - your own "dojo". Empty => battles are refused by default.
     home_networks: list = field(default_factory=list)

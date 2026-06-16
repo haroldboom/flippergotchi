@@ -1,9 +1,12 @@
 """`dex`, `battle`, `encounter` subcommands."""
 from __future__ import annotations
 
+from . import persistence
 from . import prefs as prefs_mod
 from .game import battle as battle_mod
+from .game import duel as duel_mod
 from .game import encounter as enc_mod
+from .game import equipment as equip_mod
 from .game import monsters
 from .game.bestiary import Bestiary
 from .game.home import WARNING
@@ -56,6 +59,88 @@ def cmd_encounter(cfg) -> None:
         print(frame)
         print()
     print(f"  => {e.message}")
+
+
+def cmd_duel(cfg, target: str | None) -> None:
+    """Challenge another Flippergotchi (detected over BLE) to a PvP duel."""
+    state = persistence.load(cfg.state_path)
+    peers = prefs_mod.load(cfg.peers_path)
+
+    if not target:
+        if not peers:
+            print("No Flippergotchi peers detected yet. Walk near another one "
+                  "(it advertises over Bluetooth), then `duel <name>`.")
+            return
+        print("Nearby Flippergotchis:")
+        for p in peers.values():
+            print(f"  {p['name']:<14} Lv{p['level']:<3} {p['handshakes']} handshakes")
+        print("\nChallenge one with:  duel <name>")
+        return
+
+    peer = next((p for p in peers.values()
+                 if p["name"].lower() == target.lower() or p["addr"] == target), None)
+    if not peer:
+        print(f"No peer named '{target}' nearby. Try `duel` to list them.")
+        return
+
+    inv = equip_mod.Inventory(cfg.inventory_path)
+    you = duel_mod.Fighter(name=state.name, level=state.level,
+                           handshakes=state.handshakes, health=state.health,
+                           happiness=state.happiness, gear=inv.gear_power())
+    them = duel_mod.Fighter(name=peer["name"], level=peer["level"],
+                            handshakes=peer["handshakes"],
+                            gear=peer.get("gear_power", 0), addr=peer["addr"])
+    print(f"== DIGI-DUEL ==  {you.name} vs {them.name}\n")
+    res = duel_mod.duel(you, them, cfg)
+    for line in res.log:
+        print(f"  {line}")
+    duel_mod.apply_result(state, res)
+
+    # ...and the loser forfeits a bit of gear
+    if res.you_won:
+        loot = equip_mod.roll_item(boost=peer["level"])
+        inv.add(loot)
+        print(f"  you seized {loot.rarity} gear: {loot.name} (+{loot.power} pow)")
+    else:
+        forfeit = inv.pick_forfeit()
+        if forfeit:
+            inv.remove(forfeit.id)
+            print(f"  {them.name} stripped your {forfeit.name} (-{forfeit.power} pow)")
+        else:
+            print("  you had no gear to forfeit.")
+    inv.save()
+    persistence.save(cfg.state_path, state)
+    verb = "won" if res.you_won else "lost"
+    print(f"\n  You {verb}. Handshake pool: {state.handshakes}  |  "
+          f"gear power: {inv.gear_power()}")
+
+
+def cmd_gear(cfg, target: str | None) -> None:
+    """List your inventory, or toggle equip/unequip for an item by id/name."""
+    inv = equip_mod.Inventory(cfg.inventory_path)
+    if target:
+        it = inv.items.get(target) or next(
+            (x for x in inv.items.values() if x.name.lower() == target.lower()), None)
+        if not it:
+            print(f"No gear matching '{target}'. Run `gear` to list.")
+            return
+        if inv.is_equipped(it.id):
+            inv.unequip_slot(it.slot)
+            print(f"Unequipped {it.name}.")
+        else:
+            inv.equip(it.id)
+            print(f"Equipped {it.name} in [{it.slot}].")
+        inv.save()
+        return
+    rows = inv.all()
+    if not rows:
+        print("No gear yet. Capture monsters and win duels to loot some!")
+        return
+    print(f"  INVENTORY  ({len(rows)} items)   equipped gear power: {inv.gear_power()}")
+    for it in rows:
+        mark = "*" if inv.is_equipped(it.id) else " "
+        print(f"  {mark} [{it.slot:<7}] {it.name:<20} {it.rarity:<9} "
+              f"pow {it.power:>2}  (+{it.bonus_val} {it.bonus_stat})  {it.id}")
 
 
 def _show_warning(cfg, dont_show: bool) -> None:

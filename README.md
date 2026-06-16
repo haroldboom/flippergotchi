@@ -74,6 +74,8 @@ gps (walking)      ─┘     │            │
 | `game/encounter.py` | detect → Capture/Run state machine | ✅ done & tested |
 | `game/home.py` | "are we home?" gate for battling | ✅ |
 | `game/ledger.py` | wins / losses / escalations database | ✅ done & tested |
+| `game/duel.py` | Digimon-style PvP between Flippergotchis | ✅ done & tested |
+| `game/equipment.py` | gear: loot, equip, forfeit-on-loss | ✅ done & tested |
 | `prefs.py` | persistent prefs (e.g. dismissed warning) | ✅ |
 | `view/animations.py` | net-gun / flee ASCII animation frames | ✅ |
 | `core/bluetooth.py` | BLE devices → mini-monsters | sim ✅; BlueZ = TODO |
@@ -141,6 +143,27 @@ python3 -m flippergotchi battle --all --dont-show-again   # ...and stop warning 
   failed, **escalate** = uploaded to the cloud cracker).
 - The crack **warning** has a *do-not-show-again* (`--dont-show-again`) that
   persists in `prefs.json`.
+
+### PvP duels + equipment (Digimon-style)
+
+When another Flippergotchi is detected advertising over **Bluetooth**, you can
+challenge it:
+
+```bash
+python3 -m flippergotchi duel              # list nearby Flippergotchis
+python3 -m flippergotchi duel ByteSurf     # challenge one
+python3 -m flippergotchi gear              # your inventory + equipped loadout
+python3 -m flippergotchi gear <item-id>    # toggle equip / unequip
+```
+
+- **Power** = level (dominant) + handshake pool + **equipped gear** + condition.
+  Win chance comes from the power ratio, but upsets are always possible
+  (clamped 8–92%), so a strong loadout matters but never guarantees a win.
+- **Stakes:** the loser forfeits a slice of their **handshakes** *and* **a bit
+  of gear** (weakest *unequipped* item first — equipped gear is protected).
+- **Gear** drops from captures (`loot_chance`) and is won in duels. Five slots
+  (antenna / battery / cpu / charm / hull), five rarities (common→legendary);
+  only equipped items count toward your power.
 
 The **analyst** runs automatically on every capture (difficulty + suggested
 attack + the exact hashcat command); on the `cpu`/`npu` AI backend it's narrated

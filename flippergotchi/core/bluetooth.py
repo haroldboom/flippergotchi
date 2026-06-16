@@ -17,7 +17,18 @@ class BluetoothScanner:
 
     def poll(self) -> list:
         if self.mode != "sim":
-            return []  # TODO: live BlueZ scan
+            return []  # TODO: live BlueZ scan (devices + Flippergotchi peers)
+        # occasionally another Flippergotchi is nearby (advertises name + stats)
+        if random.random() < 0.05:
+            return [{
+                "type": "peer",
+                "addr": ":".join("%02X" % random.randint(0, 255) for _ in range(6)),
+                "name": random.choice(["Sparkfin", "RogueDolphin", "ByteSurf",
+                                       "NixWave", "GotchiX"]),
+                "level": random.randint(1, 14),
+                "handshakes": random.randint(0, 40),
+                "gear_power": random.randint(0, 35),
+            }]
         if random.random() < 0.15:
             appearance = random.choice(
                 ["phone", "wearable", "audio", "beacon", "computer", "unknown"])
