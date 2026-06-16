@@ -6,15 +6,19 @@ import time
 from . import persistence
 from . import prefs as prefs_mod
 from .ai.service import AIService
-from .core.bettercap import BettercapClient
+from .core.authz import Authorizer
 from .core.bluetooth import BluetoothScanner
+from .core.wifi.backends import make_backend
 import random
 
 from .game import encounter, equipment, monsters
 from .game import quests as quests_mod
+from .game import shop as shop_mod
+from .game.achievements import AchievementBook
 from .game.bestiary import Bestiary
 from .game.home import at_home
 from .game.quests import QuestLog
+from .game.shop import Wallet
 from .pet import mechanics
 from .pet.gps import GpsReader
 from .view import animations, flipctl, tui
@@ -26,13 +30,19 @@ class Agent:
     def __init__(self, cfg, state):
         self.cfg = cfg
         self.state = state
-        self.wifi = BettercapClient(cfg)
+        # active RF actions (deauth/capture) are gated to your authorized dojo
+        self.authz = Authorizer(cfg)
+        self.wifi = make_backend(cfg, is_authorized=self.authz.is_authorized)
         self.ble = BluetoothScanner(cfg) if cfg.scan_bluetooth else None
         self.gps = GpsReader(cfg)
         self.ai = AIService(cfg)
         self.dex = Bestiary(cfg.bestiary_path)
         self.inv = equipment.Inventory(cfg.inventory_path)
         self.quests = QuestLog(cfg.quests_path)
+        self.book = AchievementBook(getattr(cfg, "achievements_path",
+                                            "~/.flippergotchi/achievements.json"))
+        self.wallet = Wallet(getattr(cfg, "wallet_path",
+                                     "~/.flippergotchi/wallet.json"))
         self._say = ""
         self._fx = None          # (mood, until_ts) transient face override
         self._last_save = 0.0
@@ -88,6 +98,31 @@ class Agent:
             self.log(f"[quest] DONE: {q.description} -> {reward}")
             self._fx_set("excited")
 
+    def _achievements(self) -> None:
+        """Unlock any newly-met badges; grant their small rewards. Cheap enough
+        to call after each catch/walk. Never raises out of the loop."""
+        try:
+            stats = {
+                "catches": sum(1 for x in self.dex.all()
+                               if getattr(x, "captured", False)),
+                "cracks": 0,            # cracking happens via the `battle` command
+                "duel_wins": getattr(self.state, "duel_wins", 0),
+                "distance_m": getattr(self.state, "distance_m", 0.0),
+                "level": self.state.level,
+                "stage": self.state.stage,
+                "equipped_slots": len(getattr(self.inv, "equipped", {}) or {}),
+                "shinies": 0,
+            }
+            for b in self.book.check(stats):
+                rw = b.reward or {}
+                self.wallet.earn(int(rw.get("scrap", 0)))
+                for _ in range(int(rw.get("food", 0))):
+                    mechanics.snack(self.state, self.cfg)
+                self.log(f"[badge] ★ {b.name} -- {b.description}")
+                self._fx_set("excited")
+        except Exception as e:  # noqa: BLE001 - never break the tick loop
+            self.log(f"achievement check failed: {e}")
+
     def _scene(self, text: str) -> None:
         os.system("clear")
         print(text)
@@ -127,6 +162,8 @@ class Agent:
                      f"[{m.encryption}] -- {self.ai.analyze(ev)}")
             self.speak("caught", ssid)
             self._quest("catches", 1)
+            self.wallet.earn(shop_mod.scrap_for_catch())
+            self._achievements()
             self._progress(ups)
         elif enc.state == encounter.ESCAPED:
             m.captured = False
@@ -183,13 +220,15 @@ class Agent:
     def tick(self, dt: float) -> None:
         self._tick_i += 1
         self.quests.roll(time.strftime("%Y-%m-%d"))   # daily quests (no-op same day)
-        self._events(self.wifi.poll())
+        self._events(self.wifi.scan())
         self._spawn_ble()
         meters = self.gps.distance()
         if meters > 0:
             self._progress(mechanics.walk(self.state, meters, self.cfg))
             self._forage(meters)
             self._quest("distance_m", meters)
+            self.wallet.earn(shop_mod.scrap_for_walk(meters))
+            self._achievements()
         mechanics.tick(self.state, dt * self.cfg.time_scale, self.cfg)
         self._home_check()
         # occasional mood-driven chatter when nothing else is happening
@@ -229,16 +268,26 @@ class Agent:
         except Exception as e:
             self.log(f"flipctl render failed: {e}")
 
+    def _save(self) -> None:
+        persistence.save(self.cfg.state_path, self.state)
+        self.dex.save()
+        self.inv.save()
+        self.quests.save()
+        self.wallet.save()
+        self.book.save()
+        prefs_mod.save(self.cfg.peers_path, self._peers)
+
     def run(self, ticks: int | None = None) -> None:
-        if self.wifi.mode == "live":
-            try:
-                self.wifi.start()
-            except NotImplementedError as e:
-                self.log(f"can't start live capture: {e}")
-                self.log("tip: pass --simulate to run without a radio.")
-                return
+        # backends are uniform: start() is a no-op in sim and self-degrades on
+        # hardware errors, so it never raises out here.
+        try:
+            self.wifi.start()
+        except Exception as e:  # noqa: BLE001
+            self.log(f"capture backend start failed ({e}); continuing passive/sim.")
+        backend = type(self.wifi).__name__
         self.log(f"{self.state.name} waking up "
-                 f"(stage={self.state.stage}, ai={self.ai.backend.name})")
+                 f"(stage={self.state.stage}, ai={self.ai.backend.name}, "
+                 f"capture={backend})")
         i, last = 0, time.time()
         try:
             while ticks is None or i < ticks:
@@ -247,19 +296,11 @@ class Agent:
                 last = now
                 self.render()
                 if now - self._last_save > 10:
-                    persistence.save(self.cfg.state_path, self.state)
-                    self.dex.save()
-                    self.inv.save()
-                    self.quests.save()
-                    prefs_mod.save(self.cfg.peers_path, self._peers)
+                    self._save()
                     self._last_save = now
                 i += 1
                 time.sleep(self.cfg.tick_interval)
         except KeyboardInterrupt:
             self.log("going to sleep... (saving state)")
         finally:
-            persistence.save(self.cfg.state_path, self.state)
-            self.dex.save()
-            self.inv.save()
-            self.quests.save()
-            prefs_mod.save(self.cfg.peers_path, self._peers)
+            self._save()

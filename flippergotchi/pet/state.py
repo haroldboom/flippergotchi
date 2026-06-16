@@ -24,6 +24,7 @@ class PetState:
     handshakes: int = 0
     pmkids: int = 0
     networks_seen: int = 0
+    duel_wins: int = 0        # PvP duels won (achievements/progression)
 
     stage: str = "egg"        # evolution stage, driven by level
     element: str = "Aether"   # your element, for duel type-advantage

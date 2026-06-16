@@ -127,7 +127,14 @@ gps (walking)      ─┘     │            │
 
 | Module | Role | Status |
 |---|---|---|
-| `core/bettercap.py` | WiFi capture → food events | **sim works**; live = TODO (REST/ws) |
+| `core/wifi/` | native capture stack: monitor-mode mgmt, scan, hcxdumptool/scapy handshake+PMKID capture, `CaptureBackend` (auto: native→bettercap→sim) | sim ✅; hw path wired (needs on-device validation) |
+| `core/handshake.py` | EAPOL 4-way / PMKID validation (pure-python pcap fallback) + `hcxpcapngtool` → hc22000 | ✅ done & tested |
+| `core/authz.py` | deny-by-default scope guard for active RF actions + JSONL audit log | ✅ done & tested |
+| `core/preflight.py` + `game/doctor.py` | `doctor` preflight: tools / privileges / iface / wordlist / scope | ✅ done & tested |
+| `game/cracking.py` | hardened hashcat pipeline (PMKID/EAPOL, multi-wordlist + rules) | ✅ done & tested |
+| `game/achievements.py` · `shop.py` · `gearsets.py` | badges · "scrap" currency + shop · gear-set bonuses | ✅ done & tested |
+| `game/moves.py` | per-element PvP move sets + status effects | ✅ done & tested |
+| `core/bettercap.py` | WiFi capture via bettercap REST | **sim works**; live wired (needs on-device validation) |
 | `pet/gps.py` | GPS movement → walk distance | **sim works**; gpsd = TODO |
 | `pet/mechanics.py` | hunger / xp / levels / evolution / mood | ✅ done & tested |
 | `pet/state.py` | the savefile | ✅ |
@@ -148,7 +155,7 @@ gps (walking)      ─┘     │            │
 | `game/encounter.py` | detect → Capture/Run state machine | ✅ done & tested |
 | `game/home.py` | "are we home?" gate for battling | ✅ |
 | `game/ledger.py` | wins / losses / escalations database | ✅ done & tested |
-| `game/duel.py` | Digimon-style PvP + element type-advantage | ✅ done & tested |
+| `game/duel.py` | Digimon-style PvP: turn-based moves + status effects + STAB | ✅ done & tested |
 | `game/equipment.py` | gear: loot, equip, forfeit-on-loss | ✅ done & tested |
 | `game/elements.py` | Spark/Tide/Gale/Aether matchup chart | ✅ done & tested |
 | `game/quests.py` | daily quests + rewards | ✅ done & tested |
@@ -209,11 +216,20 @@ python3 -m flippergotchi battle Linksys    # crack one (gated to home_networks)
 python3 -m flippergotchi battle --all      # auto-battle every captured monster
 python3 -m flippergotchi battle --all --dont-show-again   # ...and stop warning me
 python3 -m flippergotchi quests            # today's daily quests + progress
-python3 -m flippergotchi duel ByteSurf     # PvP duel (element matchups apply)
+python3 -m flippergotchi duel ByteSurf     # PvP duel (moves + element matchups)
 python3 -m flippergotchi gear              # inventory / equip loadout
+python3 -m flippergotchi doctor            # preflight: tools/iface/wordlist/scope
+python3 -m flippergotchi achievements      # badges unlocked + scrap balance
+python3 -m flippergotchi shop              # browse; `shop buy <id>` to spend scrap
 python3 -m flippergotchi --simulate --manual   # choose [A]Capture/[B]Run yourself
 python3 -m flippergotchi --simulate --variant tiger   # pick your shark colour
 ```
+
+- **Scrap economy**: cracking, catching, walking and winning duels earn **scrap**
+  — spend it in the `shop` on food, energy/repair, monster lures, or a gear
+  reroll token. **Achievements** unlock milestone badges (with small rewards).
+- **Gear sets**: matching themed pieces grant a set bonus to **PvP power only**
+  (never WiFi cracking — that stays deterministic from the network).
 
 - **Daily quests** (`quests`): walk N km, catch N monsters, crack one, win a duel,
   forage snacks — completing one grants XP / handshakes / gear. Reroll each day.
@@ -277,11 +293,46 @@ Set `ai_backend` in config (or leave default):
 The whole point of the abstraction: **ship on `canned`/`cpu` now, flip to `npu`
 later with no redesign.**
 
+## The WiFi penetration stack
+
+The radio side is built to be **rock-solid and safe**: pluggable backends, real
+handshake *validation* (not just "we wrote a file"), a hard authorization gate on
+every active action, and a `doctor` that tells you exactly what's missing.
+
+```
+core/wifi/monitor.py    monitor-mode iface mgmt: detect MT7921, airmon-ng / iw,
+                        rfkill, regdomain, channel set + hop plans, capabilities()
+core/wifi/scan.py       passive AP/client discovery (iw scan / airodump CSV)
+core/wifi/capture.py    handshake + PMKID capture: hcxdumptool → scapy fallback,
+                        AUTHORIZED targeted deauth only
+core/wifi/backends.py   CaptureBackend abstraction; make_backend() auto-selects
+                        native → bettercap → sim (override: cfg.capture_backend)
+core/handshake.py       validate EAPOL 4-way (M1–M4) / PMKID before cracking —
+                        pure-python pcap/pcapng parser, no external tool needed
+game/cracking.py        hashcat -m 22000 (PMKID/EAPOL), multi-wordlist + rules,
+                        structured CrackResult; deterministic sim fallback
+core/authz.py           in_scope() + Authorizer: deny-by-default, allowlist file,
+                        JSONL audit log of every deauth/capture/crack
+```
+
+**Authorization model.** Passive scanning is always fine. *Active* actions
+(deauth, capture, crack) are refused unless the target matches `home_networks`
+**or** your `~/.flippergotchi/allowlist.txt` — deny-by-default, and every attempt
+(allowed or denied) is appended to `~/.flippergotchi/audit.log`. Only crack
+networks you own or are authorized to test.
+
+**Preflight.** `python3 -m flippergotchi doctor` reports tools
+(`hcxdumptool`/`hcxpcapngtool`/`hashcat`/`iw`/…), privileges (root / CAP_NET_ADMIN),
+the monitor interface, the wordlist, and your scope — then a plain-English
+"you can: [passive scan] [capture] [crack]" summary with fix-it hints.
+
 ## Porting to real hardware (when the Flipper One arrives)
 
-1. **Capture:** implement `BettercapClient.start()/poll()` against bettercap's
-   REST + websocket API on the MT7921 monitor interface (`mon0`). Set
-   `simulate = false`.
+1. **Capture:** install `hcxdumptool`/`hcxpcapngtool`/`hashcat`, set
+   `simulate = false`, run `doctor` until it's green, add your AP to
+   `home_networks`/allowlist, point `interface` at the MT7921 monitor iface.
+   `make_backend()` then picks the native stack automatically (or set
+   `capture_backend = "bettercap"` to drive a running bettercap REST session).
 2. **Walking:** implement `GpsReader._gpsd_step()` against `gpsd`. Set
    `gps_mode = "gpsd"`.
 3. **Face:** wrap `view/flipctl.py`'s markup in a real FlipCTL plugin and map the
@@ -290,7 +341,8 @@ later with no redesign.**
    `ai_backend = "npu"`.
 
 The game logic in `pet/` and `agent.py` does **not** change between sim and
-hardware — that's the design.
+hardware — that's the design. Every hardware path is marked
+`NEEDS ON-HARDWARE VALIDATION` and degrades to sim/None rather than crashing.
 
 ## Roadmap ideas
 
@@ -298,11 +350,18 @@ hardware — that's the design.
 - ~~APs as catchable monsters; BLE as mini-monsters; hashcat/cloud battles~~ ✅
   scaffolded (`game/`).
 - ~~Type/element advantages; daily quests; manual capture mode~~ ✅ done.
-- Real-hardware paths are now **implemented but unvalidated** (need a device):
-  - `core/bettercap.py` live REST client (needs `bettercap … api.rest on`)
+- ~~Native capture stack (monitor-mode, scan, hcxdumptool/scapy capture, backend
+  abstraction)~~ ✅ done (`core/wifi/`).
+- ~~Handshake/PMKID validation + `hcxpcapngtool`→hashcat conversion~~ ✅ done
+  (`core/handshake.py`, `game/cracking.py`).
+- ~~Authorization scope guard + audit log + `doctor` preflight~~ ✅ done
+  (`core/authz.py`, `game/doctor.py`).
+- ~~Progression: achievements, scrap economy + shop, gear sets~~ ✅ done.
+- ~~PvP moves + status effects~~ ✅ done (`game/moves.py`, `game/duel.py`).
+- Real-hardware paths are **implemented but unvalidated** (need a device):
+  - `core/wifi/*` native capture · `core/bettercap.py` live REST client
   - `pet/gps.py` gpsd reader · `core/bluetooth.py` BLE scan via optional `bleak`
-  - still TODO: `hcxpcapngtool`→hashcat conversion, wpa-sec/onlinehashcrack uploads,
-    FlipCTL plugin, RKLLM NPU backend.
+  - still TODO: wpa-sec/onlinehashcrack uploads, FlipCTL plugin, RKLLM NPU backend.
 - Step counter via the device IMU (true pedometer) alongside GPS distance.
 - Reinforcement-learning channel hopper (classic Pwnagotchi A2C) as an optional
   capture optimizer — CPU, independent of the LLM.

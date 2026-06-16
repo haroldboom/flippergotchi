@@ -32,10 +32,13 @@ def main() -> None:
     # RPG subcommands (default is to just run the pet/scanner loop)
     ap.add_argument("command", nargs="?", default="run",
                     choices=["run", "dex", "battle", "encounter", "duel", "gear",
-                             "quests"],
+                             "quests", "doctor", "shop", "achievements"],
                     help="run | dex | battle <name> | encounter | duel <peer> | "
-                         "gear [item] | quests")
-    ap.add_argument("target", nargs="?", help="monster name/bssid for `battle`")
+                         "gear [item] | quests | doctor | shop [buy <item>] | "
+                         "achievements")
+    ap.add_argument("target", nargs="?", help="monster name/bssid for `battle`; "
+                    "or `buy`/item-id for `shop`")
+    ap.add_argument("extra", nargs="?", help="item id for `shop buy <item>`")
     ap.add_argument("--authorized", action="store_true",
                     help="confirm you're cleared to crack this target (battle)")
     ap.add_argument("--all", dest="all", action="store_true",
@@ -79,6 +82,18 @@ def main() -> None:
     if args.command == "quests":
         from .commands import cmd_quests
         cmd_quests(cfg)
+        return
+    if args.command == "doctor":
+        from .commands import cmd_doctor
+        cmd_doctor(cfg)
+        return
+    if args.command == "shop":
+        from .commands import cmd_shop
+        cmd_shop(cfg, args.target, args.extra)
+        return
+    if args.command == "achievements":
+        from .commands import cmd_achievements
+        cmd_achievements(cfg)
         return
     if args.command == "battle":
         if not args.target and not args.all:
