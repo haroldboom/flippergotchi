@@ -1,0 +1,39 @@
+# Flippergotchi config (TOML). Requires Python 3.11+ to load; otherwise the
+# built-in defaults apply and you can still override via CLI flags.
+# Copy to config.toml and edit, then: python -m flippergotchi -c config.toml
+
+name = "Flippy"
+simulate = false
+tick_interval = 1.0
+time_scale = 1.0
+
+# --- wifi / capture (live mode) ---
+interface = "mon0"
+bettercap_url = "http://127.0.0.1:8081"
+
+# --- tamagotchi mechanics ---
+hunger_per_hour = 50.0
+energy_per_hour = 18.0
+food_value_handshake = 14.0
+food_value_pmkid = 9.0
+xp_per_handshake = 12.0
+xp_per_pmkid = 7.0
+xp_per_meter = 0.15
+energy_per_meter = 0.02
+base_xp = 120.0
+level_exp = 1.6
+
+# --- ai ---
+# "canned" = no deps; "cpu" = llama.cpp + a .gguf; "npu" = RKLLM (future)
+ai_backend = "canned"
+ai_model_path = ""
+
+# --- gps ---
+gps_mode = "sim"        # sim | gpsd | off
+gpsd_host = "127.0.0.1"
+gpsd_port = 2947
+
+# --- view / io ---
+tui = true
+flipctl_html_out = "/tmp/flippergotchi/face.html"
+state_path = "~/.flippergotchi/state.json"

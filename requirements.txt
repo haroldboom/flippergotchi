@@ -1,0 +1,10 @@
+# Core runtime needs NOTHING beyond the Python 3.10+ stdlib.
+#
+# Optional, per feature:
+#   llama-cpp-python      # ai_backend = "cpu"  (run a local GGUF model)
+#   pytest                # to run the test suite
+#
+# On the Flipper One itself (not needed for --simulate dev):
+#   bettercap (system pkg)  # wifi recon + handshake/PMKID capture
+#   gpsd      (system pkg)  # GPS fixes for the "walking" mechanic
+#   RKLLM runtime           # ai_backend = "npu"  (ships with NPU driver)
