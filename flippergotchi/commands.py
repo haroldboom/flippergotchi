@@ -68,12 +68,29 @@ def cmd_encounter(cfg) -> None:
     m = monsters.from_ap(ev)
     e = enc_mod.Encounter(m)
     print(animations.popup(m))
+    # render the visual 256x144 "A wild <species> appeared!" card
+    out = _render_encounter(cfg, m)
+    if out:
+        print(f"  [screen] encounter -> {out}")
     print("\n  > you chose: CAPTURE\n")
     e.choose("capture", rng=_AlwaysHit)
     for frame in animations.frames(e.animation, m):
         print(frame)
         print()
     print(f"  => {e.message}")
+
+
+def _render_encounter(cfg, m, line: str = "") -> str | None:
+    """Best-effort visual encounter card; never breaks the encounter flow."""
+    try:
+        from .view import encounter_screen
+        out = getattr(cfg, "encounter_html_out", "/tmp/flippergotchi/encounter.html")
+        return encounter_screen.render(os.path.expanduser(out), {
+            "species": m.species, "name": label(m), "level": m.level,
+            "encryption": m.encryption, "defense": m.defense, "kind": m.kind,
+        }, line)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def cmd_duel(cfg, target: str | None) -> None:

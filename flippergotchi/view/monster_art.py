@@ -17,10 +17,18 @@ _DIR = os.path.join(os.path.dirname(__file__), "sprites", "monsters")
 
 # species (as produced by game.monsters) -> sprite file stem
 SPECIES_SPRITES = {
+    # WiFi AP villains (species by encryption)
     "Wispling": "wispling",      # open    -- trivial
     "Rustbug": "rustbug",        # wep     -- weak/legacy
     "Wavemon": "wavemon",        # wpa     -- medium
     "Crypterion": "crypterion",  # wpa2    -- boss
+    # BLE mini-monsters (tamed by scanning) -- a friendlier gadget tier
+    "Pocketling": "pocketling",  # phone
+    "Tickbit": "tickbit",        # wearable
+    "Echobub": "echobub",        # audio
+    "Blip": "blip",              # beacon
+    "Cogling": "cogling",        # computer
+    "Pixie": "pixie",            # unknown
 }
 
 _cache: dict = {}

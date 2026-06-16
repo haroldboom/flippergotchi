@@ -61,12 +61,19 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![variant through evolution](docs/variant-evo.png)
 
-**The monsters** — WiFi access points are catchable creatures, and the **species
-is set by encryption** (the AP's "armour class"). They're original cyberpunk
-aquatic-mutant villains — a flimsy jelly for open networks up to an armoured
-piranha-boss for WPA2:
+**The monsters** — WiFi access points are catchable creatures (**species set by
+encryption** — the AP's "armour class") and Bluetooth devices are a friendlier
+**mini-monster** tier you tame by scanning. Original cyberpunk pixel art: aquatic
+mutant villains for the WiFi tier (a flimsy jelly for open networks up to an
+armoured piranha-boss for WPA2), and cute gadget-creatures for BLE:
 
-![bestiary — WiFi monsters](docs/monsters.png)
+![bestiary — WiFi villains + BLE mini-monsters](docs/monsters.png)
+
+**Encounters** render a classic Pokémon "A wild … appeared!" card — the monster
+on its platform, a stat card (species / level / encryption / crack-difficulty),
+and a Capture/Run menu:
+
+![encounter screens](docs/encounter.png)
 
 **PvP duel screen** — `duel <name>` renders a Pokémon-style 1v1: the rival
 Flippergotchi (HP box, upper-left) faces your character (mirrored, lower-right)
@@ -157,7 +164,9 @@ gps (walking)      ─┘     │            │
 | `view/flipctl.py` | 256×144 Pokémon-style HUD + pixel sprite | ✅ render; plugin = TODO |
 | `view/battle_screen.py` | Pokémon 1v1 PvP duel screen render | ✅ render |
 | `view/equip_screen.py` | character-wearing-gear loadout screen render | ✅ render |
-| `view/sprites/` | AI-generated cyberpunk shark sprites (evos + variants) | ✅ |
+| `view/encounter_screen.py` | "A wild … appeared!" encounter card render | ✅ render |
+| `view/monster_art.py` | species → enemy/mini-monster sprite lookup | ✅ done & tested |
+| `view/sprites/` | AI-generated cyberpunk sprites (character + monsters) | ✅ |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
 | `game/monsters.py` | AP/BLE → collectible monster + stats | ✅ |
 | `game/bestiary.py` | your captured collection (savefile) | ✅ |

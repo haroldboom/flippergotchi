@@ -11,6 +11,12 @@ def test_every_wifi_species_has_a_sprite():
         assert monster_art.sprite_path(species), f"no sprite for {species}"
 
 
+def test_every_ble_species_has_a_sprite():
+    # BLE mini-monsters are modelled too (a friendlier gadget tier)
+    for species in set(monsters._BLE_SPECIES.values()):
+        assert monster_art.sprite_path(species), f"no sprite for {species}"
+
+
 def test_sprite_b64_round_trips():
     b = monster_art.sprite_b64("Crypterion")
     assert isinstance(b, str) and len(b) > 100

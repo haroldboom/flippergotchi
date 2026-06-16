@@ -162,6 +162,7 @@ class Config:
     flipctl_html_out: str = "/tmp/flippergotchi/face.html"
     battle_html_out: str = "/tmp/flippergotchi/battle.html"
     equip_html_out: str = "/tmp/flippergotchi/equip.html"
+    encounter_html_out: str = "/tmp/flippergotchi/encounter.html"
     state_path: str = "~/.flippergotchi/state.json"
 
     @classmethod

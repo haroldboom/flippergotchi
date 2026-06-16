@@ -145,6 +145,7 @@ class Agent:
         self.state.networks_seen += 1
         m = monsters.from_ap(ev)
         enc = encounter.Encounter(m)
+        self._render_encounter(m)
         if self.cfg.tui:
             self._scene(animations.popup(m))
             time.sleep(self.cfg.anim_delay * 2)
@@ -171,6 +172,19 @@ class Agent:
             self.log(f"[escape] {ssid} broke free - no handshake")
         else:  # FLED
             self.log(f"[run] fled from {m.species} '{ssid}'")
+
+    def _render_encounter(self, m) -> None:
+        """Best-effort visual encounter card to cfg.encounter_html_out."""
+        try:
+            from .view import encounter_screen
+            out = getattr(self.cfg, "encounter_html_out",
+                          "/tmp/flippergotchi/encounter.html")
+            encounter_screen.render(os.path.expanduser(out), {
+                "species": m.species, "name": monsters.label(m), "level": m.level,
+                "encryption": m.encryption, "defense": m.defense, "kind": m.kind,
+            })
+        except Exception as e:  # noqa: BLE001 - never break the tick loop
+            self.log(f"encounter render failed: {e}")
 
     def _forage(self, meters: float) -> None:
         """Walking is how the pet finds FOOD (and, rarely, gear)."""
