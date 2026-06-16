@@ -114,6 +114,8 @@ class Config:
     home_networks: list = field(default_factory=list)
     hashcat_bin: str = "hashcat"
     wordlist: str = "/usr/share/wordlists/rockyou.txt"
+    crack_timeout: int = 1800          # hashcat wall-clock cap (s)
+    handshakes_file: str = ""          # bettercap wifi.handshakes.file (live)
     cloud_enabled: bool = False              # allow upload fallback on hard targets
     cloud_service: str = "wpa-sec"           # wpa-sec | onlinehashcrack
     # "home" = where battling is offered: geofence and/or a home network in range
@@ -127,6 +129,8 @@ class Config:
     manual: bool = False               # prompt [A]Capture/[B]Run per encounter
     character_variant: str = "classic"       # shark colour: classic|blue|tiger|gold|reef
     flipctl_html_out: str = "/tmp/flippergotchi/face.html"
+    battle_html_out: str = "/tmp/flippergotchi/battle.html"
+    equip_html_out: str = "/tmp/flippergotchi/equip.html"
     state_path: str = "~/.flippergotchi/state.json"
 
     @classmethod

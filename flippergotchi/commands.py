@@ -1,6 +1,8 @@
 """`dex`, `battle`, `encounter` subcommands."""
 from __future__ import annotations
 
+import os
+
 from . import persistence
 from . import prefs as prefs_mod
 from .game import battle as battle_mod
@@ -131,6 +133,18 @@ def cmd_duel(cfg, target: str | None) -> None:
     verb = "won" if res.you_won else "lost"
     print(f"\n  You {verb}. Handshake pool: {state.handshakes}  |  "
           f"gear power: {inv.gear_power()}")
+    # render the Pokemon-style battle screen
+    from .view import battle_screen
+    variant = getattr(cfg, "character_variant", "classic")
+    me_sprite = state.stage if variant in ("classic", "") else f"{variant}-{state.stage}"
+    out = battle_screen.render(
+        os.path.expanduser(cfg.battle_html_out),
+        {"name": state.name, "level": state.level,
+         "health": 100 if res.you_won else 30, "sprite": me_sprite},
+        {"name": them.name, "level": them.level,
+         "health": 30 if res.you_won else 100, "sprite": "blue-adult"},
+        res.log[-1] if res.log else f"{res.winner} wins!")
+    print(f"  [screen] battle -> {out}")
 
 
 def cmd_quests(cfg) -> None:
@@ -186,6 +200,13 @@ def cmd_gear(cfg, target: str | None) -> None:
         for it in bag:
             print(f"    [{it.slot:<8}] {it.name:<22} {it.rarity:<9} "
                   f"+{it.bonus_val:g} {it.bonus_stat.upper()}   {it.id}")
+    # render the visual equipment screen (character wearing the gear)
+    from .view import equip_screen
+    state = persistence.load(cfg.state_path)
+    variant = getattr(cfg, "character_variant", "classic")
+    sprite = state.stage if variant in ("classic", "") else f"{variant}-{state.stage}"
+    out = equip_screen.render(os.path.expanduser(cfg.equip_html_out), inv, sprite)
+    print(f"\n  [screen] equipment view -> {out}")
 
 
 def _show_warning(cfg, dont_show: bool) -> None:
