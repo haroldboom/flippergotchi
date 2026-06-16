@@ -211,12 +211,21 @@ class Agent:
                          f"battle. Run: flippergotchi battle --all")
         self._was_home = home
 
+    def _equipped_map(self) -> dict:
+        out = {}
+        for slot, item_id in self.inv.equipped.items():
+            it = self.inv.items.get(item_id)
+            if it:
+                out[slot] = it.rarity
+        return out
+
     def render(self) -> None:
         override = self._fx_mood()
         if self.cfg.tui:
             tui.render(self.state, self.cfg, self._say, override)
         try:
-            flipctl.render(self.state, self.cfg, self._say, override)
+            flipctl.render(self.state, self.cfg, self._say, override,
+                           equipped=self._equipped_map())
         except Exception as e:
             self.log(f"flipctl render failed: {e}")
 

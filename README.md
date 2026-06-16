@@ -21,7 +21,8 @@ a pwning machine.
   rival Flippergotchi drops **equipment** you can equip.
 - **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
   phrases) narrates what the pet feels and what it just caught.
-- **The face is the Flipper dolphin**, rendered to the 256×144 LCD via FlipCTL.
+- **An original cartoon mascot**, rendered to the 256×144 LCD via FlipCTL — it
+  **evolves** as it levels up and visibly **wears your equipped gear**.
 
 > **The economy at a glance:** walk → forage *food* (+ rare gear) · encounter →
 > *catch* AP-monsters · crack at home → *loot* + score · duel rivals → *steal*
@@ -35,13 +36,18 @@ FlipCTL screen layout from the simulation:
 ![Flippergotchi catch sequence](docs/demo.gif)
 
 > ℹ️ Only the LCD screen is shown (the device chassis is Flipper Devices' IP and
-> is deliberately omitted). These are simulation renders — the hardware isn't out.
+> is deliberately omitted), and the mascot is **original art** — not the
+> trademarked Flipper dolphin. These are simulation renders; the hardware isn't out.
 
-Individual LCD states:
+**Evolutions** — the mascot grows from an egg to a legend as it levels up:
 
-| Idle / happy | Foraged a snack | Hungry |
+![evolution stages](docs/evolutions.png)
+
+**LCD states** (idle · fully-geared adult · hungry) — gear is drawn on the mascot:
+
+| Idle / happy | Geared up | Hungry |
 |:---:|:---:|:---:|
-| ![idle](docs/render-idle.png) | ![eating](docs/render-eating.png) | ![hungry](docs/render-hungry.png) |
+| ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
 
 > ⚠️ **Authorized use only.** Capturing handshakes / deauthing is for networks you
 > own or are explicitly permitted to test. Same rules as any WiFi audit tool.
@@ -104,7 +110,8 @@ gps (walking)      ─┘     │            │
 | `ai/rkllm_npu.py` | NPU LLM (6 TOPS) | **stub** — waits on driver |
 | `view/faces.py` | dolphin ASCII expressions | ✅ |
 | `view/tui.py` | dev terminal view | ✅ |
-| `view/flipctl.py` | 256×144 HTML → LCD | mock done; plugin wiring = TODO |
+| `view/flipctl.py` | polished 256×144 LCD screen (mascot + UI) | ✅ render; plugin = TODO |
+| `view/mascot.py` | original mascot: evolutions + moods + gear | ✅ done |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
 | `game/monsters.py` | AP/BLE → collectible monster + stats | ✅ |
 | `game/bestiary.py` | your captured collection (savefile) | ✅ |
