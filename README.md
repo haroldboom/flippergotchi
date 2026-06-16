@@ -37,7 +37,7 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![Flippergotchi gameplay](docs/demo.gif)
 
-| Idle | Equipped loadout | Hungry |
+| Idle | Equipped gear shows on the character | Hungry |
 |:---:|:---:|:---:|
 | ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
 
