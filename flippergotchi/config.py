@@ -123,6 +123,15 @@ class Config:
     handshakes_file: str = ""          # bettercap wifi.handshakes.file (live)
     cloud_enabled: bool = False              # allow upload fallback on hard targets
     cloud_service: str = "wpa-sec"           # wpa-sec | onlinehashcrack
+    cloud_timeout: int = 30                  # HTTP timeout for cloud up/download
+    # wpa-sec (https://wpa-sec.stanev.org) -- the validated cloud path. Your API
+    # key is the "key" cookie from your wpa-sec account.
+    wpa_sec_url: str = "https://wpa-sec.stanev.org/"
+    wpa_sec_key: str = ""
+    # onlinehashcrack -- generic multipart uploader to a configurable endpoint
+    # (their API has changed over time; NEEDS VALIDATION against the live service)
+    onlinehashcrack_url: str = "https://api.onlinehashcrack.com/v2"
+    onlinehashcrack_key: str = ""
 
     # --- WiFi capture stack (core/wifi) ---
     # backend: "auto" picks native (hcxdumptool/scapy) -> bettercap -> sim

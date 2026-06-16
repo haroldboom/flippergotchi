@@ -41,6 +41,7 @@ class Monster:
     key: str = ""           # recovered PSK, once defeated
     attempts: int = 0       # battles fought against it
     last_result: str = ""   # raw result of the most recent battle
+    capture_path: str = ""  # on-disk handshake/PMKID capture (for cloud upload)
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -36,10 +36,11 @@ def main() -> None:
     ap.add_argument("command", nargs="?", default="run",
                     choices=["run", "dex", "battle", "encounter", "duel", "gear",
                              "quests", "doctor", "shop", "achievements", "scan",
-                             "capture"],
+                             "capture", "cloud"],
                     help="run | dex | battle <name> | encounter | duel <peer> | "
                          "gear [item] | quests | doctor | shop [buy <item>] | "
-                         "achievements | scan | capture <bssid>")
+                         "achievements | scan | capture <bssid> | "
+                         "cloud [submit <name>|results]")
     ap.add_argument("target", nargs="?", help="monster name/bssid for `battle`; "
                     "bssid/ssid for `capture`; or `buy`/item-id for `shop`")
     ap.add_argument("extra", nargs="?", help="item id for `shop buy <item>`")
@@ -108,6 +109,10 @@ def main() -> None:
     if args.command == "capture":
         from .commands import cmd_capture
         cmd_capture(cfg, args.target, args.authorized)
+        return
+    if args.command == "cloud":
+        from .commands import cmd_cloud
+        cmd_cloud(cfg, args.target, args.extra, args.authorized)
         return
     if args.command == "battle":
         if not args.target and not args.all:

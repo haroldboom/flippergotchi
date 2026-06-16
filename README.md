@@ -152,6 +152,7 @@ gps (walking)      ─┘     │            │
 | `game/monsters.py` | AP/BLE → collectible monster + stats | ✅ |
 | `game/bestiary.py` | your captured collection (savefile) | ✅ |
 | `game/battle.py` | hashcat -m 22000 + rockyou → cloud fallback, auth-gated | sim ✅; hw path wired (needs on-device validation) |
+| `game/cracking.py` (CloudCracker) | real wpa-sec/onlinehashcrack upload + result retrieval | ✅ done & tested (wpa-sec validated path) |
 | `game/encounter.py` | detect → Capture/Run state machine | ✅ done & tested |
 | `game/home.py` | "are we home?" gate for battling | ✅ |
 | `game/ledger.py` | wins / losses / escalations database | ✅ done & tested |
@@ -174,8 +175,10 @@ It's also an [Orna](https://orna.guide)-style GPS RPG layered on the same data:
 - **Bluetooth devices are smaller monsters** — collected/"tamed" by scanning
   (no handshake to crack), a distinct lighter tier.
 - **Battling = cracking.** `hashcat -m 22000` + rockyou locally; if a tough
-  target survives and you allow it, escalate to a **cloud crack**
-  (`wpa-sec` or `onlinehashcrack` — two separate services).
+  target survives and you allow it, escalate to a **cloud crack** — a real
+  multipart upload to **wpa-sec** (or onlinehashcrack); `cloud results` later
+  pulls recovered keys back into your bestiary. Gated to your scope + `--dry-run`
+  aware (see below).
 - **Only crackable networks are surfaced** (open / WEP / WPA / WPA2-PSK). WPA3,
   WPA2-Enterprise and OWE aren't wordlist-crackable, so they're not shown at all.
 
@@ -222,6 +225,9 @@ python3 -m flippergotchi doctor            # preflight: tools/iface/wordlist/sco
 python3 -m flippergotchi scan              # passive AP discovery (no active actions)
 python3 -m flippergotchi --dry-run capture AA:BB:..  # capture+validate, no deauth
 python3 -m flippergotchi --dry-run battle MyAP --authorized   # crack path, no hashcat
+python3 -m flippergotchi cloud                    # cloud status + queued captures
+python3 -m flippergotchi cloud submit MyAP --authorized   # upload to wpa-sec
+python3 -m flippergotchi cloud results            # pull recovered keys into the dex
 python3 -m flippergotchi achievements      # badges unlocked + scrap balance
 python3 -m flippergotchi shop              # browse; `shop buy <id>` to spend scrap
 python3 -m flippergotchi --simulate --manual   # choose [A]Capture/[B]Run yourself
@@ -379,10 +385,12 @@ hardware — that's the design. Every hardware path is marked
   (`core/authz.py`, `game/doctor.py`).
 - ~~Progression: achievements, scrap economy + shop, gear sets~~ ✅ done.
 - ~~PvP moves + status effects~~ ✅ done (`game/moves.py`, `game/duel.py`).
+- ~~Cloud crack: real wpa-sec/onlinehashcrack upload + result retrieval~~ ✅ done
+  (`game/cracking.py` `CloudCracker`, `cloud submit` / `cloud results`).
 - Real-hardware paths are **implemented but unvalidated** (need a device):
   - `core/wifi/*` native capture · `core/bettercap.py` live REST client
   - `pet/gps.py` gpsd reader · `core/bluetooth.py` BLE scan via optional `bleak`
-  - still TODO: wpa-sec/onlinehashcrack uploads, FlipCTL plugin, RKLLM NPU backend.
+  - still TODO: FlipCTL device plugin, RKLLM NPU backend.
 - Step counter via the device IMU (true pedometer) alongside GPS distance.
 - Reinforcement-learning channel hopper (classic Pwnagotchi A2C) as an optional
   capture optimizer — CPU, independent of the LLM.

@@ -516,3 +516,95 @@ def cmd_capture(cfg, target: str | None, authorized: bool = False) -> None:
         print(f"  -> crackable. {nextstep}")
     else:
         print("  -> not yet crackable (need a PMKID or a complete 4-way).")
+
+
+def cmd_cloud(cfg, action: str | None, target: str | None,
+              authorized: bool = False) -> None:
+    """Distributed cloud cracking via wpa-sec/onlinehashcrack.
+
+      cloud                 -- status (service, key set?, queued captures)
+      cloud submit <name|capture-file>   -- upload a captured handshake
+      cloud results         -- fetch recovered PSKs and apply them to the dex
+
+    Uploading a capture is outward-facing: it's gated to your scope (or
+    --authorized), honors --dry-run, and only runs when cloud_enabled."""
+    from .game.cracking import CloudCracker
+    service = getattr(cfg, "cloud_service", "wpa-sec")
+    enabled = bool(getattr(cfg, "cloud_enabled", False))
+
+    if not action:
+        key_set = bool(getattr(cfg, "wpa_sec_key", "")
+                       or getattr(cfg, "onlinehashcrack_key", ""))
+        print(f"  CLOUD  service={service}  enabled={enabled}  key_set={key_set}")
+        dex = Bestiary(cfg.bestiary_path)
+        pend = [m for m in dex.all()
+                if m.kind == "wifi" and m.captured and not m.defeated]
+        print(f"  {len(pend)} captured WiFi monster(s) not yet cracked. Upload one"
+              " with `cloud submit <name>`, then `cloud results`.")
+        if not enabled:
+            print("  note: set cloud_enabled = true to allow uploads.")
+        return
+
+    if action == "results":
+        results = CloudCracker(cfg).fetch_results()
+        if not results:
+            print("  no recovered keys available (nothing cracked yet, or no "
+                  "wpa_sec_key / not in live mode).")
+            return
+        dex = Bestiary(cfg.bestiary_path)
+        ledger = Ledger(cfg.ledger_path)
+        applied = 0
+        for m in dex.all():
+            if m.kind == "wifi" and not m.defeated and m.id.upper() in results:
+                m.defeated = True
+                m.key = results[m.id.upper()]
+                m.last_result = "cracked"
+                ledger.record(m, "cracked", "cloud", m.key)
+                print(f"  [WIN] {label(m):<22} cracked via cloud -- key: {m.key}")
+                applied += 1
+        dex.save()
+        ledger.save()
+        print(f"  applied {applied} recovered key(s) of {len(results)} known to "
+              f"{service}.")
+        return
+
+    if action == "submit":
+        if not enabled:
+            print("  cloud uploads are disabled. Set cloud_enabled = true first.")
+            return
+        if not target:
+            print("Usage: cloud submit <monster-name|bssid|capture-file>")
+            return
+        dex = Bestiary(cfg.bestiary_path)
+        # resolve the monster + capture file from a name/bssid or a raw path
+        m = dex.get(target)
+        if m is None and os.path.exists(target):
+            m = next((x for x in dex.all()
+                      if getattr(x, "capture_path", "") == target), None)
+        path = (target if os.path.exists(target)
+                else (getattr(m, "capture_path", "") if m else ""))
+        if not path:
+            print(f"  no capture file for '{target}'. Pass a .pcap path, or a "
+                  "monster whose capture_path is set.")
+            return
+        # scope gate (uploading someone's handshake to a 3rd party)
+        from .core.authz import Authorizer
+        authz = Authorizer(cfg)
+        in_scope = authorized or (m is not None and authz.is_authorized(m.id, m.name))
+        if not in_scope and not getattr(cfg, "dry_run", False):
+            print("  refused: target not in your authorized scope. Re-run with "
+                  "--authorized if you own/are cleared to test it.")
+            authz.require("crack", getattr(m, "id", target), getattr(m, "name", ""))
+            return
+        authz.require("crack", getattr(m, "id", target), getattr(m, "name", ""))
+        res = CloudCracker(cfg).submit(m, path).to_dict()
+        icon = _ICON.get(res["result"], res["result"].upper())
+        print(f"  [{icon}] {os.path.basename(path)} -> {res['result']} via "
+              f"{res['via']}: {res.get('note', '')}")
+        if res["result"] == "submitted" and m is not None:
+            Ledger(cfg.ledger_path).record(m, "submitted", res["via"])
+            m.last_result = "submitted"
+            dex.save()
+        return
+
+    print(f"Unknown cloud action '{action}'. Use: submit | results")
