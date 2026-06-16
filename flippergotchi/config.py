@@ -71,6 +71,8 @@ class Config:
     # wifi / bettercap
     interface: str = "mon0"
     bettercap_url: str = "http://127.0.0.1:8081"
+    bettercap_user: str = "user"       # REST API basic-auth (live mode)
+    bettercap_pass: str = "pass"
 
     # tamagotchi mechanics
     hunger_per_hour: float = 50.0      # how fast it gets hungry
@@ -102,7 +104,10 @@ class Config:
     prefs_path: str = "~/.flippergotchi/prefs.json"
     peers_path: str = "~/.flippergotchi/peers.json"
     inventory_path: str = "~/.flippergotchi/inventory.json"
+    quests_path: str = "~/.flippergotchi/quests.json"
+    element: str = "Aether"            # your Flippergotchi's element (duel matchups)
     scan_bluetooth: bool = True
+    bluetooth_scan_timeout: float = 2.5
     duel_stake_frac: float = 0.20            # share of handshakes the loser forfeits
     # cracking is ONLY allowed against networks matching these (ssid/bssid
     # substrings) - your own "dojo". Empty => battles are refused by default.
@@ -119,6 +124,7 @@ class Config:
 
     # view / io
     tui: bool = True
+    manual: bool = False               # prompt [A]Capture/[B]Run per encounter
     flipctl_html_out: str = "/tmp/flippergotchi/face.html"
     state_path: str = "~/.flippergotchi/state.json"
 

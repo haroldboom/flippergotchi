@@ -10,6 +10,8 @@ time_scale = 1.0
 # --- wifi / capture (live mode) ---
 interface = "mon0"
 bettercap_url = "http://127.0.0.1:8081"
+bettercap_user = "user"      # REST API basic-auth (bettercap `api.rest on`)
+bettercap_pass = "pass"
 
 # --- tamagotchi mechanics ---
 hunger_per_hour = 50.0
@@ -42,7 +44,10 @@ ledger_path = "~/.flippergotchi/ledger.json"     # wins / losses / escalations
 prefs_path = "~/.flippergotchi/prefs.json"       # e.g. dismissed warnings
 peers_path = "~/.flippergotchi/peers.json"       # detected Flippergotchi rivals
 inventory_path = "~/.flippergotchi/inventory.json"
+quests_path = "~/.flippergotchi/quests.json"
+element = "Aether"           # your Flippergotchi's element (Spark/Tide/Gale/Aether)
 scan_bluetooth = true
+bluetooth_scan_timeout = 2.5 # live BLE scan window (seconds)
 duel_stake_frac = 0.20       # share of handshakes the duel loser forfeits
 # Cracking is ONLY allowed against networks whose SSID/BSSID matches one of
 # these substrings - your own "dojo". Empty = every battle is refused.

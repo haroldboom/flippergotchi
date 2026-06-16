@@ -24,11 +24,15 @@ def main() -> None:
                     help="multiply time decay (handy with --simulate)")
     ap.add_argument("--plain", action="store_true",
                     help="log events only; no full-screen face")
+    ap.add_argument("--manual", action="store_true",
+                    help="prompt [A]Capture / [B]Run on each encounter")
     ap.add_argument("--reset", action="store_true", help="start a brand new pet")
     # RPG subcommands (default is to just run the pet/scanner loop)
     ap.add_argument("command", nargs="?", default="run",
-                    choices=["run", "dex", "battle", "encounter", "duel", "gear"],
-                    help="run | dex | battle <name> | encounter | duel <peer> | gear [item]")
+                    choices=["run", "dex", "battle", "encounter", "duel", "gear",
+                             "quests"],
+                    help="run | dex | battle <name> | encounter | duel <peer> | "
+                         "gear [item] | quests")
     ap.add_argument("target", nargs="?", help="monster name/bssid for `battle`")
     ap.add_argument("--authorized", action="store_true",
                     help="confirm you're cleared to crack this target (battle)")
@@ -49,6 +53,8 @@ def main() -> None:
         cfg.time_scale = args.time_scale
     if args.plain:
         cfg.tui = False
+    if args.manual:
+        cfg.manual = True
 
     if args.command == "dex":
         from .commands import cmd_dex
@@ -65,6 +71,10 @@ def main() -> None:
     if args.command == "gear":
         from .commands import cmd_gear
         cmd_gear(cfg, args.target)
+        return
+    if args.command == "quests":
+        from .commands import cmd_quests
+        cmd_quests(cfg)
         return
     if args.command == "battle":
         if not args.target and not args.all:

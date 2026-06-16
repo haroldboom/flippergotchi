@@ -26,6 +26,7 @@ class PetState:
     networks_seen: int = 0
 
     stage: str = "egg"        # evolution stage, driven by level
+    element: str = "Aether"   # your element, for duel type-advantage
     asleep: bool = False
 
     def age_seconds(self) -> float:

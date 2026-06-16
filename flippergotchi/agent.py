@@ -11,7 +11,10 @@ from .core.bluetooth import BluetoothScanner
 import random
 
 from .game import encounter, equipment, monsters
+from .game import quests as quests_mod
 from .game.bestiary import Bestiary
+from .game.home import at_home
+from .game.quests import QuestLog
 from .pet import mechanics
 from .pet.gps import GpsReader
 from .view import animations, flipctl, tui
@@ -29,6 +32,7 @@ class Agent:
         self.ai = AIService(cfg)
         self.dex = Bestiary(cfg.bestiary_path)
         self.inv = equipment.Inventory(cfg.inventory_path)
+        self.quests = QuestLog(cfg.quests_path)
         self._say = ""
         self._fx = None          # (mood, until_ts) transient face override
         self._last_save = 0.0
@@ -36,6 +40,7 @@ class Agent:
         self._tick_i = 0
         self._cooldown = {}      # bssid -> tick last encountered
         self._visible = []       # recently-seen SSIDs (for 'home' detection)
+        self._was_home = False   # for the one-shot "you're home" battle prompt
         self._peers = prefs_mod.load(cfg.peers_path)  # addr -> peer Flippergotchi
 
     def log(self, msg: str) -> None:
@@ -66,6 +71,23 @@ class Agent:
                 self.speak("level_up", str(u["level"]))
             self._fx_set("excited")
 
+    def _choose(self, m) -> str:
+        """Capture/Run decision. Manual mode asks you; otherwise auto-policy."""
+        if self.cfg.manual:
+            try:
+                ans = input(f"  wild {m.species} '{m.name}' Lv{m.level} "
+                            "[A]Capture / [B]Run > ").strip().lower()
+                return "run" if ans.startswith("b") or ans == "run" else "capture"
+            except (EOFError, KeyboardInterrupt):
+                pass
+        return encounter.auto_choice(m)
+
+    def _quest(self, metric: str, amount: float) -> None:
+        for q in self.quests.record(metric, amount):
+            reward = quests_mod.grant_quest_reward(q, self.state, self.inv, self.cfg)
+            self.log(f"[quest] DONE: {q.description} -> {reward}")
+            self._fx_set("excited")
+
     def _scene(self, text: str) -> None:
         os.system("clear")
         print(text)
@@ -92,7 +114,7 @@ class Agent:
             self._scene(animations.popup(m))
             time.sleep(self.cfg.anim_delay * 2)
 
-        enc.choose(encounter.auto_choice(m))   # device: choice comes from a button
+        enc.choose(self._choose(m))            # device: choice comes from a button
         if self.cfg.tui:
             animations.play(animations.frames(enc.animation, m),
                             self._scene, self.cfg.anim_delay)
@@ -104,6 +126,7 @@ class Agent:
             self.log(f"[catch] caught {m.species} '{ssid}' Lv{m.level} "
                      f"[{m.encryption}] -- {self.ai.analyze(ev)}")
             self.speak("caught", ssid)
+            self._quest("catches", 1)
             self._progress(ups)
         elif enc.state == encounter.ESCAPED:
             m.captured = False
@@ -119,6 +142,7 @@ class Agent:
             self.log("[forage] nibbled a snack found on the walk")
             self.speak("fed", "snack")
             self._progress(mechanics.snack(self.state, self.cfg))
+            self._quest("snacks", 1)
         if random.random() < min(0.5, meters * self.cfg.forage_gear_per_m):
             it = self.inv.add(equipment.roll_item(boost=self.state.level // 3))
             self.log(f"[loot] foraged {it.rarity} gear: {it.name} (+{it.power} pow)")
@@ -142,7 +166,9 @@ class Agent:
         first = addr not in self._peers
         self._peers[addr] = {"name": ev.get("name", "?"), "addr": addr,
                              "level": ev.get("level", 1),
-                             "handshakes": ev.get("handshakes", 0)}
+                             "handshakes": ev.get("handshakes", 0),
+                             "gear_power": ev.get("gear_power", 0),
+                             "element": ev.get("element", "Aether")}
         if first:
             p = self._peers[addr]
             self.log(f"[peer] another Flippergotchi nearby: {p['name']} "
@@ -156,13 +182,16 @@ class Agent:
 
     def tick(self, dt: float) -> None:
         self._tick_i += 1
+        self.quests.roll(time.strftime("%Y-%m-%d"))   # daily quests (no-op same day)
         self._events(self.wifi.poll())
         self._spawn_ble()
         meters = self.gps.distance()
         if meters > 0:
             self._progress(mechanics.walk(self.state, meters, self.cfg))
             self._forage(meters)
+            self._quest("distance_m", meters)
         mechanics.tick(self.state, dt * self.cfg.time_scale, self.cfg)
+        self._home_check()
         # occasional mood-driven chatter when nothing else is happening
         now = time.time()
         if now - self._last_idle > 20:
@@ -170,6 +199,17 @@ class Agent:
             if m in ("hungry", "sick", "tired", "happy", "sleeping"):
                 self.speak(m)
             self._last_idle = now
+
+    def _home_check(self) -> None:
+        """One-shot 'you're home -> battle' prompt when you arrive home."""
+        home = at_home(self.cfg, visible_ssids=self._visible)
+        if home and not self._was_home:
+            ready = sum(1 for x in self.dex.all()
+                        if x.kind == "wifi" and x.captured and not x.defeated)
+            if ready:
+                self.log(f"[home] you're home -- {ready} monster(s) ready to "
+                         f"battle. Run: flippergotchi battle --all")
+        self._was_home = home
 
     def render(self) -> None:
         override = self._fx_mood()
@@ -201,6 +241,7 @@ class Agent:
                     persistence.save(self.cfg.state_path, self.state)
                     self.dex.save()
                     self.inv.save()
+                    self.quests.save()
                     prefs_mod.save(self.cfg.peers_path, self._peers)
                     self._last_save = now
                 i += 1
@@ -211,4 +252,5 @@ class Agent:
             persistence.save(self.cfg.state_path, self.state)
             self.dex.save()
             self.inv.save()
+            self.quests.save()
             prefs_mod.save(self.cfg.peers_path, self._peers)

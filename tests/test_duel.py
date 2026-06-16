@@ -40,6 +40,15 @@ def test_higher_level_usually_wins():
     assert wins > 150
 
 
+def test_element_advantage_shifts_winrate():
+    # equal stats; you hold a strong element (Spark) vs theirs (Gale)
+    you = duel_mod.Fighter("you", level=8, handshakes=10, element="Spark")
+    them = duel_mod.Fighter("them", level=8, handshakes=10, element="Gale")
+    random.seed(3)
+    wins = sum(duel_mod.duel(you, them).you_won for _ in range(400))
+    assert wins / 400 > 0.55     # the type edge tilts an otherwise even fight
+
+
 def test_stake_is_bounded_and_transfers():
     you = duel_mod.Fighter("you", level=1, handshakes=0)       # you will lose, no pool
     them = duel_mod.Fighter("them", level=50, handshakes=100)

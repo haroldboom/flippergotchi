@@ -13,6 +13,8 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 
+from .elements import advantage_multiplier, matchup_note
+
 # how many handshakes the loser forfeits, as a fraction of their captured pool
 DEFAULT_STAKE_FRAC = 0.20
 MIN_STAKE = 1
@@ -28,6 +30,7 @@ class Fighter:
     health: float = 100.0
     happiness: float = 70.0
     gear: float = 0.0            # equipped-gear power bonus
+    element: str = "Aether"      # for type-advantage
     addr: str = ""               # BLE address, for peers
 
     def power(self) -> float:
@@ -67,15 +70,23 @@ def _stake(loser: Fighter, cfg=None) -> int:
 
 def duel(you: Fighter, them: Fighter, cfg=None, rng=random) -> DuelResult:
     p = win_chance(you, them)
+    # Elemental type advantage: scale your odds by your edge vs theirs.
+    atk = advantage_multiplier(you.element, them.element)   # ~1.25 / 1.0 / 0.8
+    dfn = advantage_multiplier(them.element, you.element)
+    p = (p * atk) / (p * atk + (1 - p) * dfn)               # re-normalize
+    p = max(0.08, min(0.92, p))                             # keep upsets possible
     your_roll = rng.random()
     you_won = your_roll < p
     winner, loser = (you, them) if you_won else (them, you)
     stake = _stake(loser, cfg)
     log = [
-        f"{you.name} (Lv{you.level}, pow {you.power():.0f}) challenges "
-        f"{them.name} (Lv{them.level}, pow {them.power():.0f})!",
+        f"{you.name} ({you.element} Lv{you.level}, pow {you.power():.0f}) challenges "
+        f"{them.name} ({them.element} Lv{them.level}, pow {them.power():.0f})!",
         f"win chance {p*100:.0f}% -- " + ("YOU WIN!" if you_won else "you lost..."),
     ]
+    note = matchup_note(you.element, them.element)
+    if note != "neutral":
+        log.insert(1, f"type matchup: {you.element} vs {them.element} -> {note} for you")
     if stake:
         log.append(f"{winner.name} seizes {stake} handshake(s) from {loser.name}.")
     else:

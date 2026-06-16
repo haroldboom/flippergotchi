@@ -114,8 +114,10 @@ gps (walking)      ─┘     │            │
 | `game/encounter.py` | detect → Capture/Run state machine | ✅ done & tested |
 | `game/home.py` | "are we home?" gate for battling | ✅ |
 | `game/ledger.py` | wins / losses / escalations database | ✅ done & tested |
-| `game/duel.py` | Digimon-style PvP between Flippergotchis | ✅ done & tested |
+| `game/duel.py` | Digimon-style PvP + element type-advantage | ✅ done & tested |
 | `game/equipment.py` | gear: loot, equip, forfeit-on-loss | ✅ done & tested |
+| `game/elements.py` | Spark/Tide/Gale/Aether matchup chart | ✅ done & tested |
+| `game/quests.py` | daily quests + rewards | ✅ done & tested |
 | `prefs.py` | persistent prefs (e.g. dismissed warning) | ✅ |
 | `view/animations.py` | net-gun / flee ASCII animation frames | ✅ |
 | `core/bluetooth.py` | BLE devices → mini-monsters | sim ✅; BlueZ = TODO |
@@ -173,7 +175,19 @@ python3 -m flippergotchi dex               # bestiary + your W/L/escalate record
 python3 -m flippergotchi battle Linksys    # crack one (gated to home_networks)
 python3 -m flippergotchi battle --all      # auto-battle every captured monster
 python3 -m flippergotchi battle --all --dont-show-again   # ...and stop warning me
+python3 -m flippergotchi quests            # today's daily quests + progress
+python3 -m flippergotchi duel ByteSurf     # PvP duel (element matchups apply)
+python3 -m flippergotchi gear              # inventory / equip loadout
+python3 -m flippergotchi --simulate --manual   # choose [A]Capture/[B]Run yourself
 ```
+
+- **Daily quests** (`quests`): walk N km, catch N monsters, crack one, win a duel,
+  forage snacks — completing one grants XP / handshakes / gear. Reroll each day.
+- **Element type-advantage**: every fighter has an element (Spark/Tide/Gale/Aether);
+  matchups tilt duel odds (`game/elements.py`).
+- **Manual mode** (`--manual`): you press A/B per encounter instead of the auto-policy.
+- **"You're home" prompt**: the run loop nudges you to `battle --all` when you
+  arrive in your dojo with monsters ready.
 
 - **Auto-battle** (`--all`) fights every captured, un-defeated WiFi monster one
   at a time and prints a lifetime **W / L / escalated** tally.
@@ -245,10 +259,13 @@ hardware — that's the design.
 - ~~LLM "analyst" mode~~ ✅ done (`game/analysis.py` + `AIService.analyze`).
 - ~~APs as catchable monsters; BLE as mini-monsters; hashcat/cloud battles~~ ✅
   scaffolded (`game/`).
-- Real-hardware wiring: bettercap live capture, gpsd steps, BlueZ scan,
-  hcxpcapngtool→hashcat, wpa-sec/onlinehashcrack uploads (all marked TODO).
+- ~~Type/element advantages; daily quests; manual capture mode~~ ✅ done.
+- Real-hardware paths are now **implemented but unvalidated** (need a device):
+  - `core/bettercap.py` live REST client (needs `bettercap … api.rest on`)
+  - `pet/gps.py` gpsd reader · `core/bluetooth.py` BLE scan via optional `bleak`
+  - still TODO: `hcxpcapngtool`→hashcat conversion, wpa-sec/onlinehashcrack uploads,
+    FlipCTL plugin, RKLLM NPU backend.
 - Step counter via the device IMU (true pedometer) alongside GPS distance.
-- Type/element advantages in battle; daily quests ("walk 2 km", "catch a WPA3").
 - Reinforcement-learning channel hopper (classic Pwnagotchi A2C) as an optional
   capture optimizer — CPU, independent of the LLM.
 - Trade/share your bestiary; co-op "raids" on tough APs over BLE.

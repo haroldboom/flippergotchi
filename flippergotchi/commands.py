@@ -10,11 +10,19 @@ from .game import equipment as equip_mod
 from .game import monsters
 from .game.bestiary import Bestiary
 from .game.home import WARNING
+from .game import quests as quests_mod
 from .game.ledger import Ledger
 from .game.monsters import label
+from .game.quests import QuestLog
 from .pet import mechanics
 from .pet.state import PetState
 from .view import animations
+
+import time
+
+
+def _today() -> str:
+    return time.strftime("%Y-%m-%d")
 
 _ICON = {"cracked": "WIN", "tamed": "TAMED", "failed": "LOSS",
          "refused": "BLOCKED", "immune": "IMMUNE", "submitted": "ESCALATED"}
@@ -88,10 +96,12 @@ def cmd_duel(cfg, target: str | None) -> None:
     inv = equip_mod.Inventory(cfg.inventory_path)
     you = duel_mod.Fighter(name=state.name, level=state.level,
                            handshakes=state.handshakes, health=state.health,
-                           happiness=state.happiness, gear=inv.gear_power())
+                           happiness=state.happiness, gear=inv.gear_power(),
+                           element=getattr(state, "element", "Aether"))
     them = duel_mod.Fighter(name=peer["name"], level=peer["level"],
                             handshakes=peer["handshakes"],
-                            gear=peer.get("gear_power", 0), addr=peer["addr"])
+                            gear=peer.get("gear_power", 0),
+                            element=peer.get("element", "Aether"), addr=peer["addr"])
     print(f"== DIGI-DUEL ==  {you.name} vs {them.name}\n")
     res = duel_mod.duel(you, them, cfg)
     for line in res.log:
@@ -103,6 +113,12 @@ def cmd_duel(cfg, target: str | None) -> None:
         loot = equip_mod.roll_item(boost=peer["level"])
         inv.add(loot)
         print(f"  you seized {loot.rarity} gear: {loot.name} (+{loot.power} pow)")
+        quests = QuestLog(cfg.quests_path)
+        quests.roll(_today())
+        for q in quests.record("duel_wins", 1):
+            rw = quests_mod.grant_quest_reward(q, state, inv, cfg)
+            print(f"  [quest] {q.description} done -> {rw}")
+        quests.save()
     else:
         forfeit = inv.pick_forfeit()
         if forfeit:
@@ -115,6 +131,25 @@ def cmd_duel(cfg, target: str | None) -> None:
     verb = "won" if res.you_won else "lost"
     print(f"\n  You {verb}. Handshake pool: {state.handshakes}  |  "
           f"gear power: {inv.gear_power()}")
+
+
+def cmd_quests(cfg) -> None:
+    """Show today's daily quests and progress."""
+    q = QuestLog(cfg.quests_path)
+    q.roll(_today())
+    rows = q.active()
+    if not rows:
+        print("No quests today. Go for a walk to roll some!")
+        return
+    print(f"  DAILY QUESTS ({q.day})")
+    for quest in rows:
+        pct = min(100, int(quest.progress / quest.target * 100)) if quest.target else 100
+        bar = "#" * (pct // 10) + "." * (10 - pct // 10)
+        mark = "DONE" if quest.done else f"{bar} {quest.progress:g}/{quest.target:g}"
+        reward = ", ".join(f"{k}:{v}" for k, v in (quest.reward or {}).items())
+        print(f"  [{'x' if quest.done else ' '}] {quest.description:<22} {mark}"
+              f"   -> {reward}")
+    q.save()
 
 
 def cmd_gear(cfg, target: str | None) -> None:
@@ -159,7 +194,8 @@ def _show_warning(cfg, dont_show: bool) -> None:
         print("  [ ] do not show again  (pass --dont-show-again to tick this)\n")
 
 
-def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None) -> str:
+def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
+           quests=None) -> str:
     res = battle_mod.battle(m, cfg, force_authorized=authorized)
     m.attempts += 1
     m.last_result = res["result"]
@@ -168,13 +204,17 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None) -> st
     extra = (f" -- key: {res['key']}" if res.get("key") else "")
     note = (f"\n    note: {res['note']}" if res.get("note") else "")
     print(f"  [{icon}] {label(m):<22} {res['result']} via {res['via']}{extra}{note}")
-    # defeating a monster is the reward loop: loot + a treat for the pet
+    # defeating a monster is the reward loop: loot + a treat for the pet + quests
     if res["result"] == "cracked":
         if inv is not None:
             loot = inv.add(equip_mod.roll_item(boost=m.level // 2))
             print(f"      loot: {loot.rarity} {loot.name} (+{loot.power} pow)")
         if state is not None:
             mechanics.snack(state, cfg)  # a treat for cracking it
+        if quests is not None and state is not None:
+            for q in quests.record("cracks", 1):
+                rw = quests_mod.grant_quest_reward(q, state, inv, cfg)
+                print(f"      [quest] {q.description} done -> {rw}")
     return cat or ""
 
 
@@ -184,6 +224,8 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
     ledger = Ledger(cfg.ledger_path)
     inv = equip_mod.Inventory(cfg.inventory_path)
     state = persistence.load(cfg.state_path)
+    quests = QuestLog(cfg.quests_path)
+    quests.roll(_today())
     _show_warning(cfg, dont_show)
 
     if all_:
@@ -199,10 +241,11 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
             return
         print(f"Auto-battling {len(queue)} unique target(s)...\n")
         for m in queue:
-            _fight(m, cfg, authorized, ledger, inv, state)
+            _fight(m, cfg, authorized, ledger, inv, state, quests)
         ledger.save()
         dex.save()
         inv.save()
+        quests.save()
         persistence.save(cfg.state_path, state)
         c = ledger.counts()
         print(f"\nLifetime record: {c['win']} wins / {c['loss']} losses / "
@@ -218,8 +261,9 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
         return
     print(f"Engaging {m.species} '{label(m)}' (Lv{m.level}, "
           f"{m.encryption or m.kind}, defense {m.defense})...")
-    _fight(m, cfg, authorized, ledger, inv, state)
+    _fight(m, cfg, authorized, ledger, inv, state, quests)
     ledger.save()
     dex.save()
     inv.save()
+    quests.save()
     persistence.save(cfg.state_path, state)

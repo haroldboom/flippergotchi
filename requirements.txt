@@ -2,6 +2,7 @@
 #
 # Optional, per feature:
 #   llama-cpp-python      # ai_backend = "cpu"  (run a local GGUF model)
+#   bleak                 # live BLE scanning + Flippergotchi peer discovery
 #   pytest                # to run the test suite
 #
 # On the Flipper One itself (not needed for --simulate dev):

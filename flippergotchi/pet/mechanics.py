@@ -69,6 +69,11 @@ def tick(state: PetState, dt: float, cfg) -> None:
     state.stage = stage_for_level(state.level)
 
 
+def grant_xp(state: PetState, amount: float, cfg) -> list:
+    """Public XP grant (e.g. quest rewards). Returns level-up events."""
+    return _gain_xp(state, amount, cfg)
+
+
 def _gain_xp(state: PetState, amount: float, cfg) -> list:
     """Add xp, rolling over level-ups. Returns a list of progress events."""
     events = []
