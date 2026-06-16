@@ -13,6 +13,8 @@ import html as _html
 import os
 
 from ..game.equipment import SLOTS
+from . import worn as worn_mod
+from .worn import _RARITY
 
 _SPRITES = os.path.join(os.path.dirname(__file__), "sprites")
 _cache: dict = {}
@@ -26,56 +28,6 @@ def _sprite_b64(name: str) -> str:
         with open(path, "rb") as f:
             _cache[name] = base64.b64encode(f.read()).decode()
     return _cache[name]
-
-
-def _worn_b64(slot: str, rarity: str) -> str | None:
-    key = f"worn/{slot}-{rarity}"
-    if key not in _cache:
-        path = os.path.join(_SPRITES, "worn", f"{slot}-{rarity}.png")
-        if not os.path.exists(path):
-            return None
-        with open(path, "rb") as f:
-            _cache[key] = base64.b64encode(f.read()).decode()
-    return _cache[key]
-
-
-def _stage_of(sprite: str) -> str:
-    """Best-effort stage key for the worn-piece nudge, from a sprite name like
-    'adult', 'blue-alpha' or 'legend-happy'."""
-    for part in sprite.replace("-", " ").split():
-        if part in _STAGE_ADJUST:
-            return part
-    return "adult"
-
-
-# --- replicated from flipctl (kept identical so gear sits the same on screen) ---
-# where each worn piece sits over the character box: (left%, top%, width%).
-# z-order is the dict order (later = in front).
-_WORN_ANCHOR = {
-    "weapon":   (-16, 42, 42),
-    "fin":      (40, -15, 26),
-    "helmet":   (27, -9, 46),
-    "eyepiece": (42, 30, 17),
-    "amulet":   (41, 64, 18),
-}
-# per-stage nudge for the worn pieces (their heads sit at different heights/sizes):
-# (top% delta, width scale)
-_STAGE_ADJUST = {
-    "hatchling": (16, 0.78),
-    "fingerling": (7, 0.9),
-    "juvenile": (2, 0.97),
-    "adult": (0, 1.0),
-    "alpha": (3, 1.05),
-    "legend": (9, 1.04),
-}
-_RARITY = {"common": "#b8c2cb", "uncommon": "#7fd1a6", "rare": "#5aa9ff",
-           "epic": "#c07bf0", "legendary": "#ffcf4d"}
-# coloured glow for worn pieces by rarity (legendary strongest)
-_GLOW = {
-    "rare": "drop-shadow(0 0 2px #5aa9ff)",
-    "epic": "drop-shadow(0 0 2.5px #c07bf0)",
-    "legendary": "drop-shadow(0 0 2px #ffd24a) drop-shadow(0 0 4px #ffae1a)",
-}
 
 
 _HTML = """<!doctype html>
@@ -93,8 +45,8 @@ _HTML = """<!doctype html>
     filter:drop-shadow(0 2px 0 #0008);}}
   .character{{height:82px;display:block;}}
   .worn{{position:absolute;}}
-  .leg{{animation:legpulse 1.3s ease-in-out infinite;transform-origin:center;}}
-  @keyframes legpulse{{0%,100%{{transform:scale(1)}}50%{{transform:scale(1.08)}}}}
+  .leg{{animation:legpulse 1.3s ease-in-out infinite;}}
+  @keyframes legpulse{{0%,100%{{filter:brightness(1)}}50%{{filter:brightness(1.35)}}}}
   .title{{position:absolute;top:4px;left:4px;font-size:8px;font-weight:800;
     letter-spacing:.5px;color:#aee3ff;text-shadow:0 1px 0 #0009;z-index:3;}}
   .slots{{position:absolute;top:15px;right:4px;width:128px;
@@ -137,21 +89,12 @@ def render(out_path: str, inv, character_sprite: str = "adult") -> str:
     if d:
         os.makedirs(d, exist_ok=True)
 
-    # worn gear: overlay each equipped piece on the character at its slot anchor,
-    # nudged per evolution stage. Higher rarities glow; legendary pulses.
-    worn = ""
-    stage = _stage_of(character_sprite)
-    dy, sc = _STAGE_ADJUST.get(stage, (0, 1.0))
-    for slot, (L, T, Wd) in _WORN_ANCHOR.items():
-        iid = inv.equipped.get(slot)
-        it = inv.items.get(iid) if iid else None
-        r = it.rarity if it else None
-        b = _worn_b64(slot, r) if r else None
-        if b:
-            cls = "worn leg" if r == "legendary" else "worn"
-            worn += (f'<img class="{cls}" style="left:{L}%;top:{T + dy}%;'
-                     f'width:{Wd * sc}%;filter:{_GLOW.get(r, "none")}" '
-                     f'src="data:image/png;base64,{b}">')
+    # worn gear: overlay each equipped piece on the character (shared anchors so
+    # gear sits identically here and on the live HUD).
+    equipped = {slot: it.rarity
+                for slot in SLOTS
+                for it in [inv.items.get(inv.equipped.get(slot))] if it}
+    worn = worn_mod.html(equipped, worn_mod.stage_of(character_sprite))
 
     # one cream Pokemon-style box per slot, in canonical SLOTS order
     slots = ""
