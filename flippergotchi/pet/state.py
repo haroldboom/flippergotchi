@@ -30,6 +30,11 @@ class PetState:
     element: str = "Aether"   # your element, for duel type-advantage
     asleep: bool = False
 
+    # On-disk schema version. Kept LAST so old saves lacking it still load and
+    # positional/keyword construction in tests stays valid. Bumped by the
+    # migrator in persistence.py when the shape of this dataclass changes.
+    schema_version: int = 1
+
     def age_seconds(self) -> float:
         return max(0.0, time.time() - self.born_at)
 

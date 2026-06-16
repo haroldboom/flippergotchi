@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flippergotchi"
+version = "0.9.0"
+description = "A Tamagotchi-style WiFi pet for the Flipper One."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "haroldboom" }]
+keywords = ["flipper", "tamagotchi", "wifi", "pwnagotchi", "rpg", "pentest"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Games/Entertainment",
+]
+# Core runtime needs NOTHING beyond the Python 3.10+ stdlib.
+dependencies = []
+
+[project.optional-dependencies]
+# ai_backend = "cpu" (run a local GGUF model)
+ai = ["llama-cpp-python"]
+# native WiFi capture path
+wifi = ["scapy"]
+# live BLE scanning + Flippergotchi peer discovery
+ble = ["bleak"]
+# test suite
+dev = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/haroldboom/flippergotchi"
+Repository = "https://github.com/haroldboom/flippergotchi"
+
+[project.scripts]
+flippergotchi = "flippergotchi.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["flippergotchi*"]
+
+[tool.setuptools.package-data]
+# Ship the AI-generated pixel-art sprites inside the wheel.
+flippergotchi = ["view/sprites/**/*.png", "view/sprites/*.png"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
