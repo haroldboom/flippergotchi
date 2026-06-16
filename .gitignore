@@ -8,3 +8,9 @@ config.toml
 /tmp/flippergotchi/
 *.gguf
 *.rkllm
+# secrets — never commit API keys
+.gemini_api_key
+gemini_api_key*
+*.key
+.env
+*.raw.png

@@ -4,6 +4,7 @@
 #   llama-cpp-python      # ai_backend = "cpu"  (run a local GGUF model)
 #   bleak                 # live BLE scanning + Flippergotchi peer discovery
 #   pytest                # to run the test suite
+#   numpy, Pillow         # tools/gen_sprite.py (regenerate mascot sprites via Gemini)
 #
 # On the Flipper One itself (not needed for --simulate dev):
 #   bettercap (system pkg)  # wifi recon + handshake/PMKID capture
