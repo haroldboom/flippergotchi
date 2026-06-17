@@ -5,7 +5,7 @@ import html as _html
 import os
 
 # Screen authored at the Flipper One's native 256x144, scaled up nearest-neighbour
-# (see docs render pipeline) for a crisp retro look. A classic Pokemon-style PvP
+# (see docs render pipeline) for a crisp retro look. A classic creature-collector PvP
 # duel: the opponent stands upper-right with their HUD box upper-left, the player
 # stands lower-left (mirrored so the two face off) with their HUD box lower-right,
 # and a full-width cream dialogue box narrates the move along the bottom.

@@ -8,7 +8,7 @@ from ..pet import mechanics
 from . import worn as worn_mod
 
 # Screen authored at the Flipper One's native 256x144, scaled up nearest-neighbour
-# (see docs render pipeline) for a crisp retro look. Old-school Pokemon-style HUD
+# (see docs render pipeline) for a crisp retro look. Old-school creature-collector HUD
 # with compact corner boxes (kept small so they don't cover the character). The
 # character is a pre-rendered cyberpunk pixel sprite that SWAPS by action/mood
 # (Pwnagotchi-style "the image just changes").

@@ -1,6 +1,6 @@
 """Visual WiFi/BLE encounter card, authored at the Flipper One's native 256x144.
 
-A classic Pokemon "A wild <species> appeared!" screen: the monster stands on a
+A classic "A wild <species> appeared!" screen: the monster stands on a
 platform upper-right with its stat card upper-left (species / level / encryption
 / crack-difficulty), and a cream dialogue box plus a Capture/Run menu run along
 the bottom. The monster art comes from ``view/monster_art`` (the AP-species

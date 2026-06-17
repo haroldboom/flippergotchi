@@ -1,4 +1,4 @@
-"""Pokemon GO-style WiFi encounters.
+"""Location-based WiFi encounters.
 
 Flow:  AP detected -> PROMPT (Capture or Run?) -> player chooses
          capture -> attempt a handshake -> CAUGHT (net animation) or ESCAPED

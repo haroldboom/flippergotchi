@@ -1,5 +1,5 @@
 """Visual equipment/inventory screen: the character WEARING its equipped gear on
-the left, a Pokemon-style list of the five slots on the right, and a PvP-power
+the left, a list of the five slots on the right, and a PvP-power
 footer. Authored at the Flipper One's native 256x144 and scaled up nearest-
 neighbour by the caller for a crisp retro look (same pipeline as flipctl).
 
@@ -97,7 +97,7 @@ def render(out_path: str, inv, character_sprite: str = "adult") -> str:
                 for it in [inv.items.get(inv.equipped.get(slot))] if it}
     worn = worn_mod.html(equipped, worn_mod.stage_of(character_sprite))
 
-    # one cream Pokemon-style box per slot, in canonical SLOTS order
+    # one cream retro box per slot, in canonical SLOTS order
     slots = ""
     for slot in SLOTS:
         iid = inv.equipped.get(slot)

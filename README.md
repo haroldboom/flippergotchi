@@ -22,7 +22,7 @@ machine.
 > are colour and are auto-desaturated for the device.)
 
 - **WiFi APs are monsters you catch.** Each access point is a creature; net its
-  handshake to add it to your **bestiary** (Pokémon-style) — *not* food.
+  handshake to add it to your **bestiary** (creature-collector style) — *not* food.
 - **Walking is the fitness core.** GPS movement → XP → levels → evolutions
   (egg → hatchling → … → legend), and your shark **forages food** (and, rarely,
   gear) as you walk — that's how the pet actually stays fed.
@@ -31,7 +31,7 @@ machine.
 - **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
   phrases) narrates what the pet feels and what it just caught.
 - **A cyberpunk pixel-art shark character** in an **old-school
-  Pokémon-style 2D HUD**, at the Flipper One's native **256×144**. It **evolves**
+  creature-collector 2D HUD**, at the Flipper One's native **256×144**. It **evolves**
   egg→legend and comes in 5 **shark species** (different silhouettes, picked with `--variant`).
 
 > **The economy at a glance:** walk → forage *food* (+ rare gear) · encounter →
@@ -40,7 +40,7 @@ machine.
 
 ### What it looks like
 
-The game on the Flipper One's **256×144** screen — a retro Pokémon-style HUD
+The game on the Flipper One's **256×144** screen — a retro creature-collector HUD
 (HP / XP / food / energy + dialogue box) with the cyberpunk shark, scaled crisp
 with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
@@ -80,7 +80,7 @@ medical):
 
 ![bestiary — WiFi villains + BLE mini-monsters](docs/monsters.png)
 
-**Encounter → capture** — a Pokémon "A wild … appeared!" card, then a net-gun
+**Encounter → capture** — a "A wild … appeared!" card, then a net-gun
 animation that mirrors the real flow (lock → **deauth** → listen for the WPA
 4-way handshake → **GOTCHA**, or time out with no handshake):
 
@@ -106,7 +106,7 @@ selects · Back exits):
 
 ![battle dojo — menu + target list](docs/battle-menu.png)
 
-**PvP duels & equipment** — `duel` renders a Pokémon 1v1 with a live blow-by-blow;
+**PvP duels & equipment** — `duel` renders a 1v1 with a live blow-by-blow;
 `gear` shows your character **wearing** its loadout with total PvP power:
 
 | Duel | Equipment |
@@ -182,8 +182,8 @@ gps (walking)      ─┘     │            │
 | `ai/rkllm_npu.py` | NPU LLM (6 TOPS) | **stub** — waits on driver |
 | `view/faces.py` | shark ASCII expressions (TUI) | ✅ |
 | `view/tui.py` | dev terminal view | ✅ |
-| `view/flipctl.py` | 256×144 Pokémon-style HUD + pixel sprite | ✅ render; plugin = TODO |
-| `view/battle_screen.py` | Pokémon 1v1 PvP duel screen render | ✅ render |
+| `view/flipctl.py` | 256×144 creature-collector HUD + pixel sprite | ✅ render; plugin = TODO |
+| `view/battle_screen.py` | 1v1 PvP duel screen render | ✅ render |
 | `view/equip_screen.py` | character-wearing-gear loadout screen render | ✅ render |
 | `view/encounter_screen.py` | "A wild … appeared!" encounter card render | ✅ render |
 | `view/capture_screen.py` | net-gun capture animation frames (aim→net→GOTCHA) | ✅ render |
@@ -209,7 +209,7 @@ gps (walking)      ─┘     │            │
 
 ## The RPG layer — a WiFi-pentest fitness game
 
-It's also an [Orna](https://orna.guide)-style GPS RPG layered on the same data:
+It's also a location-based GPS RPG layered on the same data:
 
 - **You level up by walking** (GPS = fitness/XP), same as the pet.
 - **APs are monsters — species by the router's BRAND.** The vendor (from the
@@ -233,7 +233,7 @@ It's also an [Orna](https://orna.guide)-style GPS RPG layered on the same data:
 > once** (with a *don't ask again* — no config files); on-the-fly WEP/WPA cracking
 > asks the same. Crack only networks you own or are cleared to test.
 
-### The encounter flow (Pokémon GO-style)
+### The encounter flow (location-based catching)
 
 ```
 AP detected ─► POPUP "[A] Capture  [B] Run"

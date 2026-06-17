@@ -184,7 +184,7 @@ def cmd_duel(cfg, target: str | None) -> None:
     verb = "won" if res.you_won else "lost"
     print(f"\n  You {verb}. Handshake pool: {state.handshakes}  |  "
           f"gear power: {inv.gear_power()}")
-    # render the Pokemon-style battle screen
+    # render the 1v1 battle screen
     from .view import battle_screen
     variant = getattr(cfg, "character_variant", "classic")
     me_sprite = state.stage if variant in ("classic", "") else f"{variant}-{state.stage}"
