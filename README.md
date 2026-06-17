@@ -84,12 +84,15 @@ animation that mirrors the real flow (lock → **deauth** → listen for the WPA
 |:---:|:---:|
 | ![capture success](docs/capture.gif) | ![capture failed](docs/capture-fail.gif) |
 
-**BLE battling** — Bluetooth monsters battle too: crack the **pairing** (the BLE
-analog of a handshake) with **crackle** to recover the LTK and *own* it, or, on a
-secure device, **take control** via a GATT write (ring a tracker, toggle a bulb).
-LE Secure Connections + non-connectable = an immune boss.
+**BLE battling** — Bluetooth monsters battle too, as a short sequence of real
+attack techniques: **SNIFF** the connection → **RE-PAIR** to force a fresh
+exchange → **BRUTE TK** with **crackle** to recover the LTK and *own* it. A
+secure (LE Secure Connections) target isn't always immune — a **KNOB entropy
+DOWNGRADE** can weaken it to a brute-forceable key, or you can **GATT-WRITE** to
+take control (ring a tracker, toggle a bulb). Owning a device yields its LTK plus
+class-specific **intel** (location history, audio intercept, health records…).
 
-![ble battle — own / control / immune](docs/blebattle.png)
+![ble battle — SNIFF → DOWNGRADE → BRUTE KEY → OWNED](docs/blebattle.png)
 
 **Battle Dojo** — `battle` opens a menu: **AUTO** cracks every fresh target,
 **MANUAL** scrolls a list to pick one (Flipper One: OK opens · Up/Down move · OK
@@ -160,7 +163,7 @@ gps (walking)      ─┘     │            │
 | `core/authz.py` | JSONL audit log of active RF actions (deauth/capture/crack) | ✅ done & tested |
 | `core/preflight.py` + `game/doctor.py` | `doctor` preflight: tools / privileges / iface / wordlist | ✅ done & tested |
 | `game/cracking.py` | hardened hashcat pipeline (PMKID/EAPOL, multi-wordlist + rules) | ✅ done & tested |
-| `game/blebattle.py` | BLE battling: crackle pairing-crack + GATT-write control | ✅ done & tested |
+| `game/blebattle.py` | BLE battling: technique sequence (sniff/re-pair/brute-TK/KNOB/control) + loot | ✅ done & tested |
 | `game/achievements.py` · `shop.py` · `gearsets.py` | badges · "scrap" currency + shop · gear-set bonuses | ✅ done & tested |
 | `game/moves.py` | per-element PvP move sets + status effects | ✅ done & tested |
 | `core/bettercap.py` | WiFi capture via bettercap REST | **sim works**; live wired (needs on-device validation) |

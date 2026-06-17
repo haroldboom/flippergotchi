@@ -332,12 +332,16 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
     if m.kind == "ble":
         try:
             from .view import blebattle_screen
-            out = blebattle_screen.render(
-                os.path.expanduser(getattr(cfg, "blebattle_html_out",
-                                           "/tmp/flippergotchi/blebattle.html")),
-                {"species": m.species, "name": label(m), "level": m.level,
-                 "pairing": getattr(m, "pairing", "")}, res)
-            print(f"      [screen] ble battle -> {out}")
+            outdir = os.path.expanduser(getattr(cfg, "blebattle_frames_dir",
+                                                "/tmp/flippergotchi/blebattle"))
+            frames = blebattle_screen.render_sequence(
+                outdir, {"species": m.species, "name": label(m),
+                         "level": m.level, "pairing": getattr(m, "pairing", "")}, res)
+            steps = " → ".join(s[0] for s in res.get("steps", []))
+            print(f"      techniques: {steps}")
+            if res.get("loot"):
+                print(f"      intel: {res['loot']}")
+            print(f"      [screen] ble battle -> {outdir} ({len(frames)} frames)")
         except Exception:  # noqa: BLE001
             pass
     # defeating a monster is the reward loop: loot + a treat for the pet + quests

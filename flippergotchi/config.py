@@ -174,6 +174,7 @@ class Config:
     battlemenu_html_out: str = "/tmp/flippergotchi/battlemenu.html"  # dojo menu
     battlelist_html_out: str = "/tmp/flippergotchi/battlelist.html"  # target list
     blebattle_html_out: str = "/tmp/flippergotchi/blebattle.html"    # BLE outcome
+    blebattle_frames_dir: str = "/tmp/flippergotchi/blebattle"       # BLE anim frames
     state_path: str = "~/.flippergotchi/state.json"
 
     @classmethod

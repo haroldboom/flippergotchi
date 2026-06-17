@@ -1,18 +1,23 @@
-"""BLE battling: the Bluetooth analog of cracking a WiFi handshake.
+"""BLE battling: the Bluetooth analog of cracking a WiFi handshake, as a short
+sequence of real attack techniques rather than a single roll.
 
-Two ways to "defeat" (own) a BLE monster, by its pairing security:
+The flow mirrors a real LE pairing attack:
 
-  * **LE Legacy Pairing** (Just Works / 6-digit PIN) -> crack the Temporary Key
-    -> STK -> LTK with **crackle** (the BLE aircrack). With the LTK you can
-    decrypt the device's traffic. Trivial for Just Works, fast for PIN.
-  * **LE Secure Connections** (ECDH) -> can't crack; but if the device is
-    connectable you can still take **control** by writing to an unauthenticated
-    GATT characteristic (ring a tracker, toggle a bulb, …). Only a secure +
-    non-connectable device is a true immune boss.
+  SNIFF        capture advertising + the LL connection (Ubertooth / Sniffle)
+  RE-PAIR      send an SMP Pairing Request to force a fresh pairing exchange
+               (so the key exchange is on the air to capture)
+  BRUTE TK     crackle brute-forces the Temporary Key (Just Works -> 0;
+               6-digit PIN -> 0..999999) -> STK -> LTK -> decrypt
+  DOWNGRADE    KNOB-style entropy downgrade: coerce a 1-byte key so even an
+               LE Secure Connections target's session key is brute-forceable
+               (low odds -- this is the hard path to a "secure" boss)
+  GATT WRITE   no decrypt needed -- take control by writing an unauthenticated
+               characteristic (ring a tracker, toggle a bulb)
 
-Real paths use ``crackle`` (needs a sniffed pairing capture, e.g. Ubertooth /
-Sniffle) and ``bleak`` GATT writes -- both guarded, sim-safe, and marked
-NEEDS ON-HARDWARE VALIDATION. The result dict matches ``battle()``'s contract.
+Owning a device yields its **LTK** (decrypt its traffic) plus class-specific
+intel as loot. Real paths use ``crackle`` / ``bleak`` (guarded, sim-safe,
+NEEDS ON-HARDWARE VALIDATION). ``battle_ble`` returns a battle()-style dict with
+extra ``steps`` (the technique log, for the render) and ``loot``.
 """
 from __future__ import annotations
 
@@ -25,10 +30,7 @@ import subprocess
 log = logging.getLogger(__name__)
 
 # species -> a benign GATT "control" move: (label, characteristic-uuid, value).
-# An empty uuid means there's no known characteristic, so the real write can't
-# run (sim still flavours it). NEEDS ON-HARDWARE VALIDATION.
 _CONTROL = {
-    # Immediate Alert service -> Alert Level char: 0x02 = "high" -> tag plays a sound
     "Trackling": ("ring it", "00002a06-0000-1000-8000-00805f9b34fb", b"\x02"),
     "Hearthkin": ("toggle power", "", b"\x01"),
     "Echobub": ("blast the volume", "", b"\x7f"),
@@ -37,6 +39,17 @@ _CONTROL = {
     "Cogling": ("poke it", "", b"\x01"),
 }
 _DEFAULT_CONTROL = ("poke it", "", b"\x01")
+
+# species -> the intel you walk away with when you OWN the device.
+_LOOT = {
+    "Trackling": "location history", "Echobub": "audio intercept",
+    "Hearthkin": "control token", "Vitalix": "health records",
+    "Keytapper": "keystroke log", "Pocketling": "device profile",
+    "Cogling": "device profile", "Blip": "beacon UUID",
+    "Tickbit": "fitness data", "Pixie": "raw GATT dump",
+}
+
+_KNOB_CHANCE = 0.35        # odds a KNOB entropy-downgrade weakens a secure target
 
 
 def control_move(monster):
@@ -48,38 +61,67 @@ def _fake_ltk() -> str:
 
 
 def battle_ble(monster, cfg) -> dict:
-    """Battle a BLE monster: crack its pairing, or take control. Sets
-    monster.defeated/key on a win. Returns a battle()-style result dict."""
+    """Battle a BLE monster as a technique sequence. Sets monster.defeated/key on
+    a win. Returns a battle()-style dict with ``steps`` + ``loot``."""
     pairing = getattr(monster, "pairing", "just_works") or "just_works"
     connectable = bool(getattr(monster, "connectable", True))
+    loot = _LOOT.get(getattr(monster, "species", ""), "raw GATT dump")
+    steps = [("SNIFF", "captured advertising + LL connection")]
 
     if pairing in ("just_works", "pin"):
-        res = _crack_pairing(monster, cfg, pairing)
-    elif connectable:
-        res = _control(monster, cfg)            # secure pairing -> try control
-    else:
-        return {"result": "immune", "via": "-", "key": "", "mode": "secure",
-                "note": "LE Secure Connections + not connectable -- can't be owned"}
+        if pairing == "pin":
+            steps.append(("RE-PAIR", "forced a fresh pairing exchange"))
+        steps.append(("BRUTE TK", "TK=000000 (Just Works)" if pairing == "just_works"
+                      else "TK brute 0..999999"))
+        res = _do_crack(monster, cfg, pairing, via="crackle")
+    else:                                   # LE Secure Connections
+        if _downgrade(cfg):
+            steps.append(("DOWNGRADE", "KNOB entropy downgrade -> 1-byte key"))
+            steps.append(("BRUTE KEY", "weak session key brute-forced"))
+            res = _do_crack(monster, cfg, "secure", via="knob+crackle")
+        elif connectable:
+            steps.append(("DOWNGRADE", "entropy downgrade FAILED"))
+            label = control_move(monster)[0]
+            steps.append(("GATT WRITE", label))
+            res = _do_control(monster, cfg)
+        else:
+            steps.append(("DOWNGRADE", "entropy downgrade FAILED"))
+            res = {"result": "immune", "via": "-", "key": "", "mode": "secure",
+                   "note": "LE Secure Connections + not connectable -- can't be owned"}
 
     if res["result"] == "cracked":
         monster.defeated = True
         monster.key = res["key"]
+        res["loot"] = loot
+        steps.append(("OWNED", f"{res.get('note', '')} +{loot}"))
+    elif res["result"] == "immune":
+        steps.append(("IMMUNE", "resisted"))
+    else:
+        steps.append(("FAILED", res.get("note", "")))
+    res["steps"] = steps
     return res
 
 
-# -- pairing crack (crackle) ------------------------------------------------
-def _crack_pairing(monster, cfg, pairing: str) -> dict:
+def _downgrade(cfg) -> bool:
+    """KNOB entropy downgrade. Sim: a roll. Real: not implemented (KNOB is hard /
+    mostly BR-EDR), so secure targets fall back to control/immune on hardware."""
+    if not bool(getattr(cfg, "simulate", False)):
+        return False
+    return random.random() < _KNOB_CHANCE
+
+
+# -- crack the pairing (crackle) --------------------------------------------
+def _do_crack(monster, cfg, pairing: str, via: str) -> dict:
     if not bool(getattr(cfg, "simulate", False)):
         real = _crackle(monster, cfg)
         if real is not None:
             return real
-    # sim: Just Works almost always lands; PIN usually does.
-    p = 0.95 if pairing == "just_works" else 0.65
+    p = {"just_works": 0.95, "pin": 0.65, "secure": 0.9}.get(pairing, 0.8)
     if random.random() < p:
-        return {"result": "cracked", "via": "crackle (sim)", "key": _fake_ltk(),
-                "mode": pairing, "note": f"LTK recovered from {pairing} pairing"}
-    return {"result": "failed", "via": "crackle (sim)", "key": "",
-            "mode": pairing, "note": "no pairing captured / TK not found"}
+        return {"result": "cracked", "via": f"{via} (sim)", "key": _fake_ltk(),
+                "mode": pairing, "note": f"LTK recovered ({pairing})"}
+    return {"result": "failed", "via": f"{via} (sim)", "key": "", "mode": pairing,
+            "note": "no pairing captured / TK not found"}
 
 
 def _crackle(monster, cfg):
@@ -91,7 +133,7 @@ def _crackle(monster, cfg):
     try:
         out = subprocess.run([crackle, "-i", cap], capture_output=True,
                              text=True, timeout=120)
-    except Exception:  # noqa: BLE001 - never raise out of a crack
+    except Exception:  # noqa: BLE001
         return None
     ltk = _parse_ltk(out.stdout or "")
     if ltk:
@@ -110,7 +152,7 @@ def _parse_ltk(text: str) -> str:
 
 
 # -- control (GATT write) ---------------------------------------------------
-def _control(monster, cfg) -> dict:
+def _do_control(monster, cfg) -> dict:
     action = control_move(monster)[0]
     if not bool(getattr(cfg, "simulate", False)):
         real = _gatt_write(monster, cfg)
@@ -128,7 +170,7 @@ def _gatt_write(monster, cfg):
     ON-HARDWARE VALIDATION."""
     action, uuid, value = control_move(monster)
     if not uuid:
-        return None                              # no known char -> sim flavour
+        return None
     try:
         import asyncio
         from bleak import BleakClient  # type: ignore
