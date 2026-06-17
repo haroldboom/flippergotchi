@@ -119,9 +119,7 @@ def main() -> None:
         cmd_cloud(cfg, args.target, args.extra, args.authorized)
         return
     if args.command == "battle":
-        if not args.target and not args.all:
-            ap.error("battle needs a monster name/bssid (e.g. `battle Linksys`) "
-                     "or --all")
+        # no target + no --all  ->  open the Battle Dojo menu (auto/manual)
         from .commands import cmd_battle
         cmd_battle(cfg, args.target, args.authorized, args.all, args.dont_show_again)
         return

@@ -172,6 +172,8 @@ class Config:
     equip_html_out: str = "/tmp/flippergotchi/equip.html"
     encounter_html_out: str = "/tmp/flippergotchi/encounter.html"
     capture_frames_dir: str = "/tmp/flippergotchi/capture"  # net-gun anim frames
+    battlemenu_html_out: str = "/tmp/flippergotchi/battlemenu.html"  # dojo menu
+    battlelist_html_out: str = "/tmp/flippergotchi/battlelist.html"  # target list
     state_path: str = "~/.flippergotchi/state.json"
 
     @classmethod

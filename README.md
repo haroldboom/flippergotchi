@@ -186,6 +186,7 @@ gps (walking)      ─┘     │            │
 | `view/equip_screen.py` | character-wearing-gear loadout screen render | ✅ render |
 | `view/encounter_screen.py` | "A wild … appeared!" encounter card render | ✅ render |
 | `view/capture_screen.py` | net-gun capture animation frames (aim→net→GOTCHA) | ✅ render |
+| `view/battle_menu.py` | Battle Dojo menu + scrollable target list + button map | ✅ render |
 | `view/monster_art.py` | species → enemy/mini-monster sprite lookup | ✅ done & tested |
 | `view/sprites/` | AI-generated cyberpunk sprites (character + monsters) | ✅ |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
@@ -257,8 +258,9 @@ game/battle.py      hashcat+rockyou → cloud, gated to your dojo, with a warnin
 python3 -m flippergotchi --simulate        # run: walk, encounter, capture, collect
 python3 -m flippergotchi encounter         # demo one encounter (popup + animation)
 python3 -m flippergotchi dex               # bestiary + your W/L/escalate record
-python3 -m flippergotchi battle Linksys    # crack one (gated to home_networks)
-python3 -m flippergotchi battle --all      # auto-battle every captured monster
+python3 -m flippergotchi battle            # open the Battle Dojo (auto/manual menu)
+python3 -m flippergotchi battle Linksys    # MANUAL: crack one (gated to home_networks)
+python3 -m flippergotchi battle --all      # AUTO: battle every fresh captured target
 python3 -m flippergotchi battle --all --dont-show-again   # ...and stop warning me
 python3 -m flippergotchi quests            # today's daily quests + progress
 python3 -m flippergotchi duel ByteSurf     # PvP duel (moves + element matchups)
@@ -291,8 +293,6 @@ python3 -m flippergotchi --simulate --variant tiger   # pick your shark colour
 - **"You're home" prompt**: the run loop nudges you to `battle --all` when you
   arrive in your dojo with monsters ready.
 
-- **Auto-battle** (`--all`) fights every captured, un-defeated WiFi monster one
-  at a time and prints a lifetime **W / L / escalated** tally.
 - The bestiary is keyed strictly by **BSSID**, so two different hidden networks
   never collapse into one and the same AP is never duplicated.
 - Every battle is logged to `game/ledger.py` (**win** = cracked, **loss** =
@@ -300,7 +300,24 @@ python3 -m flippergotchi --simulate --variant tiger   # pick your shark colour
 - The crack **warning** has a *do-not-show-again* (`--dont-show-again`) that
   persists in `prefs.json`.
 
-### PvP duels + equipment (Digimon-style)
+### The Battle Dojo (its own section)
+
+Running `battle` with no target opens the **Battle Dojo** — a dedicated menu for
+working through your captured handshakes:
+
+![battle dojo — menu + target list](docs/battle-menu.png)
+
+- **AUTO BATTLE** (`battle --all`) — cracks every captured target you **haven't
+  battled yet** (fresh `attempts == 0`), one at a time, and prints a lifetime
+  **W / L / escalated** tally.
+- **MANUAL SELECT** (`battle <name>`) — scroll the list of captured monsters and
+  pick one to battle. The list shows level + encryption/rarity tags (legendaries
+  gold) with a scrollbar.
+
+On the device this is a real section with a **Flipper One button map**: **OK**
+opens the dojo from the home screen, **Up/Down** move the cursor, **OK** confirms
+(run auto / battle the highlighted target), **Back** closes it (see
+`view/battle_menu.py` `BUTTONS`). The same button map is shown on screen.
 
 When another Flippergotchi is detected advertising over **Bluetooth**, you can
 challenge it:

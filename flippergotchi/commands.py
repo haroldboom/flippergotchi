@@ -346,6 +346,54 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
     return cat or ""
 
 
+def _ready_targets(dex) -> list:
+    """Captured WiFi monsters you HAVEN'T battled yet (the AUTO/MANUAL pool)."""
+    seen, out = set(), []
+    for m in dex.all():
+        if (m.kind == "wifi" and m.captured and not m.defeated
+                and m.attempts == 0 and m.id not in seen):
+            seen.add(m.id)
+            out.append(m)
+    return out
+
+
+def _render_dojo(cfg, dex, ledger, state) -> None:
+    """The home Battle Dojo section: render the menu + target list and print
+    the same info + button map for the terminal."""
+    ready = _ready_targets(dex)
+    cracked = sum(1 for m in dex.all() if m.kind == "wifi" and m.defeated)
+    variant = getattr(cfg, "character_variant", "classic")
+    player = state.stage if variant in ("classic", "") else f"{variant}-{state.stage}"
+    from .view import battle_menu
+    items = [{"name": label(m), "level": m.level, "encryption": m.encryption,
+              "rarity": m.rarity} for m in ready]
+    try:
+        mo = battle_menu.render_menu(os.path.expanduser(cfg.battlemenu_html_out),
+                                     len(ready), cracked, player=player)
+        lo = battle_menu.render_list(os.path.expanduser(cfg.battlelist_html_out),
+                                     items)
+        print(f"  [screen] battle menu -> {mo}")
+        print(f"  [screen] target list -> {lo}")
+    except Exception as e:  # noqa: BLE001
+        print(f"  [screen] (render skipped: {e})")
+
+    print(f"\n  == BATTLE DOJO ==   {len(ready)} ready · {cracked} cracked")
+    print("  [A] AUTO BATTLE  — crack every fresh target  (`battle --all`)")
+    print("  [B] MANUAL       — pick one below            (`battle <name>`)")
+    if items:
+        print("\n  targets you haven't battled yet:")
+        for it in items[:12]:
+            tag = (it["rarity"] or it["encryption"] or "").upper()
+            print(f"    · {it['name']:<22} Lv{it['level']:<3} {tag}")
+        if len(items) > 12:
+            print(f"    … +{len(items) - 12} more")
+    else:
+        print("\n  No fresh targets — go catch some monsters first!")
+    b = battle_menu.BUTTONS  # device button map
+    print(f"\n  device: {b['open']} opens · {b['up']}/{b['down']} move · "
+          f"{b['select']} select · {b['back']} exit")
+
+
 def cmd_battle(cfg, target: str | None, authorized: bool,
                all_: bool = False, dont_show: bool = False) -> None:
     dex = Bestiary(cfg.bestiary_path)
@@ -357,15 +405,11 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
     _show_warning(cfg, dont_show)
 
     if all_:
-        # Auto-battle every captured, not-yet-defeated WiFi monster, one at a
-        # time. Keys are unique BSSIDs already; dedupe defensively anyway.
-        seen, queue = set(), []
-        for m in dex.all():
-            if m.kind == "wifi" and m.captured and not m.defeated and m.id not in seen:
-                seen.add(m.id)
-                queue.append(m)
+        # AUTO BATTLE: every captured WiFi target you HAVEN'T battled yet
+        # (attempts == 0), one at a time. Unique BSSIDs; dedupe defensively.
+        queue = _ready_targets(dex)
         if not queue:
-            print("Nothing to auto-battle (no captured, un-defeated WiFi monsters).")
+            print("Nothing to auto-battle (no fresh captured targets).")
             return
         print(f"Auto-battling {len(queue)} unique target(s)...\n")
         for m in queue:
@@ -381,7 +425,7 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
         return
 
     if not target:
-        print("Usage: battle <name|bssid> [--authorized]  |  battle --all")
+        _render_dojo(cfg, dex, ledger, state)
         return
     m = dex.get(target)
     if not m:
