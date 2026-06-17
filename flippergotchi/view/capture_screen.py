@@ -59,19 +59,19 @@ def _beats(caught: bool, timeout: int, deauth: int) -> list:
             "line": "{name} -- locking on with the net-gun..."}
     deauth_beat = {
         "gun": _GUN_FIRE, "gunfx": "drop-shadow(0 0 5px #8ef)",
-        "proj": (100, 46, 28), "net": None, "banner": None, "mon": "none",
+        "proj": (118, 44, 28), "net": None, "banner": None, "mon": "none",
         "status": (f"DEAUTH x{deauth}", "#ff6a5a"), "bar": None,
         "line": "*fwoomp* deauth -- kicking clients to force a handshake!"}
     capture = {
-        "gun": _GUN, "gunfx": "", "proj": None, "net": (94, 24, 64, 1.0),
+        "gun": _GUN, "gunfx": "", "proj": None, "net": (128, 34, 64, 1.0),
         "banner": None, "mon": "translateX(2px)",
         "status": (f"CAPTURE EAPOL  ~{timeout}s", "#ffd24a"), "bar": 0.6,
         "line": "listening for the WPA 4-way handshake..."}
-    won = {"gun": _GUN, "gunfx": "", "proj": None, "net": (96, 26, 60, 1.0),
+    won = {"gun": _GUN, "gunfx": "", "proj": None, "net": (130, 36, 60, 1.0),
            "banner": ("GOTCHA!", "#7CFC00", "win"), "mon": "scale(0.94)",
            "status": ("HANDSHAKE OK  M1-M4", "#7CFC00"), "bar": 1.0,
            "line": "{name}'s 4-way handshake was captured!"}
-    failed = {"gun": _GUN, "gunfx": "", "proj": None, "net": (88, 62, 58, 0.4),
+    failed = {"gun": _GUN, "gunfx": "", "proj": None, "net": (118, 56, 58, 0.4),
               "banner": ("NO HANDSHAKE", "#ffb02e", "fail"), "mon": "none",
               "status": (f"NO HANDSHAKE  {timeout}s", "#ff6a5a"), "bar": 1.0,
               "line": "timed out after {t}s -- no client reconnected, no handshake."}
