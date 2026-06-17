@@ -140,7 +140,7 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
         if os.path.exists(os.path.join(_SPRITES, "gear", slot + ".png")))
     # worn gear: overlay each equipped piece on the character (shared anchors so
     # gear sits identically here and on the equipment screen).
-    worn = worn_mod.html(equipped or {}, state.stage)
+    worn = worn_mod.html(equipped or {}, state.stage, variant)
     html = _HTML.format(
         name=_html.escape(state.name), level=state.level,
         sprite=_sprite_b64(_sprite_for(state.stage, variant, mood)),

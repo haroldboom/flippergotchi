@@ -95,7 +95,8 @@ def render(out_path: str, inv, character_sprite: str = "adult") -> str:
     equipped = {slot: it.rarity
                 for slot in SLOTS
                 for it in [inv.items.get(inv.equipped.get(slot))] if it}
-    worn = worn_mod.html(equipped, worn_mod.stage_of(character_sprite))
+    worn = worn_mod.html(equipped, worn_mod.stage_of(character_sprite),
+                         worn_mod.variant_of(character_sprite))
 
     # one cream retro box per slot, in canonical SLOTS order
     slots = ""

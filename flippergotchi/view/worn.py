@@ -46,6 +46,13 @@ _WORN_ANCHOR = {
     "eyepiece": (30, 33, 19, 0),
     "amulet":   (40, 80, 21, 0),
 }
+# per-species anchor overrides: a few sharks have heads shaped so differently that
+# the classic-tuned anchor lands wrong. {variant: {slot: (L%, T%, W%, rot)}}.
+#   hammerhead -> eyes are on the far HAMMER TIPS, not the centre, so the eyepiece
+#                 lens has to ride out onto the viewer-left tip
+_VARIANT_OVERRIDE = {
+    "hammerhead": {"eyepiece": (5, 12, 21, 0)},
+}
 # per-stage nudge: heads sit at different heights/sizes. (top% delta, width scale)
 _STAGE_ADJUST = {
     "hatchling": (16, 0.78),
@@ -87,19 +94,30 @@ def stage_of(sprite: str) -> str:
     return "adult"
 
 
-def html(equipped: dict, stage: str) -> str:
+def variant_of(sprite: str) -> str:
+    """Best-effort species/variant key from a sprite name like 'hammerhead-alpha'."""
+    for v in _VARIANT_OVERRIDE:
+        if sprite.startswith(v):
+            return v
+    return "classic"
+
+
+def html(equipped: dict, stage: str, variant: str = "classic") -> str:
     """Build the <img class="worn"> overlay for `equipped` ({slot: rarity}).
 
-    `stage` is the character's evolution stage (for the per-stage nudge).
+    `stage` is the character's evolution stage (for the per-stage nudge); `variant`
+    is the species (for per-species anchor overrides, e.g. the hammerhead eyepiece).
     Legendary pieces pulse (the `.leg` class); rarer pieces get a glow.
     """
     dy, sc = _STAGE_ADJUST.get(stage, (0, 1.0))
+    overrides = _VARIANT_OVERRIDE.get(variant, {})
     out = ""
-    for slot, (L, T, Wd, rot) in _WORN_ANCHOR.items():
+    for slot in _WORN_ANCHOR:
         r = (equipped or {}).get(slot)
         b = _worn_b64(slot, r) if r else None
         if not b:
             continue
+        L, T, Wd, rot = overrides.get(slot, _WORN_ANCHOR[slot])
         cls = "worn back" if slot in _BEHIND else "worn"
         if r == "legendary":
             cls += " leg"
