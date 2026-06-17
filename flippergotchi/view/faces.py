@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# Flipper-dolphin "faces" keyed by mood. ASCII here for the TUI / dev preview;
+# Shark "faces" keyed by mood. ASCII here for the TUI / dev preview;
 # the real device renders the same expressions as FlipCTL HTML/CSS on the
 # 256x144 LCD (see view/flipctl.py). Keep art free of < > & to stay HTML-safe.
 

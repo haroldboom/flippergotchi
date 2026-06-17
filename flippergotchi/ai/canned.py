@@ -11,13 +11,13 @@ _LINES = {
         "Gotcha! {arg} is in the bestiary now!",
         "Caught {arg}! Another one for the collection.",
         "Net's full -- {arg} captured! (^o^)",
-        "*triumphant dolphin noises* got {arg}!",
+        "*triumphant shark noises* got {arg}!",
     ],
     "fed": [
         "Nom nom -- tasty little snack!",
         "Mmm, found a treat on the walk. More!",
         "Yum! That snack hit the spot.",
-        "*happy dolphin noises* foooood!",
+        "*happy shark noises* foooood!",
     ],
     "fed_pmkid": [
         "Ooh, a PMKID snack. Bite-sized but tasty.",
