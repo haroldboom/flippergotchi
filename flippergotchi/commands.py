@@ -86,14 +86,25 @@ def cmd_encounter(cfg) -> None:
     print(f"  => {e.message}")
 
 
+def _player_stem(cfg) -> str:
+    variant = getattr(cfg, "character_variant", "classic")
+    return "adult" if variant in ("classic", "") else f"{variant}-adult"
+
+
 def _render_capture(cfg, m, caught: bool) -> list | None:
-    """Best-effort visual net-gun capture frames; never breaks the flow."""
+    """Best-effort visual net-gun capture frames; never breaks the flow.
+
+    The status HUD reflects the live deauth/capture settings (cfg.deauth_count,
+    cfg.capture_timeout) -- the same values the real capture uses."""
     try:
         from .view import capture_screen
         out = getattr(cfg, "capture_frames_dir", "/tmp/flippergotchi/capture")
-        return capture_screen.render_sequence(os.path.expanduser(out), {
-            "species": m.species, "name": label(m),
-        }, caught=caught)
+        return capture_screen.render_sequence(
+            os.path.expanduser(out),
+            {"species": m.species, "name": label(m)},
+            caught=caught, player=_player_stem(cfg),
+            timeout=int(getattr(cfg, "capture_timeout", 20) or 20),
+            deauth=int(getattr(cfg, "deauth_count", 5) or 5))
     except Exception:  # noqa: BLE001
         return None
 

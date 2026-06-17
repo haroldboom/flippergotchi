@@ -19,6 +19,8 @@ def main() -> None:
     ap.add_argument("--dry-run", dest="dry_run", action="store_true",
                     help="drive real capture/crack paths but suppress deauth "
                          "injection + hashcat (validate the stack on hardware)")
+    ap.add_argument("--capture-timeout", dest="capture_timeout", type=int,
+                    help="seconds to listen for a handshake per capture attempt")
     ap.add_argument("--name", help="override pet name")
     ap.add_argument("--ticks", type=int, default=None,
                     help="run N ticks then exit (default: run forever)")
@@ -57,6 +59,8 @@ def main() -> None:
         cfg.simulate = True
     if args.dry_run:
         cfg.dry_run = True
+    if args.capture_timeout is not None:
+        cfg.capture_timeout = args.capture_timeout
     if args.name:
         cfg.name = args.name
     if args.interval is not None:

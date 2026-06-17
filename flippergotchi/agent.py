@@ -189,14 +189,23 @@ class Agent:
             self.log(f"encounter render failed: {e}")
 
     def _render_capture(self, m, caught: bool) -> None:
-        """Best-effort visual net-gun capture frames to cfg.capture_frames_dir."""
+        """Best-effort visual net-gun capture frames to cfg.capture_frames_dir.
+
+        The HUD shows the live deauth/capture settings (the values the real
+        capture path uses)."""
         try:
             from .view import capture_screen
             out = getattr(self.cfg, "capture_frames_dir",
                           "/tmp/flippergotchi/capture")
-            capture_screen.render_sequence(os.path.expanduser(out), {
-                "species": m.species, "name": monsters.label(m),
-            }, caught=caught)
+            variant = getattr(self.cfg, "character_variant", "classic")
+            player = (self.state.stage if variant in ("classic", "")
+                      else f"{variant}-{self.state.stage}")
+            capture_screen.render_sequence(
+                os.path.expanduser(out),
+                {"species": m.species, "name": monsters.label(m)},
+                caught=caught, player=player,
+                timeout=int(getattr(self.cfg, "capture_timeout", 20) or 20),
+                deauth=int(getattr(self.cfg, "deauth_count", 5) or 5))
         except Exception as e:  # noqa: BLE001 - never break the tick loop
             self.log(f"capture render failed: {e}")
 

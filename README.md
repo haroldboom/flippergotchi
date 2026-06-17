@@ -75,10 +75,19 @@ and a Capture/Run menu:
 
 ![encounter screens](docs/encounter.png)
 
-**Capturing** plays a net-gun animation — aim → *fwoomp* → net → **GOTCHA!** (or
-the catch breaks free) — rendered as 256×144 frames the device swaps through:
+**Capturing** plays a net-gun animation that mirrors the real pentest flow: the
+shark locks the target, fires **deauth** frames to kick clients, then listens for
+the WPA **4-way handshake** until the capture timeout (a status HUD shows the
+deauth count + capture progress). Two outcomes — handshake netted, or it times
+out with no handshake:
 
-![net-gun capture animation](docs/capture.gif)
+| Handshake captured | No handshake (timed out) |
+|:---:|:---:|
+| ![capture success](docs/capture.gif) | ![capture failed](docs/capture-fail.gif) |
+
+The listen window is **user-configurable** — `--capture-timeout <seconds>` (or
+`capture_timeout` in config); the same value drives the real capture and is shown
+on screen.
 
 **PvP duel screen** — `duel <name>` renders a Pokémon-style 1v1: the rival
 Flippergotchi (HP box, upper-left) faces your character (mirrored, lower-right)
@@ -249,6 +258,7 @@ python3 -m flippergotchi gear              # inventory / equip loadout
 python3 -m flippergotchi doctor            # preflight: tools/iface/wordlist/scope
 python3 -m flippergotchi scan              # passive AP discovery (no active actions)
 python3 -m flippergotchi --dry-run capture AA:BB:..  # capture+validate, no deauth
+python3 -m flippergotchi --capture-timeout 45 capture AA:BB:..   # longer listen window
 python3 -m flippergotchi --dry-run battle MyAP --authorized   # crack path, no hashcat
 python3 -m flippergotchi cloud                    # cloud status + queued captures
 python3 -m flippergotchi cloud submit MyAP --authorized   # upload to wpa-sec
