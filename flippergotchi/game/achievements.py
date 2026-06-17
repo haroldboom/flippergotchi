@@ -122,9 +122,9 @@ CATALOG: list[Badge] = [
           "quests", "questmaster", "gold"),
     Badge("streak_7", "Dedicated", "Clear every daily 7 days running",
           "streak", 7, {"scrap": 250, "food": 3}, "quests", "", "silver"),
-    # -- hidden / secret (masked until unlocked; shiny mechanic is future) --
+    # -- shiny: the rare cosmetic find (now reachable; ~1/256 per network) --
     Badge("shiny_find", "Sparkle", "Find a shiny monster",
-          "shinies", 1, {"scrap": 300, "food": 3}, "meta", "", "gold", hidden=True),
+          "shinies", 1, {"scrap": 300, "food": 3}, "meta", "", "gold"),
 ]
 
 _BY_ID = {b.id: b for b in CATALOG}
@@ -140,6 +140,8 @@ def build_stats(state, dex=None, inv=None, ledger=None, quests=None) -> dict:
     Ledger in BOTH; ``quests_done``/``streak`` come from the QuestLog -- the
     cross-system tie that lets quest activity unlock achievements."""
     catches = sum(1 for x in dex.all() if getattr(x, "captured", False)) if dex else 0
+    shinies = sum(1 for x in dex.all()
+                  if getattr(x, "captured", False) and getattr(x, "shiny", False)) if dex else 0
     cracks = ledger.counts().get("win", 0) if ledger else 0
     return {
         "catches": catches,
@@ -149,7 +151,7 @@ def build_stats(state, dex=None, inv=None, ledger=None, quests=None) -> dict:
         "level": getattr(state, "level", 1),
         "stage": getattr(state, "stage", "egg"),
         "equipped_slots": len(getattr(inv, "equipped", {}) or {}) if inv else 0,
-        "shinies": 0,
+        "shinies": shinies,
         "quests_done": getattr(quests, "lifetime_done", 0) if quests else 0,
         "streak": getattr(quests, "streak", 0) if quests else 0,
     }

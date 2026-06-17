@@ -91,7 +91,8 @@ def test_streak_badge_unlocks():
 
 
 def test_hidden_badge_masked_until_unlocked():
-    b = ach.get("shiny_find")
+    b = ach.Badge("secret_x", "Secret", "hidden test badge", "catches", 1,
+                  hidden=True)
     assert b.hidden
     assert ach.display_name(b, unlocked=False) != b.name      # masked while locked
     assert ach.display_name(b, unlocked=True) == b.name        # revealed once earned

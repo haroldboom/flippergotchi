@@ -60,11 +60,12 @@ def main() -> None:
     ap.add_argument("command", nargs="?", default="run",
                     choices=["run", "dex", "battle", "encounter", "duel", "gear",
                              "quests", "doctor", "shop", "achievements", "scan",
-                             "capture", "cloud", "feed"],
+                             "capture", "cloud", "feed", "title"],
                     help="run | dex | battle <name> | encounter | duel <peer> | "
                          "gear [item] | quests | doctor | shop [buy <item>] | "
                          "achievements | scan | capture <bssid> | "
-                         "cloud [submit <name>|results] | feed [food-id]")
+                         "cloud [submit <name>|results] | feed [food-id] | "
+                         "title [name|none]")
     ap.add_argument("target", nargs="?", help="monster name/bssid for `battle`; "
                     "bssid/ssid for `capture`; or `buy`/item-id for `shop`")
     ap.add_argument("extra", nargs="?", help="item id for `shop buy <item>`")
@@ -74,6 +75,9 @@ def main() -> None:
                     help="battle: auto-battle every captured monster, one at a time")
     ap.add_argument("--dont-show-again", dest="dont_show_again", action="store_true",
                     help="battle: dismiss the crack warning permanently")
+    ap.add_argument("--stash", dest="stash", action="store_true",
+                    help="shop: deposit a bought feed item into the larder "
+                         "instead of instant-feeding (hunger unchanged)")
     args = ap.parse_args()
 
     cfg = Config.load(args.config)
@@ -122,7 +126,7 @@ def main() -> None:
         return
     if args.command == "shop":
         from .commands import cmd_shop
-        cmd_shop(cfg, args.target, args.extra)
+        cmd_shop(cfg, args.target, args.extra, stash=args.stash)
         return
     if args.command == "achievements":
         from .commands import cmd_achievements
@@ -131,6 +135,10 @@ def main() -> None:
     if args.command == "feed":
         from .commands import cmd_feed
         cmd_feed(cfg, args.target)
+        return
+    if args.command == "title":
+        from .commands import cmd_title
+        cmd_title(cfg, args.target)
         return
     if args.command == "scan":
         from .commands import cmd_scan

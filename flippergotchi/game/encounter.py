@@ -14,7 +14,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-from .monsters import Monster
+from .monsters import Monster, species_label
 
 # states
 PROMPT = "prompt"
@@ -39,7 +39,8 @@ class Encounter:
     message: str = ""
 
     def __post_init__(self):
-        self.message = f"A wild {self.monster.species} ({self.monster.name}) appeared!"
+        self.message = (f"A wild {species_label(self.monster)} "
+                        f"({self.monster.name}) appeared!")
 
     def choose(self, action: str, rng=random) -> "Encounter":
         """action: 'capture' | 'run'. Resolves the encounter (simulated roll)."""

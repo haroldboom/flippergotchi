@@ -1,9 +1,27 @@
 """APs and Bluetooth devices, reimagined as collectible monsters."""
 from __future__ import annotations
 
+import hashlib
 from dataclasses import asdict, dataclass, field
 
 from .analysis import assess
+
+# A given AP/device is consistently shiny (or not) forever: we hash its STABLE
+# id (bssid / address), never the clock. ~1 in SHINY_ODDS rolls shiny.
+SHINY_ODDS = 256
+
+
+def _stable_roll(seed: str, mod: int) -> int:
+    """A deterministic 0..mod-1 roll from a stable string id (sha256-based).
+
+    NEVER time-based: the same id always yields the same value, so a network is
+    shiny-or-not for good and tests can assert stability."""
+    h = hashlib.sha256(("shiny:" + (seed or "")).encode()).hexdigest()
+    return int(h, 16) % mod
+
+
+def _is_shiny(seed: str) -> bool:
+    return _stable_roll(seed, SHINY_ODDS) == 0
 
 # WiFi species now come from the AP's BRAND (vendor), not its encryption --
 # WPA2/open monsters are identified by who made the router. WEP and WPA(1) are
@@ -109,6 +127,7 @@ class Monster:
     vendor: str = ""        # BLE vendor faction (Apple/Google/...)
     pairing: str = ""       # BLE pairing security: just_works|pin|secure
     connectable: bool = True  # BLE: is it connectable (for control attacks)?
+    shiny: bool = False     # rare cosmetic variant (stable per id, ~1/256)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -134,6 +153,11 @@ def label(m: "Monster") -> str:
     return f"<hidden {m.id[-5:]}>"
 
 
+def species_label(m: "Monster") -> str:
+    """Species name, tagged with a sparkle when the monster is shiny."""
+    return f"{m.species} ✨SHINY" if getattr(m, "shiny", False) else m.species
+
+
 def from_ap(ev: dict) -> Monster:
     a = assess(ev)
     enc = a.encryption
@@ -156,6 +180,7 @@ def from_ap(ev: dict) -> Monster:
         defense=defense, encryption=enc, signal=ev.get("signal", -60),
         band=band, clients=ev.get("clients", 0),
         rarity=rarity, vendor=vendor,
+        shiny=_is_shiny(a.bssid),
         captured=(ev.get("kind") in ("handshake", "pmkid")),
     )
 
@@ -173,6 +198,7 @@ def from_ble(ev: dict) -> Monster:
     vendor = str(ev.get("company", "") or "")
     services = ev.get("services") or []
     nservices = len(services) if isinstance(services, (list, tuple)) else 0
+    addr = ev.get("addr", "00:00:00:00:00:00")
 
     level = max(1, 3 + (rssi + 100) // 20 + min(nservices, 4))
     rarity = _BLE_RARITY.get(cls, "common")
@@ -182,12 +208,13 @@ def from_ble(ev: dict) -> Monster:
     hp = 8 + nservices * 2 + (6 if cls == "tracker" else 0)
 
     return Monster(
-        id=ev.get("addr", "00:00:00:00:00:00"), kind="ble",
+        id=addr, kind="ble",
         name=ev.get("name") or "(unnamed)",
         species=_BLE_SPECIES.get(cls, "Pixie"),
         element=_BLE_ELEMENT.get(vendor, "Aether"),
         level=level, hp=hp, defense=defense, signal=rssi,
         rarity=rarity, vendor=vendor, pairing=pairing,
+        shiny=_is_shiny(addr),
         connectable=bool(ev.get("connectable", True)),
         captured=True,   # sighting = collected; GATT enum = recon; battle = own
     )

@@ -66,6 +66,8 @@ def cmd_dex(cfg) -> None:
             status = "captured - ready to battle"
         else:
             status = "spotted (not captured)"
+        if getattr(m, "shiny", False):
+            status = "✨SHINY " + status
         print(f"  {m.level:>3}  {m.species:<12} {label(m)[:22]:<22} {m.kind:<6} "
               f"{m.defense:>3}  {status}")
 
@@ -132,6 +134,7 @@ def _render_encounter(cfg, m, line: str = "") -> str | None:
         return encounter_screen.render(os.path.expanduser(out), {
             "species": m.species, "name": label(m), "level": m.level,
             "encryption": m.encryption, "defense": m.defense, "kind": m.kind,
+            "shiny": getattr(m, "shiny", False),
         }, line)
     except Exception:  # noqa: BLE001
         return None
@@ -500,6 +503,51 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
     persistence.save(cfg.state_path, state)
 
 
+def cmd_title(cfg, target=None) -> None:
+    """Select which earned cosmetic title rides under your pet's name.
+
+    Titles are earned through play (achievements.grant_reward appends to
+    state.titles); this command only equips one you already own, so it can't
+    mint new titles.
+
+      title                 -> list earned titles, mark the active one
+      title <name>          -> equip <name> if owned (case-insensitive)
+      title none | clear    -> unequip (active_title = "")
+    """
+    state = persistence.load(cfg.state_path)
+    titles = list(getattr(state, "titles", []))
+    active = getattr(state, "active_title", "")
+
+    if not target:
+        if not titles:
+            print("  No titles earned yet -- unlock achievements to earn them.")
+            return
+        print("  TITLES")
+        for t in titles:
+            mark = "*" if t == active else " "
+            print(f"  {mark} {t}")
+        if not active:
+            print("  (none active)")
+        return
+
+    if target.lower() in ("none", "clear"):
+        state.active_title = ""
+        persistence.save(cfg.state_path, state)
+        print("  Title cleared.")
+        return
+
+    match = next((t for t in titles if t.lower() == target.lower()), None)
+    if match is None:
+        print(f"  You haven't earned the title '{target}'.")
+        if titles:
+            print(f"  Earned: {', '.join(titles)}")
+        return
+
+    state.active_title = match
+    persistence.save(cfg.state_path, state)
+    print(f"  Title set: {state.name} {match}")
+
+
 def cmd_doctor(cfg) -> None:
     """Preflight: what's installed/permitted for real WiFi capture + cracking."""
     from .game import doctor
@@ -548,6 +596,13 @@ def cmd_achievements(cfg) -> None:
             line += f" {b.description}  [{int(cur)}/{int(thr)}]"
         print(line)
 
+    # also write the grayscale badge-wall render (read-only; no unlock/grant)
+    from .view import badge_screen
+    out = badge_screen.render(
+        getattr(cfg, "badge_html_out", "/tmp/flippergotchi/badges.html"),
+        book, stats, state)
+    print(f"  badge wall: {out}")
+
 
 def cmd_feed(cfg, target: str | None = None) -> None:
     """`feed` shows the larder + pet; `feed <id>` hand-feeds that stashed food.
@@ -593,8 +648,12 @@ def cmd_feed(cfg, target: str | None = None) -> None:
         print(f"  -> {msg}")
 
 
-def cmd_shop(cfg, action: str | None, item: str | None) -> None:
-    """`shop` to browse; `shop buy <item>` to spend scrap."""
+def cmd_shop(cfg, action: str | None, item: str | None,
+             extra: str | None = None, stash: bool = False) -> None:
+    """`shop` to browse; `shop buy <item>` to spend scrap.
+
+    A feed item can be deposited into the Larder instead of instantly applied
+    via ``shop buy <item> --stash`` (or a trailing ``stash`` token)."""
     shop = shop_mod.Shop(cfg)
     wallet = Wallet(getattr(cfg, "wallet_path", "~/.flippergotchi/wallet.json"))
 
@@ -603,17 +662,28 @@ def cmd_shop(cfg, action: str | None, item: str | None) -> None:
         item = item or action
         action = "buy"
 
+    # a trailing positional `stash` token is equivalent to --stash
+    for tok in (item, extra):
+        if isinstance(tok, str) and tok.lower() == "stash":
+            stash = True
+    if isinstance(item, str) and item.lower() == "stash":
+        item = extra if (extra and extra.lower() != "stash") else None
+
     if action == "buy":
         if not item:
-            print("Usage: shop buy <item-id>")
+            print("Usage: shop buy <item-id> [--stash]")
             return
         state = persistence.load(cfg.state_path)
         inv = equip_mod.Inventory(cfg.inventory_path)
-        ok, msg = shop.buy(wallet, item, inv=inv, state=state)
+        larder = Larder(getattr(cfg, "larder_path", "~/.flippergotchi/larder.json"),
+                        getattr(cfg, "larder_capacity", 20))
+        ok, msg = shop.buy(wallet, item, inv=inv, state=state,
+                           stash=stash, larder=larder)
         print(f"  {msg}")
         if ok:
             wallet.save()
             inv.save()
+            larder.save()
             persistence.save(cfg.state_path, state)
         return
 

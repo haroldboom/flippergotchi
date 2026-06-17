@@ -65,12 +65,13 @@ _HTML = """<!doctype html>
   .menu{{right:4px;bottom:4px;width:76px;height:40px;}}
   .opt{{font-size:8px;font-weight:800;line-height:1.4;}}
   .opt b{{color:#c2402a;}}
+  .shiny{{font-size:7px;font-weight:800;color:#caa42a;margin-left:2px;}}
 </style></head><body>
   <div class="screen">
     <div class="platform"></div>
     <img class="mon" src="data:image/png;base64,{sprite}"/>
     <div class="box card">
-      <div class="row"><span class="nm">{species}</span><span class="lv">:L{level}</span></div>
+      <div class="row"><span class="nm">{species}{shiny}</span><span class="lv">:L{level}</span></div>
       <div class="sub">{name}</div>
       <div class="bar"><span class="tag" style="background:{enccol}">{enc}</span>
         <span class="lbl">DEF</span>
@@ -98,10 +99,14 @@ def render(out_path: str, monster: dict, line: str = "") -> str:
     tag = enc.upper() if enc else ("BLE" if kind == "ble" else "OPEN")
     defense = int(max(0, min(100, monster.get("defense", 0) or 0)))
     sprite = monster_art.sprite_b64(species) or _fallback_b64()
-    msg = line or f"A wild {species} appeared!"
+    is_shiny = bool(monster.get("shiny", False))
+    shiny_name = f"✨ SHINY {species}" if is_shiny else species
+    msg = line or f"A wild {shiny_name} appeared!"
+    shiny_tag = '<span class="shiny">✨SHINY</span>' if is_shiny else ""
 
     html = _HTML.format(
-        species=_html.escape(species), level=monster.get("level", 1),
+        species=_html.escape(species), shiny=shiny_tag,
+        level=monster.get("level", 1),
         name=_html.escape(str(monster.get("name", ""))[:20]),
         enc=_html.escape(tag), enccol=_ENC_COLOR.get(enc, "#9fb0c4"),
         defpct=defense, defcol=_diff_color(defense),

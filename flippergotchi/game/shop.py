@@ -100,13 +100,16 @@ class ShopItem:
     description: str
     effect: str            # dispatch key handled in Shop._apply
     magnitude: float = 0.0
+    food_id: str = ""      # for "feed" items: the food.FoodKind to stash on --stash
 
 
 CATALOG: list[ShopItem] = [
     ShopItem("ration", "Food Ration", 60,
-             "Restore some hunger (feed the pet)", "feed", 25.0),
+             "Restore some hunger (feed the pet)", "feed", 25.0,
+             food_id="squid"),
     ShopItem("feast", "Salvage Feast", 140,
-             "A big meal — restore lots of hunger", "feed", 60.0),
+             "A big meal — restore lots of hunger", "feed", 60.0,
+             food_id="cell"),
     ShopItem("energy_snack", "Energy Snack", 90,
              "Restore energy", "energy", 35.0),
     ShopItem("repair_kit", "Repair Kit", 110,
@@ -120,6 +123,25 @@ CATALOG: list[ShopItem] = [
 _BY_ID = {it.id: it for it in CATALOG}
 
 
+def food_kind_for(item: ShopItem):
+    """Resolve the :class:`game.food.FoodKind` a "feed" shop item stashes as.
+
+    Prefers the item's explicit ``food_id``; otherwise falls back to the food
+    whose restore value is nearest the item's hunger magnitude. Returns ``None``
+    for non-feed items or when the food catalogue can't satisfy the lookup."""
+    if item.effect != "feed":
+        return None
+    from . import food as food_mod
+    if item.food_id:
+        fk = food_mod.get(item.food_id)
+        if fk is not None:
+            return fk
+    kinds = food_mod.all_kinds()
+    if not kinds:
+        return None
+    return min(kinds, key=lambda fk: abs(fk.restore - item.magnitude))
+
+
 class Shop:
     def __init__(self, cfg=None):
         self.cfg = cfg
@@ -131,12 +153,19 @@ class Shop:
         return _BY_ID.get(item_id)
 
     def buy(self, wallet: Wallet, item_id: str, inv=None, state=None,
-            target_item_id: str | None = None, rng=None) -> tuple[bool, str]:
+            target_item_id: str | None = None, rng=None,
+            stash: bool = False, larder=None) -> tuple[bool, str]:
         """Purchase `item_id`, charging `wallet` and applying the effect.
 
         Returns (ok, message). Never raises. On insufficient funds or a
         non-applicable effect (e.g. reroll with no eligible item) nothing is
         charged. `target_item_id` selects which inventory item a reroll touches.
+
+        When ``stash`` is set for a "feed" item, the bought food is deposited
+        into ``larder`` (a :class:`game.larder.Larder`) as a
+        :class:`game.food.FoodKind` instead of instantly restoring hunger; the
+        pet's hunger is left unchanged. A full larder is treated like any other
+        non-applicable effect: nothing is charged.
         """
         item = _BY_ID.get(item_id)
         if item is None:
@@ -145,12 +174,30 @@ class Shop:
             return (False,
                     f"Not enough scrap for {item.name} "
                     f"(need {item.cost}, have {wallet.scrap})")
-        ok, msg = self._apply(item, inv=inv, state=state,
-                              target_item_id=target_item_id, rng=rng)
+        if stash:
+            ok, msg = self._stash(item, larder)
+        else:
+            ok, msg = self._apply(item, inv=inv, state=state,
+                                  target_item_id=target_item_id, rng=rng)
         if not ok:
             return False, msg          # effect couldn't apply -> no charge
         wallet.spend(item.cost)
         return True, f"{msg} (-{item.cost} scrap, {wallet.scrap} left)"
+
+    # -- stash (deposit feed items into the larder) ---------------------------
+    @staticmethod
+    def _stash(item: ShopItem, larder) -> tuple[bool, str]:
+        if item.effect != "feed":
+            return False, f"{item.name} can't be stashed in the larder"
+        if larder is None:
+            return False, "No larder to stash into"
+        fk = food_kind_for(item)
+        if fk is None:
+            return False, f"Nothing to stash for {item.name}"
+        stored = larder.add(fk.id, 1)
+        if stored <= 0:
+            return False, "Larder is full"
+        return True, f"Stashed {fk.name} in the larder"
 
     # -- effect dispatch ------------------------------------------------------
     def _apply(self, item: ShopItem, inv=None, state=None,

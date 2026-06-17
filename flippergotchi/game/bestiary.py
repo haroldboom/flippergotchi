@@ -43,6 +43,8 @@ class Bestiary:
             existing.signal = m.signal
             existing.clients = max(existing.clients, m.clients)
             existing.captured = existing.captured or m.captured
+            # shininess is stable per id; preserve it once seen either way
+            existing.shiny = existing.shiny or m.shiny
             return False
         self.monsters[m.id] = m
         return True
