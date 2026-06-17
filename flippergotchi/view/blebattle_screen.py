@@ -30,6 +30,17 @@ def _fallback_b64() -> str:
     return _cache["_fb"]
 
 
+def _player_b64(stem: str = "adult") -> str:
+    key = ("p", stem)
+    if key not in _cache:
+        path = os.path.join(_SPRITES, stem + ".png")
+        if not os.path.exists(path):
+            path = os.path.join(_SPRITES, "adult.png")
+        with open(path, "rb") as f:
+            _cache[key] = base64.b64encode(f.read()).decode()
+    return _cache[key]
+
+
 _CSS = """
   html,body{margin:0;background:#000;}
   *{box-sizing:border-box;image-rendering:pixelated;}
@@ -38,9 +49,11 @@ _CSS = """
     background:linear-gradient(#13213e 0%,#0d1730 55%,#0a1226 100%);}
   .platform{position:absolute;right:18px;top:62px;width:104px;height:20px;border-radius:50%;
     background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);}
-  .mon{position:absolute;right:30px;top:10px;height:74px;z-index:1;
+  .mon{position:absolute;right:24px;top:10px;height:74px;z-index:1;
     filter:drop-shadow(0 2px 0 #0008);}
-  .sig{position:absolute;left:18px;bottom:34px;width:50px;height:50px;z-index:1;
+  .shark{position:absolute;left:-8px;bottom:18px;height:66px;z-index:2;
+    filter:drop-shadow(0 2px 0 #0009);}
+  .sig{position:absolute;left:52px;bottom:42px;width:40px;height:40px;z-index:1;
     border-radius:50%;border:3px solid #7ddfff66;
     box-shadow:0 0 0 6px #7ddfff22,0 0 0 12px #7ddfff11;opacity:.8;}
   .card{position:absolute;top:5px;left:5px;width:122px;background:#0b1430d8;
@@ -67,6 +80,7 @@ _DOC = ("<!doctype html><html><head><meta charset='utf-8'><style>__CSS__"
         "</style></head><body><div class='screen'>"
         "<div class='platform'></div><div class='sig'></div>"
         "<img class='mon' src='data:image/png;base64,{sprite}'/>"
+        "<img class='shark' src='data:image/png;base64,{shark}'/>"
         "<div class='card'><div class='t'>BLE BATTLE</div>"
         "<div class='p'>pairing: <span class='pill'>{pairing}</span></div></div>"
         "{step}{banner}"
@@ -74,7 +88,7 @@ _DOC = ("<!doctype html><html><head><meta charset='utf-8'><style>__CSS__"
         "</div></body></html>")
 
 
-def _frame(sprite_b64, pairing, label, detail, frac, banner):
+def _frame(sprite_b64, shark_b64, pairing, label, detail, frac, banner):
     step = ""
     if banner is None:
         step = (f"<div class='step'><div class='lbl'>{_html.escape(label)}</div>"
@@ -84,18 +98,22 @@ def _frame(sprite_b64, pairing, label, detail, frac, banner):
     if banner is not None:
         text, col = banner
         bn = f"<div class='banner' style='color:{col}'>{_html.escape(text)}</div>"
-    body = _DOC.format(sprite=sprite_b64, pairing=_html.escape(pairing),
+    body = _DOC.format(sprite=sprite_b64, shark=shark_b64,
+                       pairing=_html.escape(pairing),
                        step=step, banner=bn, line=_html.escape(detail)[:54])
     return body.replace("__CSS__", _CSS)
 
 
-def render_sequence(out_dir: str, monster: dict, result: dict) -> list:
-    """Write one HTML frame per technique step; return the frame paths."""
+def render_sequence(out_dir: str, monster: dict, result: dict,
+                    player: str = "adult") -> list:
+    """Write one HTML frame per technique step; return the frame paths. ``player``
+    is the shark sprite stem doing the hacking."""
     out_dir = os.path.expanduser(out_dir)
     os.makedirs(out_dir, exist_ok=True)
     species = str(monster.get("species", "Monster"))
     pairing = _PAIRING_LABEL.get(str(monster.get("pairing", "")), "?")
     sprite = monster_art.sprite_b64(species) or _fallback_b64()
+    shark = _player_b64(player or "adult")
     steps = (result or {}).get("steps") or [("RESULT", result.get("note", ""))]
     n = len(steps)
     paths = []
@@ -103,15 +121,17 @@ def render_sequence(out_dir: str, monster: dict, result: dict) -> list:
         banner = _OUTCOME.get(label)            # set only on the terminal step
         p = os.path.join(out_dir, f"blebattle_{i}.html")
         with open(p, "w") as f:
-            f.write(_frame(sprite, pairing, label, detail, (i + 1) / n, banner))
+            f.write(_frame(sprite, shark, pairing, label, detail,
+                           (i + 1) / n, banner))
         paths.append(p)
     return paths
 
 
-def render(out_path: str, monster: dict, result: dict) -> str:
+def render(out_path: str, monster: dict, result: dict,
+           player: str = "adult") -> str:
     """Single-frame convenience: the final outcome card. Returns out_path."""
     out_dir = os.path.dirname(os.path.expanduser(out_path)) or "."
-    paths = render_sequence(out_dir, monster, result)
+    paths = render_sequence(out_dir, monster, result, player)
     last = paths[-1]
     path = os.path.expanduser(out_path)
     if last != path:

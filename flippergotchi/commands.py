@@ -334,9 +334,15 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
             from .view import blebattle_screen
             outdir = os.path.expanduser(getattr(cfg, "blebattle_frames_dir",
                                                 "/tmp/flippergotchi/blebattle"))
+            player = _player_stem(cfg)
+            if state is not None:
+                variant = getattr(cfg, "character_variant", "classic")
+                player = (state.stage if variant in ("classic", "")
+                          else f"{variant}-{state.stage}")
             frames = blebattle_screen.render_sequence(
                 outdir, {"species": m.species, "name": label(m),
-                         "level": m.level, "pairing": getattr(m, "pairing", "")}, res)
+                         "level": m.level, "pairing": getattr(m, "pairing", "")},
+                res, player=player)
             steps = " → ".join(s[0] for s in res.get("steps", []))
             print(f"      techniques: {steps}")
             if res.get("loot"):
