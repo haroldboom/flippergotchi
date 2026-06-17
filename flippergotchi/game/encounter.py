@@ -42,15 +42,26 @@ class Encounter:
         self.message = f"A wild {self.monster.species} ({self.monster.name}) appeared!"
 
     def choose(self, action: str, rng=random) -> "Encounter":
-        """action: 'capture' | 'run'. Resolves the encounter."""
+        """action: 'capture' | 'run'. Resolves the encounter (simulated roll)."""
         if action == "run":
             self.state = FLED
             self.animation = "flee"
             self.message = "You quietly slipped away."
             return self
-        # capture attempt (on hardware: trigger deauth/PMKID, await handshake)
-        if rng.random() < capture_chance(self.monster):
+        # capture attempt (sim): roll on RF conditions. On hardware the agent
+        # instead runs a real deauth+capture and calls resolve_capture().
+        return self.resolve_capture(rng.random() < capture_chance(self.monster))
+
+    def resolve_capture(self, captured: bool, path: str = "") -> "Encounter":
+        """Set the outcome from a REAL capture attempt (a hardware backend ran
+        the deauth + handshake listen) rather than the simulated roll.
+
+        ``captured`` = a usable handshake/PMKID was obtained; ``path`` is the
+        on-disk capture file (kept on the monster for later cracking/upload)."""
+        if captured:
             self.monster.captured = True
+            if path:
+                self.monster.capture_path = path
             self.state = CAUGHT
             self.animation = "catch"
             self.message = f"Gotcha! {self.monster.name}'s handshake was netted!"

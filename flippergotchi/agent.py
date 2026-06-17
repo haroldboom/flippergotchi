@@ -150,7 +150,16 @@ class Agent:
             self._scene(animations.popup(m))
             time.sleep(self.cfg.anim_delay * 2)
 
-        enc.choose(self._choose(m))            # device: choice comes from a button
+        choice = self._choose(m)               # device: choice comes from a button
+        if choice == "capture" and getattr(self.wifi, "name", "") in (
+                "native", "bettercap"):
+            # On a real capture backend, actually run the deauth + handshake
+            # capture and let the radio decide the outcome. Sim never reaches
+            # here (SimBackend.name == "sim"), so simulation is unchanged.
+            captured, path = self._live_capture(ev)
+            enc.resolve_capture(captured, path)
+        else:
+            enc.choose(choice)
         if self.cfg.tui:
             animations.play(animations.frames(enc.animation, m),
                             self._scene, self.cfg.anim_delay)
@@ -187,6 +196,30 @@ class Agent:
             })
         except Exception as e:  # noqa: BLE001 - never break the tick loop
             self.log(f"encounter render failed: {e}")
+
+    def _live_capture(self, ev: dict):
+        """Run the REAL deauth + handshake capture via the backend and validate
+        the result. Returns (captured: bool, path: str).
+
+        Only called on a live capture backend (native/bettercap) -- sim never
+        reaches here, so behaviour is unchanged without hardware. Fully guarded:
+        any failure (no radio, timeout, bad capture) -> (False, ""). Active
+        deauth is gated inside the backend by the Authorizer; capture is
+        otherwise passive."""
+        try:
+            bssid = ev.get("bssid", "") or ""
+            ssid = ev.get("ssid", "") or ""
+            timeout = int(getattr(self.cfg, "capture_timeout", 20) or 20)
+            path = self.wifi.capture_handshake(bssid, ssid, timeout=timeout)
+            if not path:
+                return False, ""
+            from .core import handshake as hs
+            info = hs.analyze_capture(path)
+            # bool(info) == capture exists AND holds a PMKID / complete 4-way
+            return bool(info), (path if bool(info) else "")
+        except Exception as e:  # noqa: BLE001 - never break the tick loop
+            self.log(f"live capture failed: {e}")
+            return False, ""
 
     def _render_capture(self, m, caught: bool) -> None:
         """Best-effort visual net-gun capture frames to cfg.capture_frames_dir.

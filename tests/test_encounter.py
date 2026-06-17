@@ -51,6 +51,22 @@ def test_capture_failure_escapes():
     assert e.state == encounter.ESCAPED and not m.captured
 
 
+def test_resolve_capture_from_real_outcome():
+    # hardware path: a real backend captured a usable handshake
+    m = _mon()
+    e = encounter.Encounter(m)
+    e.resolve_capture(True, path="/tmp/hs_aabb.pcapng")
+    assert e.state == encounter.CAUGHT and m.captured
+    assert m.capture_path == "/tmp/hs_aabb.pcapng"
+
+
+def test_resolve_capture_no_handshake_escapes():
+    m = _mon(clients=4, signal=-40)   # great RF odds, but the radio got nothing
+    e = encounter.Encounter(m)
+    e.resolve_capture(False)
+    assert e.state == encounter.ESCAPED and not m.captured and not m.capture_path
+
+
 def test_capture_chance_rewards_clients_and_signal():
     weak = encounter.capture_chance(_mon(clients=0, signal=-85))
     strong = encounter.capture_chance(_mon(clients=4, signal=-40))

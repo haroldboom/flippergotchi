@@ -395,6 +395,11 @@ without executing it. Drop `--dry-run` (with proper authorization) to go live.
    `home_networks`/allowlist, point `interface` at the MT7921 monitor iface.
    `make_backend()` then picks the native stack automatically (or set
    `capture_backend = "bettercap"` to drive a running bettercap REST session).
+   On a live backend the encounter loop **actually runs** the deauth + handshake
+   capture (`backend.capture_handshake`, bounded by `capture_timeout`) and the
+   real radio result decides catch vs. no-handshake — the capture file is kept on
+   the monster for later cracking/upload. In `--simulate` this is skipped and the
+   outcome stays a synthetic roll, so nothing changes without hardware.
 2. **Walking:** implement `GpsReader._gpsd_step()` against `gpsd`. Set
    `gps_mode = "gpsd"`.
 3. **Face:** wrap `view/flipctl.py`'s markup in a real FlipCTL plugin and map the
