@@ -110,6 +110,14 @@ class Config:
     element: str = "Aether"            # your Flippergotchi's element (duel matchups)
     scan_bluetooth: bool = True
     bluetooth_scan_timeout: float = 2.5
+    # BLE "tame": actively connect + enumerate GATT (services/chars) for a
+    # richer catch. Active, so gated to authorized scope like deauth/crack.
+    ble_enum: bool = True              # allow GATT enumeration on authorized BLE
+    ble_tame_timeout: float = 8.0      # GATT connect/enumerate timeout (s)
+    # unwanted-tracker (AirTag/Tile) detection -- a safety feature
+    tracker_log_path: str = "~/.flippergotchi/trackers.json"
+    tracker_alert_sightings: int = 4   # distinct sightings before a stalker alert
+    tracker_alert_window_s: float = 120.0  # min time spread across sightings
     duel_stake_frac: float = 0.20            # share of handshakes the loser forfeits
     duel_turn_cap: int = 30                  # max turns before HP-based decision
     # cracking is ONLY allowed against networks matching these (ssid/bssid

@@ -61,11 +61,15 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![variant through evolution](docs/variant-evo.png)
 
-**The monsters** — WiFi access points are catchable creatures (**species set by
-encryption** — the AP's "armour class") and Bluetooth devices are a friendlier
-**mini-monster** tier you tame by scanning. Original cyberpunk pixel art: aquatic
-mutant villains for the WiFi tier (a flimsy jelly for open networks up to an
-armoured piranha-boss for WPA2), and cute gadget-creatures for BLE:
+**The monsters** — WiFi access points are catchable creatures, and Bluetooth
+devices are a friendlier **mini-monster** tier. The BLE species come from the
+real advert (device class + vendor): phones, wearables, audio, beacons,
+computers, **trackers**, HID input, smart-home, medical. Scanning is a
+*sighting*; an active **GATT enumerate** (`bettercap ble.enum` / `bleak`) is the
+deeper **"tame"** — richer reward the more services the device exposes (gated +
+audited like other active actions). A **tracker** (AirTag/Tile) that keeps
+following you raises an **unwanted-tracker safety alert** and shows up as a rare
+catch. Original cyberpunk pixel art throughout:
 
 ![bestiary — WiFi villains + BLE mini-monsters](docs/monsters.png)
 

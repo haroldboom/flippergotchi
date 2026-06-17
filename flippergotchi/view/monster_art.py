@@ -28,6 +28,10 @@ SPECIES_SPRITES = {
     "Echobub": "echobub",        # audio
     "Blip": "blip",              # beacon
     "Cogling": "cogling",        # computer
+    "Trackling": "trackling",    # tracker (AirTag/Tile) -- the rare stalker
+    "Keytapper": "keytapper",    # input / HID
+    "Hearthkin": "hearthkin",    # smart-home
+    "Vitalix": "vitalix",        # medical
     "Pixie": "pixie",            # unknown
 }
 

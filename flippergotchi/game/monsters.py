@@ -14,11 +14,19 @@ _WIFI_SPECIES = {
 }
 # band -> element
 _ELEMENT = {"2.4GHz": "Spark", "5GHz": "Tide", "6GHz": "Gale"}
-# BLE appearance -> mini species
+# BLE device-class -> mini species
 _BLE_SPECIES = {
     "phone": "Pocketling", "wearable": "Tickbit", "audio": "Echobub",
-    "beacon": "Blip", "computer": "Cogling", "unknown": "Pixie",
+    "beacon": "Blip", "computer": "Cogling", "tracker": "Trackling",
+    "input": "Keytapper", "smarthome": "Hearthkin", "medical": "Vitalix",
+    "unknown": "Pixie",
 }
+# BLE vendor "faction" -> element (flavour / future BLE matchups)
+_BLE_ELEMENT = {"Apple": "Aether", "Google": "Spark", "Samsung": "Tide",
+                "Microsoft": "Gale", "Garmin": "Gale", "Xiaomi": "Tide"}
+# device-class -> rarity tier (trackers are the prized/uneasy find)
+_BLE_RARITY = {"tracker": "rare", "medical": "uncommon", "input": "uncommon",
+               "smarthome": "uncommon"}
 
 
 @dataclass
@@ -42,6 +50,8 @@ class Monster:
     attempts: int = 0       # battles fought against it
     last_result: str = ""   # raw result of the most recent battle
     capture_path: str = ""  # on-disk handshake/PMKID capture (for cloud upload)
+    rarity: str = ""        # BLE tier: common|uncommon|rare (flavour/display)
+    vendor: str = ""        # BLE vendor faction (Apple/Google/...)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -85,14 +95,31 @@ def from_ap(ev: dict) -> Monster:
 
 
 def from_ble(ev: dict) -> Monster:
-    appearance = (ev.get("appearance") or "unknown").lower()
-    rssi = ev.get("rssi", -70)
+    """Build a BLE mini-monster from an enriched advertisement event.
+
+    Species comes from the device class, element from the vendor faction, and
+    the level/rarity scale with signal strength + how much the device advertises
+    (more services = a meatier creature). `captured=True` marks a *sighting*
+    (collected by scanning); a later GATT enumerate "tames" it (sets defeated).
+    """
+    cls = (ev.get("device_class") or ev.get("appearance") or "unknown").lower()
+    rssi = int(ev.get("rssi", -70) or -70)
+    vendor = str(ev.get("company", "") or "")
+    services = ev.get("services") or []
+    nservices = len(services) if isinstance(services, (list, tuple)) else 0
+
+    level = max(1, 3 + (rssi + 100) // 20 + min(nservices, 4))
+    rarity = _BLE_RARITY.get(cls, "common")
+    # trackers and medical kit are a bit hardier; richer adverts = more HP
+    hp = 8 + nservices * 2 + (6 if cls == "tracker" else 0)
+    defense = 5 + (5 if rarity == "rare" else 2 if rarity == "uncommon" else 0)
+
     return Monster(
         id=ev.get("addr", "00:00:00:00:00:00"), kind="ble",
         name=ev.get("name") or "(unnamed)",
-        species=_BLE_SPECIES.get(appearance, "Pixie"),
-        element="Aether",
-        level=max(1, 3 + (rssi + 100) // 20),  # closer = a bit stronger
-        hp=10, defense=5, signal=rssi,
-        captured=True,  # a BLE creature is "tamed" just by scanning it
+        species=_BLE_SPECIES.get(cls, "Pixie"),
+        element=_BLE_ELEMENT.get(vendor, "Aether"),
+        level=level, hp=hp, defense=defense, signal=rssi,
+        rarity=rarity, vendor=vendor,
+        captured=True,   # sighting = lightly collected; GATT enum = fully tamed
     )

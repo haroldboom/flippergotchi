@@ -11,10 +11,12 @@ from .core.bluetooth import BluetoothScanner
 from .core.wifi.backends import make_backend
 import random
 
+from .game import ble as ble_mod
 from .game import encounter, equipment, monsters
 from .game import quests as quests_mod
 from .game import shop as shop_mod
 from .game.achievements import AchievementBook
+from .game.ble import TrackerLog
 from .game.bestiary import Bestiary
 from .game.home import at_home
 from .game.quests import QuestLog
@@ -43,6 +45,8 @@ class Agent:
                                             "~/.flippergotchi/achievements.json"))
         self.wallet = Wallet(getattr(cfg, "wallet_path",
                                      "~/.flippergotchi/wallet.json"))
+        self.trackers = TrackerLog(getattr(cfg, "tracker_log_path",
+                                           "~/.flippergotchi/trackers.json"))
         self._say = ""
         self._fx = None          # (mood, until_ts) transient face override
         self._last_save = 0.0
@@ -262,9 +266,51 @@ class Agent:
                 self._note_peer(ev)
                 continue
             m = monsters.from_ble(ev)
-            if self.dex.add(m):
+            new = self.dex.add(m)
+            canon = self.dex.get(m.id) or m   # the stored object (add merges)
+            # unwanted-tracker (AirTag/Tile) detection -- a safety alert
+            if ev.get("device_class") == "tracker" or canon.species == "Trackling":
+                self.trackers.record(canon.id, canon.name)
+                if self.trackers.should_alert(canon.id, self.cfg):
+                    self.log(f"[ALERT] tracker '{canon.name}' ({canon.id}) keeps "
+                             f"following you -- possible unwanted tracker!")
+                    self._fx_set("sick")
+            if new:
                 self.state.happiness = mechanics.clamp(self.state.happiness + 1)
-                self.log(f"[dex] a tiny {m.species} '{m.name}' blipped past (Lv{m.level})")
+                tag = f" [{canon.rarity}]" if canon.rarity not in ("", "common") else ""
+                self.log(f"[dex] a tiny {canon.species} '{canon.name}' blipped "
+                         f"past (Lv{canon.level}{tag})")
+            # deeper catch: actively enumerate GATT to fully tame it
+            self._tame_ble(canon, ev)
+
+    def _tame_ble(self, m, ev: dict) -> None:
+        """Active GATT enumerate = the deeper 'tame' (richer reward). Sim runs a
+        synthetic enumeration; on a live adapter it only connects when ble_enum
+        is on AND the device is connectable AND in authorized scope (connecting
+        is an active action). Guarded -- never breaks the tick loop."""
+        if getattr(m, "defeated", False) or not ev.get("connectable", True):
+            return
+        if getattr(self.ble, "mode", "sim") != "sim":
+            if not getattr(self.cfg, "ble_enum", True):
+                return
+            if not self.authz.is_authorized(m.id, m.name):
+                return
+        try:
+            result = self.ble.enumerate(m.id)
+        except Exception as e:  # noqa: BLE001
+            self.log(f"ble tame failed: {e}")
+            return
+        if not result:
+            return
+        reward = ble_mod.tame_reward(m, result)
+        m.defeated = True
+        m.key = reward["key"]
+        self.wallet.earn(reward["scrap"])
+        self.state.happiness = mechanics.clamp(self.state.happiness + 2)
+        self.log(f"[tame] interrogated {m.species} '{m.name}' -- {reward['key']} "
+                 f"(+{reward['scrap']} scrap)")
+        self._fx_set("excited")
+        self._achievements()
 
     def _note_peer(self, ev: dict) -> None:
         addr = ev.get("addr")
@@ -345,6 +391,7 @@ class Agent:
         self.quests.save()
         self.wallet.save()
         self.book.save()
+        self.trackers.save()
         prefs_mod.save(self.cfg.peers_path, self._peers)
 
     def run(self, ticks: int | None = None) -> None:
