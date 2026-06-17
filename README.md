@@ -42,7 +42,8 @@ machine.
 
 The game on the Flipper One's **256×144** screen — a retro creature-collector HUD
 (HP / XP / food / energy + dialogue box) with the cyberpunk shark, scaled crisp
-with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
+with nearest-neighbour. The full loop: **scan for APs → target one → net its
+handshake → it lands in your bestiary** (the sprite swaps with the action):
 
 ![Flippergotchi gameplay](docs/demo.gif)
 
