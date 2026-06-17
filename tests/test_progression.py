@@ -70,6 +70,43 @@ def test_build_stats_sources_cracks_from_ledger():
     assert stats["level"] == 3
 
 
+def test_hidden_badge_masked_until_unlocked():
+    b = ach.get("shiny_find")
+    assert b.hidden
+    assert ach.display_name(b, unlocked=False) != b.name      # masked while locked
+    assert ach.display_name(b, unlocked=True) == b.name        # revealed once earned
+
+
+def test_badge_tiers_and_new_metric_series():
+    assert ach.get("catch_100").tier == "gold"
+    assert ach.get("tame_10").metric == "tames"               # phase-3 metric wired
+    assert ach.get("legend_3").metric == "legendary_kills"
+
+
+def test_tame_and_legendary_badges_unlock():
+    book = ach.AchievementBook(_tmp("a.json"))
+    assert any(b.id == "tame_10" for b in book.check({"tames": 10}))
+    book2 = ach.AchievementBook(_tmp("a2.json"))
+    assert any(b.id == "legend_3" for b in book2.check({"legendary_kills": 3}))
+
+
+def test_progress_readout():
+    assert ach.progress(ach.get("catch_50"), {"catches": 12}) == (12, 50)
+
+
+def test_gold_capstone_mints_gear():
+    from flippergotchi.config import Config
+    from flippergotchi.game import equipment as eq
+    from flippergotchi.game.shop import Wallet
+    book = ach.AchievementBook(_tmp("a.json"))
+    w = Wallet(_tmp("w.json"))
+    inv = eq.Inventory(_tmp("i.json"))
+    cfg, st = Config(), PetState(level=20)
+    newly = ach.grant_reward(book, {"cracks": 50}, st, cfg, w, inv)   # crack_50 = gold+gear
+    assert any(b.id == "crack_50" for b in newly)
+    assert len(inv.all()) >= 1                                 # a gear item was minted
+
+
 def test_grant_reward_pays_scrap_once():
     # the single reward path: pays a badge's scrap exactly once, never on re-check
     from flippergotchi.config import Config

@@ -320,9 +320,14 @@ def _award(cfg, state, *, scrap: int = 0, inv=None, dex=None, ledger=None) -> No
         book = AchievementBook(getattr(cfg, "achievements_path",
                                        "~/.flippergotchi/achievements.json"))
         stats = ach_mod.build_stats(state, dex, inv, ledger)
-        for b in ach_mod.grant_reward(book, stats, state, cfg, wallet):
+        for b in ach_mod.grant_reward(book, stats, state, cfg, wallet, inv):
             rw = b.reward or {}
-            extra = f" (+{rw.get('scrap', 0)} scrap)" if rw.get("scrap") else ""
+            bits = []
+            if rw.get("scrap"):
+                bits.append(f"+{rw['scrap']} scrap")
+            if rw.get("gear"):
+                bits.append("gear")
+            extra = f"  ({', '.join(bits)})" if bits else ""
             print(f"      ★ ACHIEVEMENT: {b.name} -- {b.description}{extra}")
         wallet.save()
         book.save()
@@ -497,13 +502,34 @@ def cmd_achievements(cfg) -> None:
     book = AchievementBook(getattr(cfg, "achievements_path",
                                    "~/.flippergotchi/achievements.json"))
     wallet = Wallet(getattr(cfg, "wallet_path", "~/.flippergotchi/wallet.json"))
+    # read-only progress snapshot (no unlock, no grant) for the locked-badge bars
+    state = persistence.load(cfg.state_path)
+    dex = Bestiary(cfg.bestiary_path)
+    inv = equip_mod.Inventory(cfg.inventory_path)
+    ledger = Ledger(cfg.ledger_path)
+    stats = ach_mod.build_stats(state, dex, inv, ledger)
+
     unlocked = book.unlocked()
     print(f"  ACHIEVEMENTS  ({len(unlocked)}/{len(book.all())})   "
           f"scrap: {wallet.scrap}")
+    _TIER = {"bronze": "B", "silver": "S", "gold": "G", "": "-"}
+    last_cat = None
     for b in book.all():
         got = book.is_unlocked(b.id)
+        if b.category != last_cat:
+            print(f"  -- {b.category} --")
+            last_cat = b.category
         mark = "★" if got else " "
-        print(f"  [{mark}] {b.name:<16} {b.description}")
+        name = ach_mod.display_name(b, got)
+        line = f"  [{mark}] ({_TIER.get(b.tier, '-')}) {name:<22}"
+        if got:
+            line += f" {b.description}"
+        elif b.hidden:
+            line += " (secret -- keep playing)"
+        else:
+            cur, thr = ach_mod.progress(b, stats)
+            line += f" {b.description}  [{int(cur)}/{int(thr)}]"
+        print(line)
 
 
 def cmd_feed(cfg, target: str | None = None) -> None:

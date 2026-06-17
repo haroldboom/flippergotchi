@@ -33,7 +33,12 @@ class Badge:
     description: str
     metric: str            # key looked up in the stats dict
     threshold: float       # unlock when stats[metric] >= threshold
-    reward: dict = field(default_factory=dict)   # {"scrap": int, "food": int}
+    reward: dict = field(default_factory=dict)   # {scrap, food, gear:bool}
+    # --- presentation metadata (all defaulted so legacy badges are unchanged) ---
+    category: str = "general"   # catch|crack|duel|walk|bluetooth|meta|general
+    series: str = ""            # groups a tiered ladder (e.g. "beastmaster")
+    tier: str = ""              # bronze|silver|gold|"" (cosmetic rank)
+    hidden: bool = False        # masked as "???" in the list until unlocked
 
     def met(self, stats: dict) -> bool:
         return _stat_value(stats, self.metric) >= self.threshold
@@ -55,37 +60,55 @@ def _stat_value(stats: dict, metric: str) -> float:
         return 0.0
 
 
-# The badge catalogue. Rewards stay small so achievements supplement, not
-# replace, the core economy.
+# The badge catalogue, grouped into tiered series. Rewards stay small so
+# achievements supplement, not replace, the core economy; only a few gold
+# capstones mint gear (capped to keep PvP/inventory from inflating).
 CATALOG: list[Badge] = [
+    # -- catches: the Beastmaster ladder --
     Badge("first_catch", "First Blood", "Catch your first monster",
-          "catches", 1, {"scrap": 50}),
+          "catches", 1, {"scrap": 50}, "catch", "beastmaster", "bronze"),
     Badge("catch_10", "Beastmaster I", "Catch 10 monsters",
-          "catches", 10, {"scrap": 100}),
+          "catches", 10, {"scrap": 100}, "catch", "beastmaster", "bronze"),
     Badge("catch_50", "Beastmaster II", "Catch 50 monsters",
-          "catches", 50, {"scrap": 300}),
+          "catches", 50, {"scrap": 300}, "catch", "beastmaster", "silver"),
     Badge("catch_100", "Beastmaster III", "Catch 100 monsters",
-          "catches", 100, {"scrap": 600, "food": 5}),
+          "catches", 100, {"scrap": 600, "food": 5, "gear": True},
+          "catch", "beastmaster", "gold"),
+    # -- cracks: the Safecracker ladder --
     Badge("crack_1", "Lockpicker", "Crack your first network",
-          "cracks", 1, {"scrap": 80}),
+          "cracks", 1, {"scrap": 80}, "crack", "safecracker", "bronze"),
     Badge("crack_10", "Safecracker", "Crack 10 networks",
-          "cracks", 10, {"scrap": 250}),
+          "cracks", 10, {"scrap": 250}, "crack", "safecracker", "silver"),
+    Badge("crack_50", "Cipherbane", "Crack 50 networks",
+          "cracks", 50, {"scrap": 600, "gear": True},
+          "crack", "safecracker", "gold"),
+    Badge("legend_3", "Mythbreaker", "Crack 3 WEP/WPA1 legendaries",
+          "legendary_kills", 3, {"scrap": 350}, "crack", "legendary", "gold"),
+    # -- duels: the Gladiator ladder --
     Badge("duel_win_5", "Brawler", "Win 5 duels",
-          "duel_wins", 5, {"scrap": 120}),
+          "duel_wins", 5, {"scrap": 120}, "duel", "gladiator", "bronze"),
     Badge("duel_win_25", "Gladiator", "Win 25 duels",
-          "duel_wins", 25, {"scrap": 400, "food": 3}),
+          "duel_wins", 25, {"scrap": 400, "food": 3}, "duel", "gladiator", "gold"),
+    # -- walking: the Trailblazer ladder --
     Badge("walk_10k_m", "Trailblazer", "Walk 10 km total",
-          "distance_m", 10000, {"scrap": 150}),
+          "distance_m", 10000, {"scrap": 150}, "walk", "trailblazer", "bronze"),
     Badge("walk_50k_m", "Marathoner", "Walk 50 km total",
-          "distance_m", 50000, {"scrap": 500, "food": 5}),
+          "distance_m", 50000, {"scrap": 500, "food": 5}, "walk", "trailblazer", "gold"),
+    # -- bluetooth: the Whisperer ladder (phase-3 `tames` metric) --
+    Badge("tame_10", "Whisperer", "Tame 10 Bluetooth devices",
+          "tames", 10, {"scrap": 150}, "bluetooth", "whisperer", "silver"),
+    Badge("tame_50", "Ghost in the Machine", "Tame 50 Bluetooth devices",
+          "tames", 50, {"scrap": 500, "gear": True}, "bluetooth", "whisperer", "gold"),
+    # -- meta milestones --
     Badge("level_10", "Seasoned", "Reach level 10",
-          "level", 10, {"scrap": 200}),
+          "level", 10, {"scrap": 200}, "meta", "", "silver"),
     Badge("evolve_to_legend", "Ascended", "Evolve into a legendary form",
-          "stage_legend", 1, {"scrap": 500, "food": 5}),
+          "stage_legend", 1, {"scrap": 500, "food": 5}, "meta", "", "gold"),
     Badge("full_loadout", "Geared Up", "Equip all 5 gear slots at once",
-          "equipped_slots", FULL_LOADOUT_SLOTS, {"scrap": 180}),
+          "equipped_slots", FULL_LOADOUT_SLOTS, {"scrap": 180}, "meta", "", "silver"),
+    # -- hidden / secret (masked until unlocked; shiny mechanic is future) --
     Badge("shiny_find", "Sparkle", "Find a shiny monster",
-          "shinies", 1, {"scrap": 300, "food": 3}),
+          "shinies", 1, {"scrap": 300, "food": 3}, "meta", "", "gold", hidden=True),
 ]
 
 _BY_ID = {b.id: b for b in CATALOG}
@@ -114,12 +137,12 @@ def build_stats(state, dex=None, inv=None, ledger=None) -> dict:
     }
 
 
-def grant_reward(book, stats, state, cfg, wallet=None) -> list:
+def grant_reward(book, stats, state, cfg, wallet=None, inv=None) -> list:
     """THE single achievement-reward site: unlock any newly-met badges and apply
-    their rewards (scrap -> ``wallet`` [caller saves]; food -> mechanics.snack).
-    Returns the newly-unlocked badges. Idempotent via ``book.check`` (already-
-    unlocked badges are skipped) so it never double-pays. View-only code paths
-    must NOT call this -- viewing is read-only, rewards come from play."""
+    their rewards (scrap -> ``wallet`` [caller saves]; food -> mechanics.snack;
+    ``gear:True`` -> a rolled item into ``inv`` for gold capstones). Returns the
+    newly-unlocked badges. Idempotent via ``book.check`` (already-unlocked badges
+    are skipped) so it never double-pays. View-only paths must NOT call this."""
     from ..pet import mechanics
     newly = book.check(stats)
     own = None
@@ -136,9 +159,24 @@ def grant_reward(book, stats, state, cfg, wallet=None) -> list:
                 own.earn(s)
         for _ in range(int(rw.get("food", 0))):
             mechanics.snack(state, cfg)
+        if rw.get("gear") and inv is not None:
+            from . import equipment
+            inv.add(equipment.roll_item(boost=getattr(state, "level", 1) // 2))
     if own is not None:
         own.save()
     return newly
+
+
+def display_name(badge, unlocked: bool) -> str:
+    """A hidden badge stays masked until it is earned."""
+    if badge.hidden and not unlocked:
+        return "??? (secret)"
+    return badge.name
+
+
+def progress(badge, stats) -> tuple:
+    """(current, threshold) toward a (locked) badge, for a progress readout."""
+    return _stat_value(stats, badge.metric), badge.threshold
 
 
 class AchievementBook:

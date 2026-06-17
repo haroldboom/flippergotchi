@@ -128,7 +128,7 @@ class Agent:
             stats = achievements.build_stats(self.state, self.dex, self.inv,
                                              self.ledger)
             for b in achievements.grant_reward(self.book, stats, self.state,
-                                               self.cfg, self.wallet):
+                                               self.cfg, self.wallet, self.inv):
                 self.log(f"[badge] ★ {b.name} -- {b.description}")
                 self._fx_set("excited")
         except Exception as e:  # noqa: BLE001 - never break the tick loop
