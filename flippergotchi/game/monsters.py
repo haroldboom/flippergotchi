@@ -72,6 +72,16 @@ _BLE_ELEMENT = {"Apple": "Aether", "Google": "Spark", "Samsung": "Tide",
 # device-class -> rarity tier (trackers are the prized/uneasy find)
 _BLE_RARITY = {"tracker": "rare", "medical": "uncommon", "input": "uncommon",
                "smarthome": "uncommon"}
+# device-class -> BLE pairing security = the monster's "defense" against a
+# battle. just_works/PIN use LE Legacy Pairing (crackable with crackle, the
+# BLE aircrack); secure = LE Secure Connections (ECDH) -> an immune boss.
+_BLE_PAIRING = {
+    "tracker": "just_works", "beacon": "just_works", "audio": "just_works",
+    "unknown": "just_works",
+    "wearable": "pin", "smarthome": "pin", "medical": "pin", "input": "pin",
+    "phone": "secure", "computer": "secure",
+}
+_PAIRING_DEFENSE = {"just_works": 6, "pin": 45, "secure": 100}
 
 
 @dataclass
@@ -97,6 +107,8 @@ class Monster:
     capture_path: str = ""  # on-disk handshake/PMKID capture (for cloud upload)
     rarity: str = ""        # BLE tier: common|uncommon|rare (flavour/display)
     vendor: str = ""        # BLE vendor faction (Apple/Google/...)
+    pairing: str = ""       # BLE pairing security: just_works|pin|secure
+    connectable: bool = True  # BLE: is it connectable (for control attacks)?
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -164,9 +176,10 @@ def from_ble(ev: dict) -> Monster:
 
     level = max(1, 3 + (rssi + 100) // 20 + min(nservices, 4))
     rarity = _BLE_RARITY.get(cls, "common")
-    # trackers and medical kit are a bit hardier; richer adverts = more HP
+    pairing = _BLE_PAIRING.get(cls, "just_works")
+    # defense = pairing security; richer adverts = a bit more HP
+    defense = _PAIRING_DEFENSE.get(pairing, 6)
     hp = 8 + nservices * 2 + (6 if cls == "tracker" else 0)
-    defense = 5 + (5 if rarity == "rare" else 2 if rarity == "uncommon" else 0)
 
     return Monster(
         id=ev.get("addr", "00:00:00:00:00:00"), kind="ble",
@@ -174,6 +187,7 @@ def from_ble(ev: dict) -> Monster:
         species=_BLE_SPECIES.get(cls, "Pixie"),
         element=_BLE_ELEMENT.get(vendor, "Aether"),
         level=level, hp=hp, defense=defense, signal=rssi,
-        rarity=rarity, vendor=vendor,
-        captured=True,   # sighting = lightly collected; GATT enum = fully tamed
+        rarity=rarity, vendor=vendor, pairing=pairing,
+        connectable=bool(ev.get("connectable", True)),
+        captured=True,   # sighting = collected; GATT enum = recon; battle = own
     )

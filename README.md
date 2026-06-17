@@ -13,6 +13,11 @@ a pwning machine.
 > microcontroller. The hardware isn't out yet, so today this runs entirely in
 > **simulation** on any Linux box; the radio/GPS/Bluetooth/NPU hooks are
 > clearly-marked TODOs that light up when the device ships.
+>
+> 🖥️ **The screen is a 256×144 monochrome LCD, 64-level grayscale (6-bit)**
+> ([official specs](https://docs.flipper.net/one/general/tech-specs)) — so every
+> render below is **grayscale**, exactly what the panel shows. (The source sprites
+> are colour and are auto-desaturated for the device.)
 
 - **WiFi APs are monsters you catch.** Each access point is a creature; net its
   handshake to add it to your **bestiary** (Pokémon-style) — *not* food.
@@ -28,7 +33,7 @@ a pwning machine.
   egg→legend and comes in 5 colour variants.
 
 > **The economy at a glance:** walk → forage *food* (+ rare gear) · encounter →
-> *catch* AP-monsters · crack at home → *loot* + score · duel rivals → *steal*
+> *catch* AP-monsters · crack → *loot* + score · duel rivals → *steal*
 > gear & handshakes. APs are monsters; food comes from foraging.
 
 ### What it looks like
@@ -78,6 +83,13 @@ animation that mirrors the real flow (lock → **deauth** → listen for the WPA
 | Handshake captured | No handshake (timed out) |
 |:---:|:---:|
 | ![capture success](docs/capture.gif) | ![capture failed](docs/capture-fail.gif) |
+
+**BLE battling** — Bluetooth monsters battle too: crack the **pairing** (the BLE
+analog of a handshake) with **crackle** to recover the LTK and *own* it, or, on a
+secure device, **take control** via a GATT write (ring a tracker, toggle a bulb).
+LE Secure Connections + non-connectable = an immune boss.
+
+![ble battle — own / control / immune](docs/blebattle.png)
 
 **Battle Dojo** — `battle` opens a menu: **AUTO** cracks every fresh target,
 **MANUAL** scrolls a list to pick one (Flipper One: OK opens · Up/Down move · OK
@@ -148,6 +160,7 @@ gps (walking)      ─┘     │            │
 | `core/authz.py` | JSONL audit log of active RF actions (deauth/capture/crack) | ✅ done & tested |
 | `core/preflight.py` + `game/doctor.py` | `doctor` preflight: tools / privileges / iface / wordlist | ✅ done & tested |
 | `game/cracking.py` | hardened hashcat pipeline (PMKID/EAPOL, multi-wordlist + rules) | ✅ done & tested |
+| `game/blebattle.py` | BLE battling: crackle pairing-crack + GATT-write control | ✅ done & tested |
 | `game/achievements.py` · `shop.py` · `gearsets.py` | badges · "scrap" currency + shop · gear-set bonuses | ✅ done & tested |
 | `game/moves.py` | per-element PvP move sets + status effects | ✅ done & tested |
 | `core/bettercap.py` | WiFi capture via bettercap REST | **sim works**; live wired (needs on-device validation) |
@@ -166,6 +179,7 @@ gps (walking)      ─┘     │            │
 | `view/encounter_screen.py` | "A wild … appeared!" encounter card render | ✅ render |
 | `view/capture_screen.py` | net-gun capture animation frames (aim→net→GOTCHA) | ✅ render |
 | `view/battle_menu.py` | Battle Dojo menu + scrollable target list + button map | ✅ render |
+| `view/blebattle_screen.py` | BLE battle outcome card (own / control / immune) | ✅ render |
 | `view/monster_art.py` | species → enemy/mini-monster sprite lookup | ✅ done & tested |
 | `view/sprites/` | cyberpunk pixel-art sprites (character + monsters) | ✅ |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |

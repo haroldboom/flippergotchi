@@ -114,6 +114,7 @@ class Config:
     # richer catch. Active, so gated to authorized scope like deauth/crack.
     ble_enum: bool = True              # allow GATT enumeration on authorized BLE
     ble_tame_timeout: float = 8.0      # GATT connect/enumerate timeout (s)
+    crackle_bin: str = "crackle"       # BLE pairing cracker (LE Legacy Pairing)
     # unwanted-tracker (AirTag/Tile) detection -- a safety feature
     tracker_log_path: str = "~/.flippergotchi/trackers.json"
     tracker_alert_sightings: int = 4   # distinct sightings before a stalker alert
@@ -172,6 +173,7 @@ class Config:
     capture_frames_dir: str = "/tmp/flippergotchi/capture"  # net-gun anim frames
     battlemenu_html_out: str = "/tmp/flippergotchi/battlemenu.html"  # dojo menu
     battlelist_html_out: str = "/tmp/flippergotchi/battlelist.html"  # target list
+    blebattle_html_out: str = "/tmp/flippergotchi/blebattle.html"    # BLE outcome
     state_path: str = "~/.flippergotchi/state.json"
 
     @classmethod

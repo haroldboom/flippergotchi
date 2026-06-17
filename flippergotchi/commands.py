@@ -329,6 +329,17 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
     extra = (f" -- key: {res['key']}" if res.get("key") else "")
     note = (f"\n    note: {res['note']}" if res.get("note") else "")
     print(f"  [{icon}] {label(m):<22} {res['result']} via {res['via']}{extra}{note}")
+    if m.kind == "ble":
+        try:
+            from .view import blebattle_screen
+            out = blebattle_screen.render(
+                os.path.expanduser(getattr(cfg, "blebattle_html_out",
+                                           "/tmp/flippergotchi/blebattle.html")),
+                {"species": m.species, "name": label(m), "level": m.level,
+                 "pairing": getattr(m, "pairing", "")}, res)
+            print(f"      [screen] ble battle -> {out}")
+        except Exception:  # noqa: BLE001
+            pass
     # defeating a monster is the reward loop: loot + a treat for the pet + quests
     if res["result"] == "cracked":
         if inv is not None:
@@ -347,10 +358,11 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
 
 
 def _ready_targets(dex) -> list:
-    """Captured WiFi monsters you HAVEN'T battled yet (the AUTO/MANUAL pool)."""
+    """Captured monsters (WiFi + BLE) you HAVEN'T battled yet -- the AUTO/MANUAL
+    pool. BLE monsters are battled by cracking their pairing / taking control."""
     seen, out = set(), []
     for m in dex.all():
-        if (m.kind == "wifi" and m.captured and not m.defeated
+        if (m.kind in ("wifi", "ble") and m.captured and not m.defeated
                 and m.attempts == 0 and m.id not in seen):
             seen.add(m.id)
             out.append(m)
@@ -361,12 +373,15 @@ def _render_dojo(cfg, dex, ledger, state) -> None:
     """The home Battle Dojo section: render the menu + target list and print
     the same info + button map for the terminal."""
     ready = _ready_targets(dex)
-    cracked = sum(1 for m in dex.all() if m.kind == "wifi" and m.defeated)
+    cracked = sum(1 for m in dex.all() if m.kind in ("wifi", "ble") and m.defeated)
     variant = getattr(cfg, "character_variant", "classic")
     player = state.stage if variant in ("classic", "") else f"{variant}-{state.stage}"
     from .view import battle_menu
-    items = [{"name": label(m), "level": m.level, "encryption": m.encryption,
-              "rarity": m.rarity} for m in ready]
+    items = [{"name": label(m), "level": m.level,
+              # WiFi shows its encryption; BLE shows its pairing security
+              "encryption": m.encryption if m.kind == "wifi"
+              else getattr(m, "pairing", ""),
+              "rarity": m.rarity, "kind": m.kind} for m in ready]
     try:
         mo = battle_menu.render_menu(os.path.expanduser(cfg.battlemenu_html_out),
                                      len(ready), cracked, player=player)

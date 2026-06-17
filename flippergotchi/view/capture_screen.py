@@ -81,7 +81,7 @@ def _beats(caught: bool, timeout: int, deauth: int) -> list:
 _CSS = """
   html,body{margin:0;background:#000;}
   *{box-sizing:border-box;image-rendering:pixelated;}
-  .screen{width:256px;height:144px;position:relative;overflow:hidden;
+  .screen{filter:grayscale(1);width:256px;height:144px;position:relative;overflow:hidden;
     font-family:'DejaVu Sans Mono',monospace;color:#283044;
     background:linear-gradient(#13213e 0%,#0d1730 55%,#0a1226 100%);}
   .platform{position:absolute;right:14px;top:64px;width:118px;height:22px;

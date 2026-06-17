@@ -385,15 +385,18 @@ class Agent:
             return
         if not result:
             return
+        # GATT enumerate is RECON -- it reveals the device + rewards scrap, but
+        # does NOT defeat it. Owning a BLE monster is a *battle* (crack its
+        # pairing / take control) via the Battle Dojo. Recording the recon on
+        # last_result keeps it out of the "fresh" auto-battle pool only once
+        # battled; here it stays battleable.
         reward = ble_mod.tame_reward(m, result)
-        m.defeated = True
-        m.key = reward["key"]
+        m.last_result = "interrogated"
         self.wallet.earn(reward["scrap"])
         self.state.happiness = mechanics.clamp(self.state.happiness + 2)
-        self.log(f"[tame] interrogated {m.species} '{m.name}' -- {reward['key']} "
-                 f"(+{reward['scrap']} scrap)")
+        self.log(f"[recon] interrogated {m.species} '{m.name}' -- {reward['key']} "
+                 f"(+{reward['scrap']} scrap)  pairing={getattr(m, 'pairing', '?')}")
         self._fx_set("excited")
-        self._achievements()
 
     def _note_peer(self, ev: dict) -> None:
         addr = ev.get("addr")

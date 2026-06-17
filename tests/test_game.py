@@ -56,12 +56,14 @@ def test_battle_cracks_weak_when_authorized():
     assert r["result"] == "cracked" and m.defeated and m.key
 
 
-def test_ble_is_tamed_not_cracked():
-    cfg = Config()
+def test_ble_battle_cracks_pairing():
+    cfg = Config(simulate=True)
+    random.seed(1)
+    # audio device -> Just Works pairing -> crackable
     m = monsters.from_ble({"addr": "AA:BB:CC:DD:EE:01", "name": "Buds",
-                           "appearance": "audio", "rssi": -60})
+                           "device_class": "audio", "rssi": -60})
     r = battle.battle(m, cfg)
-    assert r["result"] == "tamed" and m.defeated
+    assert r["result"] == "cracked" and m.defeated and m.key
 
 
 if __name__ == "__main__":

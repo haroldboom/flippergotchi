@@ -234,12 +234,14 @@ def test_battle_does_not_refuse_on_scope():
     assert "key" in r and "via" in r
 
 
-def test_battle_tames_ble():
-    cfg = Config()
+def test_battle_ble_routes_to_ble_engine(monkeypatch):
+    import flippergotchi.game.blebattle as bb
+    monkeypatch.setattr(bb.random, "random", lambda: 0.0)   # sim crack lands
+    cfg = Config(simulate=True)
     m = monsters.from_ble({"addr": "AA:BB:CC:DD:EE:01", "name": "Buds",
-                           "appearance": "audio", "rssi": -60})
+                           "device_class": "audio", "rssi": -60})
     r = battle.battle(m, cfg)
-    assert r["result"] == "tamed" and m.defeated
+    assert r["result"] == "cracked" and m.defeated
 
 
 def test_battle_cracks_when_authorized_sim():

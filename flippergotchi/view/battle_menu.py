@@ -48,7 +48,7 @@ def _sprite_b64(name: str) -> str:
 _CSS = """
   html,body{margin:0;background:#000;}
   *{box-sizing:border-box;image-rendering:pixelated;}
-  .screen{width:256px;height:144px;position:relative;overflow:hidden;
+  .screen{filter:grayscale(1);width:256px;height:144px;position:relative;overflow:hidden;
     font-family:'DejaVu Sans Mono',monospace;color:#eaf2ff;
     background:linear-gradient(#13213e 0%,#0d1730 55%,#0a1226 100%);}
   .title{position:absolute;top:5px;left:6px;right:6px;font-size:11px;
