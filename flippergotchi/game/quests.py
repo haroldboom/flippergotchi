@@ -40,12 +40,12 @@ class Quest:
 
 # template pool: (id, description, metric, target, reward)
 _TEMPLATES = [
-    ("walk_2k", "Walk 2 km", "distance_m", 2000, {"xp": 50}),
-    ("walk_5k", "Walk 5 km", "distance_m", 5000, {"xp": 140}),
-    ("catch_5", "Catch 5 monsters", "catches", 5, {"handshakes": 3}),
-    ("crack_1", "Crack a network", "cracks", 1, {"xp": 80}),
-    ("duel_1", "Win a duel", "duel_wins", 1, {"gear": True}),
-    ("forage_3", "Forage 3 snacks", "snacks", 3, {"xp": 30}),
+    ("walk_2k", "Walk 2 km", "distance_m", 2000, {"xp": 50, "scrap": 30}),
+    ("walk_5k", "Walk 5 km", "distance_m", 5000, {"xp": 140, "scrap": 55}),
+    ("catch_5", "Catch 5 monsters", "catches", 5, {"handshakes": 3, "scrap": 40}),
+    ("crack_1", "Crack a network", "cracks", 1, {"xp": 80, "scrap": 55}),
+    ("duel_1", "Win a duel", "duel_wins", 1, {"gear": True, "scrap": 40}),
+    ("forage_3", "Forage 3 snacks", "snacks", 3, {"xp": 30, "scrap": 25}),
 ]
 
 
@@ -113,10 +113,26 @@ class QuestLog:
         return list(self.quests)
 
 
-def grant_quest_reward(quest, state, inv, cfg) -> str:
+def _credit_scrap(cfg, wallet, amount: int) -> None:
+    """Credit scrap to the supplied wallet (caller saves it), or to a freshly
+    loaded+saved wallet when none is passed (CLI one-shot grant). Threading a
+    shared wallet avoids the multi-instance clobber the design flagged."""
+    if amount <= 0:
+        return
+    if wallet is not None:
+        wallet.earn(amount)
+        return
+    from .shop import Wallet
+    w = Wallet(getattr(cfg, "wallet_path", "~/.flippergotchi/wallet.json"))
+    w.earn(amount)
+    w.save()
+
+
+def grant_quest_reward(quest, state, inv, cfg, wallet=None) -> str:
     """Apply a completed quest's reward to the player. Kept here (not in the
     pure data classes) so callers don't duplicate the reward logic. Imports are
-    local to avoid any package import cycle."""
+    local to avoid any package import cycle. ``wallet`` (optional) lets a caller
+    that already holds a Wallet take the scrap credit and save once."""
     from ..pet import mechanics
     from . import equipment
 
@@ -128,6 +144,13 @@ def grant_quest_reward(quest, state, inv, cfg) -> str:
     if r.get("handshakes"):
         state.handshakes += r["handshakes"]
         msgs.append(f"+{r['handshakes']} handshakes")
+    if r.get("scrap"):
+        _credit_scrap(cfg, wallet, int(r["scrap"]))
+        msgs.append(f"+{r['scrap']} scrap")
+    if r.get("food"):
+        for _ in range(int(r["food"])):
+            mechanics.snack(state, cfg)
+        msgs.append(f"+{r['food']} food")
     if r.get("gear") and inv is not None:
         it = inv.add(equipment.roll_item(boost=state.level // 2))
         msgs.append(f"gear: {it.name}")

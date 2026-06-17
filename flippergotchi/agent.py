@@ -16,6 +16,7 @@ from .game import ble as ble_mod
 from .game import encounter, equipment, monsters
 from .game import quests as quests_mod
 from .game import shop as shop_mod
+from .game import achievements
 from .game.achievements import AchievementBook
 from .game.ble import TrackerLog
 from .game.bestiary import Bestiary
@@ -104,30 +105,21 @@ class Agent:
 
     def _quest(self, metric: str, amount: float) -> None:
         for q in self.quests.record(metric, amount):
-            reward = quests_mod.grant_quest_reward(q, self.state, self.inv, self.cfg)
+            reward = quests_mod.grant_quest_reward(q, self.state, self.inv,
+                                                   self.cfg, self.wallet)
             self.log(f"[quest] DONE: {q.description} -> {reward}")
             self._fx_set("excited")
 
     def _achievements(self) -> None:
         """Unlock any newly-met badges; grant their small rewards. Cheap enough
-        to call after each catch/walk. Never raises out of the loop."""
+        to call after each catch/walk. Never raises out of the loop. Uses the
+        shared build_stats so `cracks` is sourced from the live Ledger (was a
+        hardcoded 0 here, so crack badges never unlocked in the agent loop)."""
         try:
-            stats = {
-                "catches": sum(1 for x in self.dex.all()
-                               if getattr(x, "captured", False)),
-                "cracks": 0,            # cracking happens via the `battle` command
-                "duel_wins": getattr(self.state, "duel_wins", 0),
-                "distance_m": getattr(self.state, "distance_m", 0.0),
-                "level": self.state.level,
-                "stage": self.state.stage,
-                "equipped_slots": len(getattr(self.inv, "equipped", {}) or {}),
-                "shinies": 0,
-            }
-            for b in self.book.check(stats):
-                rw = b.reward or {}
-                self.wallet.earn(int(rw.get("scrap", 0)))
-                for _ in range(int(rw.get("food", 0))):
-                    mechanics.snack(self.state, self.cfg)
+            stats = achievements.build_stats(self.state, self.dex, self.inv,
+                                             self.ledger)
+            for b in achievements.grant_reward(self.book, stats, self.state,
+                                               self.cfg, self.wallet):
                 self.log(f"[badge] ★ {b.name} -- {b.description}")
                 self._fx_set("excited")
         except Exception as e:  # noqa: BLE001 - never break the tick loop

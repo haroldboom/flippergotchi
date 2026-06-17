@@ -14,6 +14,7 @@ from .game.bestiary import Bestiary
 from .game.home import WARNING
 from .game import quests as quests_mod
 from .game import shop as shop_mod
+from .game import achievements as ach_mod
 from .game.achievements import AchievementBook
 from .game.ledger import Ledger
 from .game.monsters import label
@@ -274,27 +275,13 @@ def _show_warning(cfg, dont_show: bool) -> None:
         print("  [ ] do not show again  (pass --dont-show-again to tick this)\n")
 
 
-def _collect_stats(cfg, state, inv, dex, ledger) -> dict:
-    """The progress snapshot the achievement catalogue checks against."""
-    catches = sum(1 for x in dex.all() if getattr(x, "captured", False))
-    return {
-        "catches": catches,
-        "cracks": ledger.counts().get("win", 0),
-        "duel_wins": getattr(state, "duel_wins", 0),
-        "distance_m": getattr(state, "distance_m", 0.0),
-        "level": getattr(state, "level", 1),
-        "stage": getattr(state, "stage", "egg"),
-        "equipped_slots": len(getattr(inv, "equipped", {}) or {}),
-        "shinies": 0,
-    }
-
-
 def _award(cfg, state, *, scrap: int = 0, inv=None, dex=None, ledger=None) -> None:
-    """Earn `scrap` and unlock any newly-met achievements (printing + saving
-    the wallet/book). The caller still owns saving state/inv/dex/ledger.
+    """Earn `scrap` for an action and unlock any newly-met achievements (printing
+    + saving the wallet/book). The caller still owns saving state/inv/dex/ledger.
 
     Uses the LIVE in-memory inv/dex/ledger so milestones reflect this action
-    without needing a reload. Never raises out of the reward loop."""
+    without needing a reload, and routes the badge rewards through the single
+    achievements.grant_reward path. Never raises out of the reward loop."""
     try:
         wallet = Wallet(getattr(cfg, "wallet_path", "~/.flippergotchi/wallet.json"))
         if scrap:
@@ -305,12 +292,9 @@ def _award(cfg, state, *, scrap: int = 0, inv=None, dex=None, ledger=None) -> No
         inv = inv or equip_mod.Inventory(cfg.inventory_path)
         book = AchievementBook(getattr(cfg, "achievements_path",
                                        "~/.flippergotchi/achievements.json"))
-        for b in book.check(_collect_stats(cfg, state, inv, dex, ledger)):
+        stats = ach_mod.build_stats(state, dex, inv, ledger)
+        for b in ach_mod.grant_reward(book, stats, state, cfg, wallet):
             rw = b.reward or {}
-            if rw.get("scrap"):
-                wallet.earn(int(rw["scrap"]))
-            for _ in range(int(rw.get("food", 0))):
-                mechanics.snack(state, cfg)
             extra = f" (+{rw.get('scrap', 0)} scrap)" if rw.get("scrap") else ""
             print(f"      ★ ACHIEVEMENT: {b.name} -- {b.description}{extra}")
         wallet.save()
@@ -473,23 +457,14 @@ def cmd_doctor(cfg) -> None:
 
 
 def cmd_achievements(cfg) -> None:
-    """Show unlocked + locked badges and your scrap balance."""
+    """Show unlocked + locked badges and your scrap balance.
+
+    READ-ONLY: badges are earned (and paid out) through play, via the single
+    achievements.grant_reward path fired on real progress events -- viewing the
+    list never unlocks or pays anything, so it can't be used to farm scrap."""
     book = AchievementBook(getattr(cfg, "achievements_path",
                                    "~/.flippergotchi/achievements.json"))
     wallet = Wallet(getattr(cfg, "wallet_path", "~/.flippergotchi/wallet.json"))
-    # refresh against current progress so the list is never stale
-    state = persistence.load(cfg.state_path)
-    dex = Bestiary(cfg.bestiary_path)
-    inv = equip_mod.Inventory(cfg.inventory_path)
-    ledger = Ledger(cfg.ledger_path)
-    for b in book.check(_collect_stats(cfg, state, inv, dex, ledger)):
-        for _ in range(int((b.reward or {}).get("food", 0))):
-            mechanics.snack(state, cfg)
-        wallet.earn(int((b.reward or {}).get("scrap", 0)))
-    book.save()
-    wallet.save()
-    persistence.save(cfg.state_path, state)
-
     unlocked = book.unlocked()
     print(f"  ACHIEVEMENTS  ({len(unlocked)}/{len(book.all())})   "
           f"scrap: {wallet.scrap}")

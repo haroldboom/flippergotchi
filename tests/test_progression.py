@@ -58,6 +58,33 @@ def test_achievement_categorical_and_loadout_metrics():
     assert all(b.id != "evolve_to_legend" for b in book2.check({"stage": "teen"}))
 
 
+def test_build_stats_sources_cracks_from_ledger():
+    # foundation fix: cracks come from the Ledger (the agent loop used to pass 0,
+    # so crack badges could never unlock during normal play)
+    from flippergotchi.game import ledger as ledger_mod
+    led = ledger_mod.Ledger(_tmp("l.json"))
+    led.records.append({"result": "win"})
+    led.records.append({"result": "win"})
+    stats = ach.build_stats(PetState(level=3), dex=None, inv=None, ledger=led)
+    assert stats["cracks"] == 2
+    assert stats["level"] == 3
+
+
+def test_grant_reward_pays_scrap_once():
+    # the single reward path: pays a badge's scrap exactly once, never on re-check
+    from flippergotchi.config import Config
+    from flippergotchi.game.shop import Wallet
+    book = ach.AchievementBook(_tmp("a.json"))
+    w = Wallet(_tmp("w.json"))
+    cfg, st = Config(), PetState()
+    newly = ach.grant_reward(book, {"catches": 1}, st, cfg, w)
+    assert any(b.id == "first_catch" for b in newly)
+    assert w.scrap == 50                       # first_catch reward
+    again = ach.grant_reward(book, {"catches": 1}, st, cfg, w)
+    assert all(b.id != "first_catch" for b in again)
+    assert w.scrap == 50                       # not paid twice on re-check
+
+
 def test_achievement_persistence_roundtrip():
     p = _tmp("a.json")
     book = ach.AchievementBook(p)

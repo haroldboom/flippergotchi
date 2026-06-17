@@ -85,6 +85,45 @@ def test_grant_quest_reward_applies():
     assert len(inv.all()) == 1
 
 
+def test_grant_quest_reward_scrap_and_food():
+    # the foundation fix: quests now pay scrap (into a passed wallet) + food
+    from flippergotchi.config import Config
+    from flippergotchi.game.quests import Quest, grant_quest_reward
+    from flippergotchi.game.shop import Wallet
+    from flippergotchi.pet.state import PetState
+
+    cfg = Config()
+    st = PetState(hunger=40.0)
+    w = Wallet(os.path.join(tempfile.mkdtemp(), "w.json"))
+    grant_quest_reward(Quest("a", "x", "catches", 1, reward={"scrap": 40}),
+                       st, None, cfg, w)
+    assert w.scrap == 40
+    h0 = st.hunger
+    grant_quest_reward(Quest("b", "y", "snacks", 1, reward={"food": 2}),
+                       st, None, cfg, w)
+    assert st.hunger < h0            # food fed the pet
+
+
+def test_grant_quest_reward_scrap_without_wallet_persists():
+    # wallet=None -> scrap is credited to a freshly loaded+saved wallet at cfg path
+    from flippergotchi.config import Config
+    from flippergotchi.game.quests import Quest, grant_quest_reward
+    from flippergotchi.game.shop import Wallet
+    from flippergotchi.pet.state import PetState
+
+    cfg = Config()
+    cfg.wallet_path = os.path.join(tempfile.mkdtemp(), "w.json")
+    grant_quest_reward(Quest("a", "x", "catches", 1, reward={"scrap": 30}),
+                       PetState(), None, cfg)
+    assert Wallet(cfg.wallet_path).scrap == 30
+
+
+def test_all_templates_have_scrap():
+    # every daily quest should pay into the scrap economy now
+    for tid, desc, metric, target, reward in _TEMPLATES:
+        assert reward.get("scrap", 0) > 0, f"{tid} pays no scrap"
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

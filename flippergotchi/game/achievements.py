@@ -95,6 +95,52 @@ def get(badge_id: str) -> Badge | None:
     return _BY_ID.get(badge_id)
 
 
+def build_stats(state, dex=None, inv=None, ledger=None) -> dict:
+    """The single progress snapshot the catalogue checks against, sourced from the
+    live stores so the agent loop and the CLI agree. In particular ``cracks`` comes
+    from the Ledger in BOTH (the agent path used to hardcode 0, so crack badges
+    could never unlock during normal play)."""
+    catches = sum(1 for x in dex.all() if getattr(x, "captured", False)) if dex else 0
+    cracks = ledger.counts().get("win", 0) if ledger else 0
+    return {
+        "catches": catches,
+        "cracks": cracks,
+        "duel_wins": getattr(state, "duel_wins", 0),
+        "distance_m": getattr(state, "distance_m", 0.0),
+        "level": getattr(state, "level", 1),
+        "stage": getattr(state, "stage", "egg"),
+        "equipped_slots": len(getattr(inv, "equipped", {}) or {}) if inv else 0,
+        "shinies": 0,
+    }
+
+
+def grant_reward(book, stats, state, cfg, wallet=None) -> list:
+    """THE single achievement-reward site: unlock any newly-met badges and apply
+    their rewards (scrap -> ``wallet`` [caller saves]; food -> mechanics.snack).
+    Returns the newly-unlocked badges. Idempotent via ``book.check`` (already-
+    unlocked badges are skipped) so it never double-pays. View-only code paths
+    must NOT call this -- viewing is read-only, rewards come from play."""
+    from ..pet import mechanics
+    newly = book.check(stats)
+    own = None
+    for b in newly:
+        rw = b.reward or {}
+        s = int(rw.get("scrap", 0))
+        if s:
+            if wallet is not None:
+                wallet.earn(s)
+            else:
+                from .shop import Wallet
+                own = own or Wallet(getattr(cfg, "wallet_path",
+                                            "~/.flippergotchi/wallet.json"))
+                own.earn(s)
+        for _ in range(int(rw.get("food", 0))):
+            mechanics.snack(state, cfg)
+    if own is not None:
+        own.save()
+    return newly
+
+
 class AchievementBook:
     def __init__(self, path: str):
         self.path = os.path.expanduser(path)
