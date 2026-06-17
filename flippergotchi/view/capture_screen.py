@@ -59,19 +59,19 @@ def _beats(caught: bool, timeout: int, deauth: int) -> list:
             "line": "{name} -- locking on with the net-gun..."}
     deauth_beat = {
         "gun": _GUN_FIRE, "gunfx": "drop-shadow(0 0 5px #8ef)",
-        "proj": (104, 44, 30), "net": None, "banner": None, "mon": "none",
+        "proj": (100, 46, 28), "net": None, "banner": None, "mon": "none",
         "status": (f"DEAUTH x{deauth}", "#ff6a5a"), "bar": None,
         "line": "*fwoomp* deauth -- kicking clients to force a handshake!"}
     capture = {
-        "gun": _GUN, "gunfx": "", "proj": None, "net": (90, 8, 70, 1.0),
+        "gun": _GUN, "gunfx": "", "proj": None, "net": (94, 24, 64, 1.0),
         "banner": None, "mon": "translateX(2px)",
         "status": (f"CAPTURE EAPOL  ~{timeout}s", "#ffd24a"), "bar": 0.6,
         "line": "listening for the WPA 4-way handshake..."}
-    won = {"gun": _GUN, "gunfx": "", "proj": None, "net": (92, 10, 66, 1.0),
+    won = {"gun": _GUN, "gunfx": "", "proj": None, "net": (96, 26, 60, 1.0),
            "banner": ("GOTCHA!", "#7CFC00", "win"), "mon": "scale(0.94)",
            "status": ("HANDSHAKE OK  M1-M4", "#7CFC00"), "bar": 1.0,
            "line": "{name}'s 4-way handshake was captured!"}
-    failed = {"gun": _GUN, "gunfx": "", "proj": None, "net": (86, 60, 64, 0.4),
+    failed = {"gun": _GUN, "gunfx": "", "proj": None, "net": (88, 62, 58, 0.4),
               "banner": ("NO HANDSHAKE", "#ffb02e", "fail"), "mon": "none",
               "status": (f"NO HANDSHAKE  {timeout}s", "#ff6a5a"), "bar": 1.0,
               "line": "timed out after {t}s -- no client reconnected, no handshake."}
@@ -87,7 +87,7 @@ _CSS = """
   .platform{position:absolute;right:14px;top:64px;width:118px;height:22px;
     border-radius:50%;
     background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);}
-  .mon{position:absolute;right:20px;top:6px;height:80px;z-index:1;
+  .mon{position:absolute;right:8px;top:16px;height:78px;max-width:128px;z-index:1;
     filter:drop-shadow(0 2px 0 #0008);}
   .shark{position:absolute;left:-8px;bottom:26px;height:80px;z-index:4;
     filter:drop-shadow(0 2px 0 #0009);}

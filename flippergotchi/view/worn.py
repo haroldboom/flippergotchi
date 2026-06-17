@@ -41,7 +41,7 @@ def _worn_b64(slot: str, rarity: str) -> str | None:
 _BEHIND = {"weapon", "fin"}
 _WORN_ANCHOR = {
     "fin":      (49, 2, 32, 12),
-    "weapon":   (10, 8, 80, 0),
+    "weapon":   (13, 22, 72, 0),
     "helmet":   (28, -6, 46, 0),
     "eyepiece": (30, 33, 19, 0),
     "amulet":   (40, 80, 21, 0),
