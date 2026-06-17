@@ -3,9 +3,11 @@
 [![CI](https://github.com/haroldboom/flippergotchi/actions/workflows/ci.yml/badge.svg)](https://github.com/haroldboom/flippergotchi/actions/workflows/ci.yml)
 
 A **Tamagotchi-style WiFi pet** for the [**Flipper One**](https://docs.flipper.net/one).
-It's a Pwnagotchi at heart — it hunts WPA handshakes with the radio — but the
-captures, walks, and AI personality are wired into a *pet you raise* instead of
-a pwning machine.
+It shares Pwnagotchi's DNA — capturing WPA handshakes with the radio — but you
+**scan for nearby APs and choose which to capture** (a deliberate, per-AP
+mechanic — *not* indiscriminate deauth of everything in range), and the captures,
+walks, and AI personality are wired into a *pet you raise* instead of a pwning
+machine.
 
 > 📟 **This is for the Flipper One — NOT the Flipper Zero.** The Flipper One is
 > the new, **unreleased** Rockchip RK3576 Arm-**Linux** handheld (Wi-Fi 6E +
