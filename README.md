@@ -28,6 +28,10 @@ machine.
   gear) as you walk — that's how the pet actually stays fed.
 - **Crack & duel for loot.** Cracking a captured monster (after a one-time warning) or duelling a
   rival Flippergotchi drops **equipment** you can equip.
+- **A deep progression loop.** Daily/weekly **quests** + lifetime story **chains**,
+  tiered & hidden **achievements** with wearable **titles**, a real **hunger/food/
+  larder** survival layer, **✨ shiny** catches, and an opt-in **Hardcore mode**
+  where starvation means permadeath.
 - **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
   phrases) narrates what the pet feels and what it just caught.
 - **A cyberpunk pixel-art shark character** in an **old-school
@@ -113,6 +117,16 @@ selects · Back exits):
 | Duel | Equipment |
 |:---:|:---:|
 | ![duel battle screen](docs/battle.png) | ![equipment screen](docs/equip.png) |
+
+**Progression, food & trophies** — hunger is a real survival loop: walking forages
+**typed food** into a capped **Larder** you hand-feed (`feed`); a tiered badge wall
+with hidden secrets (`achievements`) mints **titles** you can wear; and the rarest
+catches are **✨ shiny** (~1/256). Opt into **Hardcore mode** (`--reset --hardcore`)
+and starvation is permadeath.
+
+| Feed & Larder | Badge wall | Shiny catch |
+|:---:|:---:|:---:|
+| ![feeding screen](docs/feed.png) | ![achievement badge wall](docs/badges.png) | ![a wild shiny monster](docs/shiny.png) |
 
 > ⚠️ **Authorized use only.** Capturing / deauthing / cracking is for networks you
 > own or are explicitly permitted to test — same as any WiFi audit tool.
