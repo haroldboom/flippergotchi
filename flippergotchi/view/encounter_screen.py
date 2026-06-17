@@ -46,11 +46,11 @@ _HTML = """<!doctype html>
   .platform{{position:absolute;right:14px;top:64px;width:118px;height:22px;
     border-radius:50%;
     background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);}}
-  .mon{{position:absolute;right:20px;top:6px;height:84px;z-index:1;
+  .mon{{position:absolute;right:8px;top:16px;height:78px;max-width:128px;z-index:1;
     filter:drop-shadow(0 2px 0 #0008);}}
   .box{{position:absolute;background:#f6f1da;border:2px solid #39405a;border-radius:3px;
     box-shadow:inset 0 0 0 1px #ffffffcc;padding:2px 4px;z-index:3;}}
-  .card{{top:6px;left:4px;width:120px;}}
+  .card{{top:6px;left:4px;width:106px;}}
   .row{{display:flex;justify-content:space-between;align-items:center;gap:3px;}}
   .nm{{font-size:9px;font-weight:800;letter-spacing:.3px;}}
   .lv{{font-size:8px;font-weight:800;}}
