@@ -64,6 +64,7 @@ class Agent:
         self._last_idle = 0.0
         self._tick_i = 0
         self._cooldown = {}      # bssid -> tick last encountered
+        self._starve_warn = ("", 0)  # (last stage warned, tick warned) -- throttle
         self._visible = []       # recently-seen SSIDs (for 'home' detection)
         self._was_home = False   # for the one-shot "you're home" battle prompt
         self._peers = prefs_mod.load(cfg.peers_path)  # addr -> peer Flippergotchi
@@ -211,6 +212,7 @@ class Agent:
             encounter_screen.render(os.path.expanduser(out), {
                 "species": m.species, "name": monsters.label(m), "level": m.level,
                 "encryption": m.encryption, "defense": m.defense, "kind": m.kind,
+                "shiny": getattr(m, "shiny", False),
             })
         except Exception as e:  # noqa: BLE001 - never break the tick loop
             self.log(f"encounter render failed: {e}")
@@ -325,7 +327,8 @@ class Agent:
                       else f"{variant}-{self.state.stage}")
             capture_screen.render_sequence(
                 os.path.expanduser(out),
-                {"species": m.species, "name": monsters.label(m)},
+                {"species": m.species, "name": monsters.label(m),
+                 "shiny": getattr(m, "shiny", False)},
                 caught=caught, player=player,
                 timeout=int(getattr(self.cfg, "capture_timeout", 20) or 20),
                 deauth=int(getattr(self.cfg, "deauth_count", 5) or 5))
@@ -449,6 +452,7 @@ class Agent:
             self.wallet.earn(shop_mod.scrap_for_walk(meters))
             self._achievements()
         mechanics.tick(self.state, dt * self.cfg.time_scale, self.cfg)
+        self._starve_warn_check()
         if mechanics.is_dead(self.state):
             self._hardcore_death()
         self._home_check()
@@ -459,6 +463,30 @@ class Agent:
             if m in ("hungry", "sick", "tired", "happy", "sleeping"):
                 self.speak(m)
             self._last_idle = now
+
+    # how many ticks between repeat STARVING warnings within the same stage
+    _STARVE_WARN_EVERY = 6
+
+    def _starve_warn_check(self) -> None:
+        """Hardcore ONLY: shout an escalating warning while the pet is in a severe
+        starvation stage, BEFORE it can die. Throttled -- fires on every stage
+        transition and then only once every _STARVE_WARN_EVERY ticks, so it never
+        spams the log on a long downhill slide."""
+        if not getattr(self.state, "hardcore", False):
+            return
+        stage = mechanics.starvation_stage(self.state)
+        if stage not in ("starving", "faint"):
+            self._starve_warn = ("", self._tick_i)
+            return
+        last_stage, last_tick = self._starve_warn
+        transitioned = stage != last_stage
+        if not transitioned and (self._tick_i - last_tick) < self._STARVE_WARN_EVERY:
+            return
+        self._starve_warn = (stage, self._tick_i)
+        urgency = "ABOUT TO DIE" if stage == "faint" else "STARVING"
+        self.log(f"[HARDCORE] {self.state.name} is {urgency} -- "
+                 f"feed it or it dies!")
+        self._fx_set("sick")
 
     def _hardcore_death(self) -> None:
         """Hardcore mode: the pet starved to death. It is reborn as a fresh egg,

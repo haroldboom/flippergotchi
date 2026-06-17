@@ -100,13 +100,30 @@ _HTML = """<!doctype html>
   .slot{{width:15px;height:15px;border:1px solid;border-radius:3px;background:#0b1430cc;
     display:flex;align-items:center;justify-content:center;}}
   .slot img{{width:13px;height:13px;}}
+  /* mono-screen pop = brightness/contrast/invert, never colour */
+  .hc{{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:4;
+    font-size:7px;font-weight:800;letter-spacing:.5px;line-height:1;
+    color:#000;background:#fff;border:1px solid #000;border-radius:3px;
+    padding:1px 3px;filter:contrast(1.6);}}
+  .starve{{position:absolute;left:50%;top:18px;transform:translateX(-50%);z-index:4;
+    font-size:9px;font-weight:800;letter-spacing:1px;line-height:1;
+    color:#fff;background:#000;border:1px solid #fff;border-radius:2px;
+    padding:1px 4px;filter:invert(1) contrast(1.8);
+    animation:starveflash .6s steps(1) infinite;}}
+  @keyframes starveflash{{0%,100%{{filter:invert(1) contrast(1.8)}}
+    50%{{filter:invert(0) contrast(1.8) brightness(1.4)}}}}
+  .sub{{font-size:6px;font-weight:700;font-style:italic;line-height:1;
+    margin-top:1px;filter:brightness(.7);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;}}
 </style></head><body>
   <div class="screen">
     <div class="platform"></div>
     <div class="charwrap"><img class="character" src="data:image/png;base64,{sprite}"/>{worn}</div>
     <div class="gear">{gear}</div>
+    {hc}{starve}
     <div class="box hp">
       <div class="row"><span class="nm">{name}</span><span class="lv">:L{level}</span></div>
+      {sub}
       <div class="bar"><span class="tag">HP</span><div class="track"><div class="fill" style="width:{health}%;background:{hpcol}"></div></div></div>
       <div class="bar"><span class="tag x">XP</span><div class="track"><div class="fill" style="width:{xp}%;background:#3a7fd0"></div></div></div>
     </div>
@@ -141,10 +158,18 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
     # worn gear: overlay each equipped piece on the character (shared anchors so
     # gear sits identically here and on the equipment screen).
     worn = worn_mod.html(equipped or {}, state.stage, variant)
+    # hardcore badge (fixed corner chip; normal pets show nothing)
+    hc = '<div class="hc">HC ☠</div>' if getattr(state, "hardcore", False) else ""
+    # severe-starvation danger marker (flashing); visual only
+    starve = ('<div class="starve">! STARVING !</div>'
+              if mechanics.starvation_stage(state) in ("starving", "faint") else "")
+    # active title subtitle under the name, truncated to fit (CSS ellipsis too)
+    title = getattr(state, "active_title", "") or ""
+    sub = (f'<div class="sub">{_html.escape(title[:24])}</div>' if title else "")
     html = _HTML.format(
         name=_html.escape(state.name), level=state.level,
         sprite=_sprite_b64(_sprite_for(state.stage, variant, mood)),
-        gear=gear, worn=worn,
+        gear=gear, worn=worn, hc=hc, starve=starve, sub=sub,
         health=health, hpcol=_hp_color(health),
         energy=int(max(0, state.energy)),
         food=int(max(0, min(100, 100 - state.hunger))),

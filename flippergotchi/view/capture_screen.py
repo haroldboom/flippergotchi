@@ -89,6 +89,20 @@ _CSS = """
     background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);}
   .mon{position:absolute;right:8px;top:16px;height:78px;max-width:128px;z-index:1;
     filter:drop-shadow(0 2px 0 #0008);}
+  /* shiny capture target: same brightness/contrast + outline-glow shimmer as the
+     encounter card, so a shiny catch looks special through the net-gun run too. */
+  .mon.shiny{filter:brightness(1.35) contrast(1.45)
+    drop-shadow(0 0 3px #fff) drop-shadow(0 0 6px #fff) drop-shadow(0 2px 0 #0008);
+    animation:shimmer 1.6s ease-in-out infinite;}
+  @keyframes shimmer{0%,100%{filter:brightness(1.2) contrast(1.35)
+      drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #fff) drop-shadow(0 2px 0 #0008);}
+    50%{filter:brightness(1.55) contrast(1.6)
+      drop-shadow(0 0 4px #fff) drop-shadow(0 0 9px #fff) drop-shadow(0 2px 0 #0008);}}
+  .glint{position:absolute;z-index:2;color:#fff;font-weight:800;
+    text-shadow:0 0 5px #fff,0 0 9px #fff;animation:twinkle 1.2s ease-in-out infinite;}
+  .glint.g2{animation-delay:.6s;}
+  @keyframes twinkle{0%,100%{opacity:.25;transform:scale(.7);}
+    50%{opacity:1;transform:scale(1.1);}}
   .shark{position:absolute;left:-8px;bottom:26px;height:80px;z-index:4;
     filter:drop-shadow(0 2px 0 #0009);}
   .gun{position:absolute;height:34px;z-index:6;transform-origin:left bottom;
@@ -123,9 +137,9 @@ _CSS = """
 _HTML = ("<!doctype html><html><head><meta charset='utf-8'><style>__CSS__"
          "</style></head><body><div class='screen'>"
          "<div class='platform'></div>"
-         "<img class='mon' style='opacity:{mon_op};transform:{mon_tf}' "
+         "<img class='mon{shinycls}' style='opacity:{mon_op};transform:{mon_tf}' "
          "src='data:image/png;base64,{sprite}'/>"
-         "{net}{proj}"
+         "{glints}{net}{proj}"
          "<img class='shark' src='data:image/png;base64,{shark}'/>"
          "<img class='gun' style='{gun};filter:{gunfx}' "
          "src='data:image/png;base64,{gun_b64}'/>"
@@ -179,9 +193,14 @@ def _banner_html(spec):
 
 
 def _frame_html(sprite_b64: str, shark_b64: str, name: str, timeout: int,
-                beat: dict) -> str:
+                beat: dict, shiny: bool = False) -> str:
+    glints = (
+        "<span class='glint' style='right:14px;top:20px;font-size:14px'>&#10022;</span>"
+        "<span class='glint g2' style='right:96px;top:46px;font-size:11px'>&#10022;</span>"
+    ) if shiny else ""
     body = _HTML.format(
         sprite=sprite_b64, shark=shark_b64, gun_b64=_fx_b64("netgun"),
+        shinycls=" shiny" if shiny else "", glints=glints,
         mon_op=beat.get("mon_op", 1.0), mon_tf=beat.get("mon", "none"),
         net=_net_html(beat.get("net")), proj=_proj_html(beat.get("proj")),
         gun=beat["gun"], gunfx=beat.get("gunfx") or "none",
@@ -210,12 +229,13 @@ def render_sequence(out_dir: str, monster: dict, caught: bool = True,
     os.makedirs(out_dir, exist_ok=True)
     species = str(monster.get("species", "Monster"))
     name = str(monster.get("name", species))
+    shiny = bool(monster.get("shiny", False))
     sprite = monster_art.sprite_b64(species) or _player_b64("adult")
     shark = _player_b64(player or "adult")
     paths = []
     for i, beat in enumerate(beats(caught, timeout, deauth)):
         p = os.path.join(out_dir, f"capture_{i}.html")
         with open(p, "w") as f:
-            f.write(_frame_html(sprite, shark, name, int(timeout), beat))
+            f.write(_frame_html(sprite, shark, name, int(timeout), beat, shiny))
         paths.append(p)
     return paths

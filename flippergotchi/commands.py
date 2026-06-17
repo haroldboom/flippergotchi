@@ -548,6 +548,46 @@ def cmd_title(cfg, target=None) -> None:
     print(f"  Title set: {state.name} {match}")
 
 
+def cmd_profile(cfg) -> None:
+    """A one-screen, READ-ONLY summary of your pet + progress.
+
+    Loads every store without mutating it (no rolls, no grants, no saves) and
+    prints a tidy snapshot: identity + mode, vitals, scrap, badges, quests, and
+    bestiary/shiny tallies. Reuses achievements.build_stats so the numbers match
+    the achievements view exactly."""
+    state = persistence.load(cfg.state_path)
+    dex = Bestiary(cfg.bestiary_path)
+    inv = equip_mod.Inventory(cfg.inventory_path)
+    ledger = Ledger(cfg.ledger_path)
+    quests = QuestLog(cfg.quests_path)
+    book = AchievementBook(getattr(cfg, "achievements_path",
+                                   "~/.flippergotchi/achievements.json"))
+    wallet = Wallet(getattr(cfg, "wallet_path", "~/.flippergotchi/wallet.json"))
+    stats = ach_mod.build_stats(state, dex, inv, ledger, quests)
+
+    title = getattr(state, "active_title", "")
+    name_line = f"{state.name} {title}".rstrip()
+    mode = "HARDCORE" if getattr(state, "hardcore", False) else "NORMAL"
+    hp = int(max(0, min(100, state.health)))
+    food = int(max(0, min(100, 100 - state.hunger)))
+    satiety = int(max(0, min(100, getattr(state, "satiety", 0.0))))
+    unlocked, total = book.progress()
+    rows = dex.all()
+    bestiary = len(rows)
+    shinies = stats.get("shinies", 0)
+    equipped = len(getattr(inv, "equipped", {}) or {})
+
+    print(f"  == PROFILE ==   {name_line}")
+    print(f"  Lv{state.level} {state.stage}   MODE: {mode}")
+    print(f"  HP {hp}%   hunger {int(state.hunger)}   food {food}%   "
+          f"satiety {satiety}%")
+    print(f"  scrap: {wallet.scrap}")
+    print(f"  badges: {unlocked}/{total} unlocked")
+    print(f"  quests: {quests.lifetime_done} done   streak: {quests.streak}d")
+    print(f"  shinies: {shinies}   bestiary: {bestiary} species")
+    print(f"  gear equipped: {equipped}/{len(equip_mod.SLOTS)}")
+
+
 def cmd_doctor(cfg) -> None:
     """Preflight: what's installed/permitted for real WiFi capture + cracking."""
     from .game import doctor

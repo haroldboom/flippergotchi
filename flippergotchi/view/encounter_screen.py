@@ -48,6 +48,20 @@ _HTML = """<!doctype html>
     background:radial-gradient(closest-side,#1c5a6e 0%,#123a4a 70%,transparent 100%);}}
   .mon{{position:absolute;right:8px;top:16px;height:78px;max-width:128px;z-index:1;
     filter:drop-shadow(0 2px 0 #0008);}}
+  /* shiny: lift the sprite out of the grayscale panel with brightness/contrast
+     and a bright outline glow (no colour reliance), plus a slow shimmer. */
+  .mon.shiny{{filter:brightness(1.35) contrast(1.45)
+    drop-shadow(0 0 3px #fff) drop-shadow(0 0 6px #fff) drop-shadow(0 2px 0 #0008);
+    animation:shimmer 1.6s ease-in-out infinite;}}
+  @keyframes shimmer{{0%,100%{{filter:brightness(1.2) contrast(1.35)
+      drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #fff) drop-shadow(0 2px 0 #0008);}}
+    50%{{filter:brightness(1.55) contrast(1.6)
+      drop-shadow(0 0 4px #fff) drop-shadow(0 0 9px #fff) drop-shadow(0 2px 0 #0008);}}}}
+  .glint{{position:absolute;z-index:2;color:#fff;font-weight:800;
+    text-shadow:0 0 5px #fff,0 0 9px #fff;animation:twinkle 1.2s ease-in-out infinite;}}
+  .glint.g2{{animation-delay:.6s;}}
+  @keyframes twinkle{{0%,100%{{opacity:.25;transform:scale(.7);}}
+    50%{{opacity:1;transform:scale(1.1);}}}}
   .box{{position:absolute;background:#f6f1da;border:2px solid #39405a;border-radius:3px;
     box-shadow:inset 0 0 0 1px #ffffffcc;padding:2px 4px;z-index:3;}}
   .card{{top:6px;left:4px;width:106px;}}
@@ -69,7 +83,8 @@ _HTML = """<!doctype html>
 </style></head><body>
   <div class="screen">
     <div class="platform"></div>
-    <img class="mon" src="data:image/png;base64,{sprite}"/>
+    <img class="mon{shinycls}" src="data:image/png;base64,{sprite}"/>
+    {glints}
     <div class="box card">
       <div class="row"><span class="nm">{species}{shiny}</span><span class="lv">:L{level}</span></div>
       <div class="sub">{name}</div>
@@ -103,9 +118,17 @@ def render(out_path: str, monster: dict, line: str = "") -> str:
     shiny_name = f"✨ SHINY {species}" if is_shiny else species
     msg = line or f"A wild {shiny_name} appeared!"
     shiny_tag = '<span class="shiny">✨SHINY</span>' if is_shiny else ""
+    # The shiny treatment on the sprite itself: a CSS filter class plus a couple
+    # of animated sparkle glyphs glinting over the monster (grayscale-legible).
+    shiny_cls = " shiny" if is_shiny else ""
+    glints = (
+        '<span class="glint" style="right:14px;top:20px;font-size:14px">&#10022;</span>'
+        '<span class="glint g2" style="right:96px;top:46px;font-size:11px">&#10022;</span>'
+    ) if is_shiny else ""
 
     html = _HTML.format(
         species=_html.escape(species), shiny=shiny_tag,
+        shinycls=shiny_cls, glints=glints,
         level=monster.get("level", 1),
         name=_html.escape(str(monster.get("name", ""))[:20]),
         enc=_html.escape(tag), enccol=_ENC_COLOR.get(enc, "#9fb0c4"),
