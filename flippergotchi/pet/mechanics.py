@@ -102,12 +102,16 @@ def collect(state: PetState, kind: str, cfg) -> list:
     return [{"type": "caught", "kind": kind}] + _gain_xp(state, xp, cfg)
 
 
-def snack(state: PetState, cfg) -> list:
-    """Eat a foraged snack (found while walking). This is the pet's FOOD: it
-    lowers hunger. No handshake counters change."""
-    state.hunger = clamp(state.hunger - cfg.forage_food)
+def snack(state: PetState, cfg, kind=None) -> list:
+    """Eat a snack. This is the pet's FOOD: it lowers hunger. No handshake
+    counters change. ``kind`` is an optional ``game.food.FoodKind`` whose
+    ``restore`` overrides the flat ``cfg.forage_food`` -- with ``kind=None`` the
+    behaviour is identical to before, so every existing caller is unchanged."""
+    restore = cfg.forage_food if kind is None else getattr(kind, "restore", cfg.forage_food)
+    label = "snack" if kind is None else getattr(kind, "id", "snack")
+    state.hunger = clamp(state.hunger - restore)
     state.happiness = clamp(state.happiness + 3)
-    return [{"type": "fed", "kind": "snack"}] + _gain_xp(state, cfg.xp_per_snack, cfg)
+    return [{"type": "fed", "kind": label}] + _gain_xp(state, cfg.xp_per_snack, cfg)
 
 
 def walk(state: PetState, meters: float, cfg) -> list:

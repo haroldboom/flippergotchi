@@ -14,7 +14,9 @@ from .game.bestiary import Bestiary
 from .game.home import WARNING
 from .game import quests as quests_mod
 from .game import shop as shop_mod
+from .game import food as food_mod
 from .game import achievements as ach_mod
+from .game.larder import Larder
 from .game.achievements import AchievementBook
 from .game.ledger import Ledger
 from .game.monsters import label
@@ -472,6 +474,50 @@ def cmd_achievements(cfg) -> None:
         got = book.is_unlocked(b.id)
         mark = "★" if got else " "
         print(f"  [{mark}] {b.name:<16} {b.description}")
+
+
+def cmd_feed(cfg, target: str | None = None) -> None:
+    """`feed` shows the larder + pet; `feed <id>` hand-feeds that stashed food.
+
+    Foraging stashes food in the larder while the pet isn't hungry; this is the
+    player-driven verb that spends it. Renders the feeding screen."""
+    state = persistence.load(cfg.state_path)
+    larder = Larder(getattr(cfg, "larder_path", "~/.flippergotchi/larder.json"),
+                    getattr(cfg, "larder_capacity", 20))
+    eaten, msg = None, ""
+    if target:
+        fk = food_mod.get(target)
+        if fk is None:
+            msg = f"no such food '{target}'  (try: feed)"
+        elif not larder.take(fk.id):
+            msg = f"no {fk.name} in the larder"
+        else:
+            mechanics.snack(state, cfg, fk)
+            eaten = fk.id
+            larder.save()
+            persistence.save(cfg.state_path, state)
+            msg = f"fed {fk.name}  (+{int(fk.restore)} food)"
+
+    try:
+        from .view import feed_screen
+        out = getattr(cfg, "feed_html_out", "/tmp/flippergotchi/feed.html")
+        feed_screen.render(out, state, cfg, larder, eaten=eaten)
+        print(f"  [screen] feed -> {out}")
+    except Exception as e:  # noqa: BLE001 - render must never break the command
+        print(f"  [feed render failed: {e}]")
+
+    food_pct = int(max(0, min(100, 100 - state.hunger)))
+    print(f"  LARDER  ({larder.total()}/{larder.capacity})   food: {food_pct}%")
+    counts = larder.counts()
+    for fk in food_mod.all_kinds():
+        n = counts.get(fk.id, 0)
+        if n:
+            mark = "*" if eaten == fk.id else " "
+            print(f"  [{mark}] {fk.id:<8} x{n:<2} {fk.name} (+{int(fk.restore)} food)")
+    if not counts:
+        print("  (larder empty -- walk to forage food)")
+    if msg:
+        print(f"  -> {msg}")
 
 
 def cmd_shop(cfg, action: str | None, item: str | None) -> None:

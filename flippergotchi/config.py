@@ -85,9 +85,14 @@ class Config:
     base_xp: float = 120.0             # xp_to_next = base_xp * level**level_exp
     level_exp: float = 1.6
     # foraging: walking is how the pet finds FOOD (and, rarely, gear)
-    forage_food: float = 12.0          # hunger restored per foraged snack
+    forage_food: float = 12.0          # hunger restored per foraged snack (untyped)
     forage_food_per_m: float = 0.06    # snack chance per metre walked (capped)
     forage_gear_per_m: float = 0.0016  # gear-find chance per metre walked (capped)
+    # larder: foraged food is stashed (not auto-eaten) while hunger is below this;
+    # at/above it -- or when the larder is full -- the forage is eaten on the spot
+    larder_path: str = "~/.flippergotchi/larder.json"
+    larder_capacity: int = 20
+    forage_auto_eat_hunger: float = 55.0
 
     # ai backend: "canned" (no deps) | "cpu" (llama.cpp) | "npu" (RKLLM, future)
     ai_backend: str = "canned"
@@ -170,6 +175,7 @@ class Config:
     battle_html_out: str = "/tmp/flippergotchi/battle.html"
     equip_html_out: str = "/tmp/flippergotchi/equip.html"
     encounter_html_out: str = "/tmp/flippergotchi/encounter.html"
+    feed_html_out: str = "/tmp/flippergotchi/feed.html"            # feeding screen
     capture_frames_dir: str = "/tmp/flippergotchi/capture"  # net-gun anim frames
     battlemenu_html_out: str = "/tmp/flippergotchi/battlemenu.html"  # dojo menu
     battlelist_html_out: str = "/tmp/flippergotchi/battlelist.html"  # target list

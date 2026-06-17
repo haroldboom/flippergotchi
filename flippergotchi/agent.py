@@ -13,8 +13,9 @@ import random
 
 from .game import battle as battle_mod
 from .game import ble as ble_mod
-from .game import encounter, equipment, monsters
+from .game import encounter, equipment, food, monsters
 from .game import quests as quests_mod
+from .game.larder import Larder
 from .game import shop as shop_mod
 from .game import achievements
 from .game.achievements import AchievementBook
@@ -51,6 +52,9 @@ class Agent:
                                             "~/.flippergotchi/achievements.json"))
         self.wallet = Wallet(getattr(cfg, "wallet_path",
                                      "~/.flippergotchi/wallet.json"))
+        self.larder = Larder(getattr(cfg, "larder_path",
+                                     "~/.flippergotchi/larder.json"),
+                             getattr(cfg, "larder_capacity", 20))
         self.trackers = TrackerLog(getattr(cfg, "tracker_log_path",
                                            "~/.flippergotchi/trackers.json"))
         self.ledger = Ledger(cfg.ledger_path)
@@ -322,12 +326,21 @@ class Agent:
             self.log(f"capture render failed: {e}")
 
     def _forage(self, meters: float) -> None:
-        """Walking is how the pet finds FOOD (and, rarely, gear)."""
+        """Walking is how the pet finds FOOD (and, rarely, gear). A typed food is
+        rolled; if the pet is genuinely hungry (or the larder is full) it eats on
+        the spot (neglect play unchanged), otherwise it stashes it in the larder
+        to hand-feed later."""
         if random.random() < min(0.9, meters * self.cfg.forage_food_per_m):
-            self._fx_set("eating")
-            self.log("[forage] nibbled a snack found on the walk")
-            self.speak("fed", "snack")
-            self._progress(mechanics.snack(self.state, self.cfg))
+            kind = food.roll_forage(random)
+            hungry = self.state.hunger >= self.cfg.forage_auto_eat_hunger
+            if hungry or self.larder.is_full() or self.larder.add(kind.id) == 0:
+                self._fx_set("eating")
+                self.log(f"[forage] ate {kind.name} on the walk")
+                self.speak("fed", "snack")
+                self._progress(mechanics.snack(self.state, self.cfg, kind))
+            else:
+                self.log(f"[forage] stashed {kind.name} in the larder "
+                         f"({self.larder.total()}/{self.larder.capacity})")
             self._quest("snacks", 1)
         if random.random() < min(0.5, meters * self.cfg.forage_gear_per_m):
             it = self.inv.add(equipment.roll_item(boost=self.state.level // 3))
@@ -468,6 +481,7 @@ class Agent:
         self.inv.save()
         self.quests.save()
         self.wallet.save()
+        self.larder.save()
         self.book.save()
         self.trackers.save()
         self.ledger.save()
