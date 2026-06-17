@@ -6,9 +6,7 @@ from .state import PetState
 STAGES = [
     (1, "egg"),
     (2, "hatchling"),
-    (4, "fingerling"),
     (8, "juvenile"),
-    (15, "adult"),
     (25, "alpha"),
     (40, "legend"),
 ]

@@ -57,7 +57,7 @@ handshake → it lands in your bestiary** (the sprite swaps with the action):
 
 ![action faces](docs/moods.png)
 
-**Evolutions** — egg → hatchling → fingerling → juvenile → adult → alpha → legend:
+**Evolutions** — egg → hatchling → juvenile → alpha → legend:
 
 ![evolution stages](docs/evolutions.png)
 

@@ -11,7 +11,7 @@ from flippergotchi.pet.state import PetState
 def test_round_trip_preserves_fields(tmp_path):
     path = str(tmp_path / "state.json")
     st = PetState(name="Sharky", level=7, xp=42.0, handshakes=9,
-                  duel_wins=3, stage="adult", element="Cyber")
+                  duel_wins=3, stage="juvenile", element="Cyber")
     persistence.save(path, st)
     loaded = persistence.load(path)
     assert loaded.name == "Sharky"
@@ -19,7 +19,7 @@ def test_round_trip_preserves_fields(tmp_path):
     assert loaded.xp == 42.0
     assert loaded.handshakes == 9
     assert loaded.duel_wins == 3
-    assert loaded.stage == "adult"
+    assert loaded.stage == "juvenile"
     assert loaded.element == "Cyber"
     assert loaded.schema_version == CURRENT_SCHEMA
 
