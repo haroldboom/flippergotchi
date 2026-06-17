@@ -165,7 +165,7 @@ class Config:
     # view / io
     tui: bool = True
     manual: bool = False               # prompt [A]Capture/[B]Run per encounter
-    character_variant: str = "classic"       # shark colour: classic|blue|tiger|gold|reef
+    character_variant: str = "classic"       # shark species: classic|hammerhead|goblin|sawshark|whaleshark
     flipctl_html_out: str = "/tmp/flippergotchi/face.html"
     battle_html_out: str = "/tmp/flippergotchi/battle.html"
     equip_html_out: str = "/tmp/flippergotchi/equip.html"

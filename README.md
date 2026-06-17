@@ -32,7 +32,7 @@ machine.
   phrases) narrates what the pet feels and what it just caught.
 - **A cyberpunk pixel-art shark character** in an **old-school
   Pokémon-style 2D HUD**, at the Flipper One's native **256×144**. It **evolves**
-  egg→legend and comes in 5 colour variants.
+  egg→legend and comes in 5 **shark species** (different silhouettes, picked with `--variant`).
 
 > **The economy at a glance:** walk → forage *food* (+ rare gear) · encounter →
 > *catch* AP-monsters · crack → *loot* + score · duel rivals → *steal*
@@ -60,11 +60,11 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![evolution stages](docs/evolutions.png)
 
-**Colour variants** (`--variant` / `character_variant`): classic · blue · tiger · gold · reef
+**Shark species** (`--variant` / `character_variant`): classic · hammerhead · goblin · sawshark · whaleshark — distinct silhouettes that read on the mono screen, *not* recolours
 
-![colour variants](docs/variants.png)
+![shark species](docs/variants.png)
 
-…and your chosen colour **persists through every evolution** (e.g. blue, egg → legend):
+…and your chosen species **persists through every evolution** (e.g. hammerhead, egg → legend):
 
 ![variant through evolution](docs/variant-evo.png)
 
@@ -456,7 +456,7 @@ or are authorized to test.
 ## Trademarks & affiliation
 
 Flippergotchi is an **independent, unofficial fan project**. The character art is
-original art; its colour variants are *inspired by* classic '90s shark-toon
+original art; the shark species are original designs *inspired by* real sharks and classic '90s shark-toon
 characters but use generic descriptive names and original artwork — those
 characters are trademarks of their respective owners and aren't used here. It is
 also **not affiliated with, endorsed by, or sponsored by Flipper Devices Inc.** "Flipper",

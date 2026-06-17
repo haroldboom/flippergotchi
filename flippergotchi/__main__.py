@@ -31,8 +31,8 @@ def main() -> None:
                     help="log events only; no full-screen face")
     ap.add_argument("--manual", action="store_true",
                     help="prompt [A]Capture / [B]Run on each encounter")
-    ap.add_argument("--variant", choices=["classic", "blue", "tiger", "gold", "reef"],
-                    help="shark colour variant")
+    ap.add_argument("--variant", choices=["classic", "hammerhead", "goblin", "sawshark", "whaleshark"],
+                    help="shark species variant")
     ap.add_argument("--reset", action="store_true", help="start a brand new pet")
     # RPG subcommands (default is to just run the pet/scanner loop)
     ap.add_argument("command", nargs="?", default="run",
