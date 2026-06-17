@@ -18,10 +18,19 @@ _DIR = os.path.join(os.path.dirname(__file__), "sprites", "monsters")
 # species (as produced by game.monsters) -> sprite file stem
 SPECIES_SPRITES = {
     # WiFi AP villains (species by encryption)
-    "Wispling": "wispling",      # open    -- trivial
-    "Rustbug": "rustbug",        # wep     -- weak/legacy
-    "Wavemon": "wavemon",        # wpa     -- medium
-    "Crypterion": "crypterion",  # wpa2    -- boss
+    # WiFi monsters by AP vendor/brand (WPA2 / open)
+    "Gnashgear": "gnashgear",    # Netgear
+    "Mantalink": "mantalink",    # TP-Link
+    "Synksquid": "synksquid",    # Linksys
+    "Asurpent": "asurpent",      # ASUS
+    "Kragnet": "kragnet",        # Cisco / enterprise
+    "Telewyrm": "telewyrm",      # ISP / telco
+    "Crypterion": "crypterion",  # unknown vendor (fallback)
+    # WiFi legendaries -- weak/legacy security, trivially cracked
+    "Wepwraith": "wepwraith",    # WEP  (legendary)
+    "Wparchon": "wparchon",      # WPA1 (legendary)
+    # retired encryption-based species (kept for old saves)
+    "Wispling": "wispling", "Rustbug": "rustbug", "Wavemon": "wavemon",
     # BLE mini-monsters (tamed by scanning) -- a friendlier gadget tier
     "Pocketling": "pocketling",  # phone
     "Tickbit": "tickbit",        # wearable

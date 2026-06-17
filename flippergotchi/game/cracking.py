@@ -114,6 +114,17 @@ class LocalCracker:
         # burning a crack. Works even if hashcat isn't installed.
         if bool(getattr(self.cfg, "dry_run", False)):
             return self._crack_dry(monster, handshake_path)
+        # WEP is a different (and trivial) attack: aircrack-ng's statistical
+        # IV crack, no wordlist -- fast enough to do on the fly. Routed before
+        # the hashcat/sim shortcut so it works even without hashcat installed.
+        if getattr(monster, "encryption", "") == "wep" \
+                and not bool(getattr(self.cfg, "simulate", False)) \
+                and handshake_path and os.path.exists(handshake_path):
+            try:
+                return self._crack_wep(monster, handshake_path)
+            except Exception:  # noqa: BLE001
+                log.debug("wep crack path failed; falling back to sim", exc_info=True)
+                return self._sim(monster)
         if self.sim or not handshake_path or not os.path.exists(handshake_path):
             return self._sim(monster)
         try:
@@ -121,6 +132,39 @@ class LocalCracker:
         except Exception:  # noqa: BLE001 - never raise out of a crack attempt
             log.debug("real crack path failed; falling back to sim", exc_info=True)
             return self._sim(monster)
+
+    # -- WEP path --------------------------------------------------------- #
+    def _crack_wep(self, monster, capture: str) -> CrackResult:
+        """Recover a WEP key from a capture of IVs with aircrack-ng (no
+        wordlist). NEEDS ON-HARDWARE VALIDATION."""
+        aircrack = shutil.which("aircrack-ng")
+        if not aircrack:
+            return self._sim(monster)
+        bssid = getattr(monster, "id", "") or ""
+        cmd = [aircrack, "-q", capture]
+        if bssid:
+            cmd[1:1] = ["-b", bssid]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True,
+                                  timeout=int(getattr(self.cfg, "crack_timeout", 1800)))
+        except subprocess.TimeoutExpired:
+            return CrackResult(result="failed", via="aircrack-ng", mode="wep",
+                               detail="aircrack-ng timed out")
+        key = self._parse_wep_key(proc.stdout or "")
+        if key:
+            return CrackResult(result="cracked", via="aircrack-ng", key=key,
+                               mode="wep", detail="WEP key recovered (IV attack)")
+        return CrackResult(result="failed", via="aircrack-ng", mode="wep",
+                           detail="not enough IVs / no key")
+
+    @staticmethod
+    def _parse_wep_key(text: str) -> str:
+        """Pull the key from aircrack-ng's 'KEY FOUND! [ AB:CD:.. ]' line."""
+        for line in text.splitlines():
+            if "KEY FOUND" in line and "[" in line and "]" in line:
+                inner = line[line.index("[") + 1:line.index("]")].strip()
+                return inner.replace(" ", "")
+        return ""
 
     # -- dry-run path ----------------------------------------------------- #
     def _crack_dry(self, monster, handshake_path: str | None) -> CrackResult:

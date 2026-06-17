@@ -11,6 +11,7 @@ from .core.bluetooth import BluetoothScanner
 from .core.wifi.backends import make_backend
 import random
 
+from .game import battle as battle_mod
 from .game import ble as ble_mod
 from .game import encounter, equipment, monsters
 from .game import quests as quests_mod
@@ -19,6 +20,7 @@ from .game.achievements import AchievementBook
 from .game.ble import TrackerLog
 from .game.bestiary import Bestiary
 from .game.home import at_home
+from .game.ledger import Ledger
 from .game.quests import QuestLog
 from .game.shop import Wallet
 from .pet import mechanics
@@ -47,6 +49,7 @@ class Agent:
                                      "~/.flippergotchi/wallet.json"))
         self.trackers = TrackerLog(getattr(cfg, "tracker_log_path",
                                            "~/.flippergotchi/trackers.json"))
+        self.ledger = Ledger(cfg.ledger_path)
         self._say = ""
         self._fx = None          # (mood, until_ts) transient face override
         self._last_save = 0.0
@@ -181,6 +184,11 @@ class Agent:
             self.wallet.earn(shop_mod.scrap_for_catch())
             self._achievements()
             self._progress(ups)
+            # weak/legacy networks (open / WEP / WPA1) are crackable ON THE FLY
+            # -- no trip home. Still gated to your authorized scope.
+            if m.encryption in ("open", "wep", "wpa") \
+                    and battle_mod.is_authorized(m, self.cfg):
+                self._field_battle(m)
         elif enc.state == encounter.ESCAPED:
             m.captured = False
             self.dex.add(m)
@@ -200,6 +208,37 @@ class Agent:
             })
         except Exception as e:  # noqa: BLE001 - never break the tick loop
             self.log(f"encounter render failed: {e}")
+
+    def _field_battle(self, m) -> None:
+        """On-the-fly crack of a weak/legacy network (open/WEP/WPA1) -- no home
+        trip needed. Authorization was already checked by the caller. Records to
+        the ledger and rewards a win like the `battle` command. Guarded."""
+        try:
+            if m.encryption == "open":
+                m.defeated, m.key = True, "(open)"
+                self.ledger.record(m, "cracked", "open", "")
+                self.log(f"[battle] walked into OPEN '{m.name}' -- no key needed")
+            else:
+                res = battle_mod.battle(
+                    m, self.cfg, handshake_path=getattr(m, "capture_path", "") or None)
+                self.ledger.record(m, res["result"], res.get("via", ""),
+                                   res.get("key", ""))
+                if res["result"] != "cracked":
+                    self.log(f"[battle] {m.encryption.upper()} '{m.name}': "
+                             f"{res['result']} ({res.get('via', '')})")
+                    return
+                self.log(f"[battle] cracked {m.encryption.upper()} '{m.name}' on "
+                         f"the fly -- key: {res['key']} (via {res.get('via', '')})")
+            # reward on a win (legendary WEP/WPA1 give a little extra scrap)
+            bonus = 40 if getattr(m, "rarity", "") == "legendary" else 0
+            self.wallet.earn(shop_mod.scrap_for_crack() + bonus)
+            loot = self.inv.add(equipment.roll_item(boost=m.level // 2))
+            self.log(f"[loot] {loot.rarity} {loot.name} (+{loot.power} pow)")
+            self._quest("cracks", 1)
+            self._achievements()
+            self._fx_set("excited")
+        except Exception as e:  # noqa: BLE001 - never break the tick loop
+            self.log(f"field battle failed: {e}")
 
     def _live_capture(self, ev: dict):
         """Run the REAL deauth + handshake capture via the backend and validate
@@ -392,6 +431,7 @@ class Agent:
         self.wallet.save()
         self.book.save()
         self.trackers.save()
+        self.ledger.save()
         prefs_mod.save(self.cfg.peers_path, self._peers)
 
     def run(self, ticks: int | None = None) -> None:

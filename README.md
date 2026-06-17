@@ -61,8 +61,10 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![variant through evolution](docs/variant-evo.png)
 
-**The monsters** — WiFi access points are catchable creatures, and Bluetooth
-devices are a friendlier **mini-monster** tier. The BLE species come from the
+**The monsters** — WiFi access points are catchable creatures whose **species is
+the router's brand** (Netgear, TP-Link, Linksys, ASUS, Cisco, ISP…), with **WEP
+& WPA1** as rare **legendaries**. Bluetooth devices are a friendlier
+**mini-monster** tier. The BLE species come from the
 real advert (device class + vendor): phones, wearables, audio, beacons,
 computers, **trackers**, HID input, smart-home, medical. Scanning is a
 *sighting*; an active **GATT enumerate** (`bettercap ble.enum` / `bleak`) is the
@@ -207,16 +209,18 @@ gps (walking)      ─┘     │            │
 It's also an [Orna](https://orna.guide)-style GPS RPG layered on the same data:
 
 - **You level up by walking** (GPS = fitness/XP), same as the pet.
-- **APs are monsters.** Encryption = difficulty/defense, vendor = species, band =
-  element, clients = minions. *Spotting* one logs it; *capturing* the handshake
-  adds it to your **bestiary** ready to battle.
-- **Bluetooth devices are smaller monsters** — collected/"tamed" by scanning
-  (no handshake to crack), a distinct lighter tier.
-- **Battling = cracking.** `hashcat -m 22000` + rockyou locally; if a tough
-  target survives and you allow it, escalate to a **cloud crack** — a real
-  multipart upload to **wpa-sec** (or onlinehashcrack); `cloud results` later
-  pulls recovered keys back into your bestiary. Gated to your scope + `--dry-run`
-  aware (see below).
+- **APs are monsters — species by the router's BRAND.** The vendor (from the
+  BSSID OUI / SSID) picks the species: Netgear→Gnashgear, TP-Link→Mantalink,
+  Linksys→Synksquid, ASUS→Asurpent, Cisco→Kragnet, an ISP→Telewyrm, unknown→
+  Crypterion. Band = element, clients = minions.
+- **WEP & WPA1 are rare LEGENDARIES** (Wepwraith / Wparchon). Legacy security is
+  trivially broken, so they're a prized, easy catch — and they crack **on the
+  fly** in the field (no trip home): WEP via **aircrack-ng** (IV attack, no
+  wordlist), WPA1 via the handshake path. Still authorization-gated.
+- **Bluetooth devices are smaller monsters** — see the BLE section above.
+- **Battling = cracking.** WPA2 is the slow one: capture the handshake, then
+  `hashcat -m 22000` + rockyou at home; if it survives and you allow it, escalate
+  to a **cloud crack** (real wpa-sec upload; `cloud results` pulls keys back).
 - **Only crackable networks are surfaced** (open / WEP / WPA / WPA2-PSK). WPA3,
   WPA2-Enterprise and OWE aren't wordlist-crackable, so they're not shown at all.
 

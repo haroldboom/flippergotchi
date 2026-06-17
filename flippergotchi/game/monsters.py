@@ -5,13 +5,58 @@ from dataclasses import asdict, dataclass, field
 
 from .analysis import assess
 
-# encryption -> WiFi species (the "armor class" of the creature)
-_WIFI_SPECIES = {
-    "open": "Wispling",
-    "wep": "Rustbug",
-    "wpa": "Wavemon",
-    "wpa2": "Crypterion",
+# WiFi species now come from the AP's BRAND (vendor), not its encryption --
+# WPA2/open monsters are identified by who made the router. WEP and WPA(1) are
+# rare, trivially-cracked LEGENDARIES instead (legacy security = a prized find).
+_WIFI_VENDOR_SPECIES = {
+    "Netgear": "Gnashgear",
+    "TP-Link": "Mantalink",
+    "Linksys": "Synksquid",
+    "ASUS": "Asurpent",
+    "Cisco": "Kragnet",
+    "ISP": "Telewyrm",
 }
+# weak/legacy encryption -> legendary species (any vendor)
+_LEGENDARY_SPECIES = {"wep": "Wepwraith", "wpa": "Wparchon"}
+# unknown vendor (WPA2/open) falls back to the apex piranha
+_UNKNOWN_WIFI_SPECIES = "Crypterion"
+# every WiFi species (for sprite-coverage checks)
+_WIFI_SPECIES = {**_WIFI_VENDOR_SPECIES, **_LEGENDARY_SPECIES,
+                 "unknown": _UNKNOWN_WIFI_SPECIES}
+
+# SSID keyword -> vendor faction (case-insensitive substring)
+_WIFI_VENDOR_SSID = [
+    ("netgear", "Netgear"), ("orbi", "Netgear"),
+    ("tp-link", "TP-Link"), ("tplink", "TP-Link"), ("archer", "TP-Link"),
+    ("deco", "TP-Link"),
+    ("linksys", "Linksys"), ("velop", "Linksys"),
+    ("asus", "ASUS"), ("rt-ac", "ASUS"), ("rt-ax", "ASUS"), ("zenwifi", "ASUS"),
+    ("cisco", "Cisco"), ("meraki", "Cisco"), ("aironet", "Cisco"),
+    ("xfinity", "ISP"), ("comcast", "ISP"), ("spectrum", "ISP"), ("att", "ISP"),
+    ("verizon", "ISP"), ("telstra", "ISP"), ("optus", "ISP"), ("iinet", "ISP"),
+    ("virgin", "ISP"), ("vodafone", "ISP"), ("sky", "ISP"), ("bt", "ISP"),
+]
+# BSSID OUI prefix (first 3 octets, upper) -> vendor, for real hardware where
+# the SSID isn't brandy. A small starter set; extend as needed.
+_WIFI_OUI = {
+    "9C:3D:CF": "Netgear", "A0:40:A0": "Netgear", "C0:3F:0E": "Netgear",
+    "50:C7:BF": "TP-Link", "AC:84:C6": "TP-Link", "C4:6E:1F": "TP-Link",
+    "00:18:39": "Linksys", "48:F8:B3": "Linksys", "C0:56:27": "Linksys",
+    "2C:56:DC": "ASUS", "AC:9E:17": "ASUS", "04:D4:C4": "ASUS",
+    "00:1A:A1": "Cisco", "00:0B:85": "Cisco", "58:97:1E": "Cisco",
+}
+
+
+def _wifi_vendor(ssid: str, bssid: str) -> str:
+    """Best-effort AP vendor from the SSID brand or the BSSID OUI."""
+    s = (ssid or "").lower()
+    for kw, vendor in _WIFI_VENDOR_SSID:
+        if kw in s:
+            return vendor
+    oui = (bssid or "")[:8].upper()
+    return _WIFI_OUI.get(oui, "")
+
+
 # band -> element
 _ELEMENT = {"2.4GHz": "Spark", "5GHz": "Tide", "6GHz": "Gale"}
 # BLE device-class -> mini species
@@ -82,14 +127,23 @@ def from_ap(ev: dict) -> Monster:
     enc = a.encryption
     band = ev.get("band", "2.4GHz")
     defense = a.difficulty
+    vendor = _wifi_vendor(a.ssid, a.bssid)
+    # WEP / WPA(1) are the rare legendaries (legacy security = easy + prized);
+    # everything else (WPA2 / open) is identified by the router's brand.
+    if enc in _LEGENDARY_SPECIES:
+        species, rarity = _LEGENDARY_SPECIES[enc], "legendary"
+    else:
+        species = _WIFI_VENDOR_SPECIES.get(vendor, _UNKNOWN_WIFI_SPECIES)
+        rarity = ""
     return Monster(
         id=a.bssid, kind="wifi", name=a.ssid,
-        species=_WIFI_SPECIES.get(enc, "Crypterion"),
+        species=species,
         element=_ELEMENT.get(band, "Spark"),
         level=max(1, round(defense / 8) + ev.get("clients", 0)),
         hp=20 + defense,
         defense=defense, encryption=enc, signal=ev.get("signal", -60),
         band=band, clients=ev.get("clients", 0),
+        rarity=rarity, vendor=vendor,
         captured=(ev.get("kind") in ("handshake", "pmkid")),
     )
 
