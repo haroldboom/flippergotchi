@@ -32,6 +32,18 @@ import time
 def _today() -> str:
     return time.strftime("%Y-%m-%d")
 
+
+def _thisweek() -> str:
+    return time.strftime("%Y-W%W")
+
+
+def _quest_bonus(cfg, quests) -> None:
+    """Pay the all-dailies-clear bonus once per day from the CLI side."""
+    bonus = quests.claim_daily_bonus(_today())
+    if bonus:
+        quests_mod._credit_scrap(cfg, None, bonus)
+        print(f"  [quest] all dailies cleared! +{bonus} scrap bonus")
+
 _ICON = {"cracked": "WIN", "tamed": "TAMED", "failed": "LOSS",
          "refused": "BLOCKED", "submitted": "ESCALATED", "dry-run": "DRY-RUN"}
 
@@ -170,9 +182,11 @@ def cmd_duel(cfg, target: str | None) -> None:
         print(f"  you seized {loot.rarity} gear: {loot.name} (+{loot.power} pow)")
         quests = QuestLog(cfg.quests_path)
         quests.roll(_today())
+        quests.roll_weekly(_thisweek())
         for q in quests.record("duel_wins", 1):
             rw = quests_mod.grant_quest_reward(q, state, inv, cfg)
             print(f"  [quest] {q.description} done -> {rw}")
+        _quest_bonus(cfg, quests)
         quests.save()
         _award(cfg, state, scrap=shop_mod.scrap_for_duel_win(), inv=inv)
     else:
@@ -202,21 +216,32 @@ def cmd_duel(cfg, target: str | None) -> None:
 
 
 def cmd_quests(cfg) -> None:
-    """Show today's daily quests and progress."""
+    """Show today's daily + this week's weekly quests and progress (read-only)."""
     q = QuestLog(cfg.quests_path)
     q.roll(_today())
-    rows = q.active()
-    if not rows:
+    q.roll_weekly(_thisweek())
+    if not q.active() and not q.active_weeklies():
         print("No quests today. Go for a walk to roll some!")
         return
-    print(f"  DAILY QUESTS ({q.day})")
-    for quest in rows:
+
+    def _show(quest):
         pct = min(100, int(quest.progress / quest.target * 100)) if quest.target else 100
         bar = "#" * (pct // 10) + "." * (10 - pct // 10)
         mark = "DONE" if quest.done else f"{bar} {quest.progress:g}/{quest.target:g}"
         reward = ", ".join(f"{k}:{v}" for k, v in (quest.reward or {}).items())
-        print(f"  [{'x' if quest.done else ' '}] {quest.description:<22} {mark}"
+        print(f"  [{'x' if quest.done else ' '}] {quest.description:<26} {mark}"
               f"   -> {reward}")
+
+    print(f"  DAILY QUESTS ({q.day})")
+    for quest in q.active():
+        _show(quest)
+    if q.all_dailies_done():
+        state = "claimed" if q.bonus_day == q.day else "ready -- finishes on next action"
+        print(f"  >> all dailies clear!  +{quests_mod.DAILY_CLEAR_BONUS} scrap bonus ({state})")
+    if q.active_weeklies():
+        print(f"  WEEKLY QUESTS ({q.week})")
+        for quest in q.active_weeklies():
+            _show(quest)
     q.save()
 
 
@@ -344,9 +369,13 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
         if state is not None:
             mechanics.snack(state, cfg)  # a treat for cracking it
         if quests is not None and state is not None:
-            for q in quests.record("cracks", 1):
+            done = list(quests.record("cracks", 1))
+            if getattr(m, "rarity", "") == "legendary":
+                done += list(quests.record("legendary_kills", 1))
+            for q in done:
                 rw = quests_mod.grant_quest_reward(q, state, inv, cfg)
                 print(f"      [quest] {q.description} done -> {rw}")
+            _quest_bonus(cfg, quests)
         if state is not None and dex is not None:
             _award(cfg, state, scrap=shop_mod.scrap_for_crack(),
                    inv=inv, dex=dex, ledger=ledger)
@@ -413,6 +442,7 @@ def cmd_battle(cfg, target: str | None, authorized: bool,
     state = persistence.load(cfg.state_path)
     quests = QuestLog(cfg.quests_path)
     quests.roll(_today())
+    quests.roll_weekly(_thisweek())
     _show_warning(cfg, dont_show)
 
     if all_:

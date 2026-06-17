@@ -113,6 +113,11 @@ class Agent:
                                                    self.cfg, self.wallet)
             self.log(f"[quest] DONE: {q.description} -> {reward}")
             self._fx_set("excited")
+        bonus = self.quests.claim_daily_bonus(time.strftime("%Y-%m-%d"))
+        if bonus:
+            self.wallet.earn(bonus)
+            self.log(f"[quest] all dailies cleared! +{bonus} scrap bonus")
+            self._fx_set("excited")
 
     def _achievements(self) -> None:
         """Unlock any newly-met badges; grant their small rewards. Cheap enough
@@ -275,6 +280,8 @@ class Agent:
             loot = self.inv.add(equipment.roll_item(boost=m.level // 2))
             self.log(f"[loot] {loot.rarity} {loot.name} (+{loot.power} pow)")
             self._quest("cracks", 1)
+            if getattr(m, "rarity", "") == "legendary":
+                self._quest("legendary_kills", 1)
             self._achievements()
             self._fx_set("excited")
         except Exception as e:  # noqa: BLE001 - never break the tick loop
@@ -401,6 +408,7 @@ class Agent:
         self.state.happiness = mechanics.clamp(self.state.happiness + 2)
         self.log(f"[recon] interrogated {m.species} '{m.name}' -- {reward['key']} "
                  f"(+{reward['scrap']} scrap)  pairing={getattr(m, 'pairing', '?')}")
+        self._quest("tames", 1)
         self._fx_set("excited")
 
     def _note_peer(self, ev: dict) -> None:
@@ -427,6 +435,7 @@ class Agent:
     def tick(self, dt: float) -> None:
         self._tick_i += 1
         self.quests.roll(time.strftime("%Y-%m-%d"))   # daily quests (no-op same day)
+        self.quests.roll_weekly(time.strftime("%Y-W%W"))  # weekly horizon
         self._events(self.wifi.scan())
         self._spawn_ble()
         meters = self.gps.distance()

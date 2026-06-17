@@ -15,8 +15,17 @@ import os
 import random
 from dataclasses import asdict, dataclass, field
 
-# the only metrics quests may track (must match the names callers record under)
-METRICS = ["distance_m", "catches", "cracks", "duel_wins", "snacks"]
+# the only metrics quests may track (must match the names callers record under).
+# Every metric here MUST have a record() call site, or it is dead content:
+#   distance_m/catches/cracks/snacks (agent), duel_wins (duel cmd),
+#   tames (agent._tame_ble), legendary_kills (agent._field_battle, WEP/WPA1).
+METRICS = ["distance_m", "catches", "cracks", "duel_wins", "snacks",
+           "tames", "legendary_kills"]
+
+# persisted-file schema version for QuestLog (v2 adds the weekly + bonus blocks).
+CURRENT_SCHEMA = 2
+# one-time scrap for clearing every daily in a day (the "finish the set" nudge).
+DAILY_CLEAR_BONUS = 80
 
 
 @dataclass
@@ -38,7 +47,8 @@ class Quest:
         return cls(**{k: v for k, v in d.items() if k in known})
 
 
-# template pool: (id, description, metric, target, reward)
+# DAILY template pool: (id, description, metric, target, reward). Scrap is tuned
+# so a full clear of `n` dailies + the all-clear bonus lands near ~150/day.
 _TEMPLATES = [
     ("walk_2k", "Walk 2 km", "distance_m", 2000, {"xp": 50, "scrap": 30}),
     ("walk_5k", "Walk 5 km", "distance_m", 5000, {"xp": 140, "scrap": 55}),
@@ -46,6 +56,23 @@ _TEMPLATES = [
     ("crack_1", "Crack a network", "cracks", 1, {"xp": 80, "scrap": 55}),
     ("duel_1", "Win a duel", "duel_wins", 1, {"gear": True, "scrap": 40}),
     ("forage_3", "Forage 3 snacks", "snacks", 3, {"xp": 30, "scrap": 25}),
+    ("tame_2", "Tame 2 Bluetooth devices", "tames", 2, {"xp": 40, "scrap": 35}),
+    ("legend_1", "Crack a WEP/WPA1 legendary", "legendary_kills", 1, {"scrap": 60}),
+]
+# roll weights: common everyday goals show often, rare ones (legendaries) rarely.
+_TEMPLATE_WEIGHT = {
+    "walk_2k": 10, "walk_5k": 6, "catch_5": 10, "crack_1": 8,
+    "duel_1": 5, "forage_3": 8, "tame_2": 6, "legend_1": 3,
+}
+
+# WEEKLY template pool: bigger targets, one-time-per-week payouts that sit ABOVE
+# the daily-sum so dailies stay the primary loop (see economy notes).
+_WEEKLY_TEMPLATES = [
+    ("w_walk", "Walk 20 km this week", "distance_m", 20000, {"scrap": 120, "food": 3}),
+    ("w_catch", "Catch 30 monsters", "catches", 30, {"scrap": 120}),
+    ("w_crack", "Crack 8 networks", "cracks", 8, {"scrap": 150, "gear": True}),
+    ("w_duel", "Win 6 duels", "duel_wins", 6, {"scrap": 120}),
+    ("w_tame", "Tame 12 Bluetooth devices", "tames", 12, {"scrap": 100, "food": 3}),
 ]
 
 
@@ -55,11 +82,42 @@ def _template_quest(tpl) -> Quest:
                  reward=dict(reward))
 
 
+def _weighted_distinct(templates, n: int, rng) -> list:
+    """Pick up to `n` templates, weighted by `_TEMPLATE_WEIGHT`, never two on the
+    same metric (so a day can't stack three walking quests). Deterministic for a
+    given `rng`."""
+    pool = list(templates)
+    picks = []
+    while pool and len(picks) < n:
+        weights = [_TEMPLATE_WEIGHT.get(t[0], 5) for t in pool]
+        choice = rng.choices(pool, weights=weights, k=1)[0]
+        picks.append(choice)
+        metric = choice[2]
+        pool = [t for t in pool if t[2] != metric]
+    return picks
+
+
+def migrate(raw: dict) -> dict:
+    """Upgrade a persisted QuestLog dict to CURRENT_SCHEMA in place. v1 files
+    (no version, daily-only) gain the empty weekly + bonus blocks."""
+    v = int(raw.get("schema_version", 1))
+    if v < 2:
+        raw.setdefault("week", "")
+        raw.setdefault("weeklies", [])
+        raw.setdefault("bonus_day", "")
+    raw["schema_version"] = CURRENT_SCHEMA
+    return raw
+
+
 class QuestLog:
     def __init__(self, path: str):
         self.path = os.path.expanduser(path)
+        self.schema_version: int = CURRENT_SCHEMA
         self.day: str = ""
-        self.quests: list[Quest] = []
+        self.quests: list[Quest] = []          # dailies
+        self.week: str = ""
+        self.weeklies: list[Quest] = []
+        self.bonus_day: str = ""               # day the all-clear bonus was paid
         self._load()
 
     def _load(self) -> None:
@@ -68,10 +126,16 @@ class QuestLog:
         try:
             with open(self.path) as f:
                 raw = json.load(f)
+            raw = migrate(raw if isinstance(raw, dict) else {})
+            self.schema_version = int(raw.get("schema_version", CURRENT_SCHEMA))
             self.day = raw.get("day", "")
             self.quests = [Quest.from_dict(d) for d in raw.get("quests", [])]
+            self.week = raw.get("week", "")
+            self.weeklies = [Quest.from_dict(d) for d in raw.get("weeklies", [])]
+            self.bonus_day = raw.get("bonus_day", "")
         except Exception:
             self.day, self.quests = "", []
+            self.week, self.weeklies, self.bonus_day = "", [], ""
 
     def save(self) -> None:
         d = os.path.dirname(self.path)
@@ -79,28 +143,43 @@ class QuestLog:
             os.makedirs(d, exist_ok=True)
         tmp = self.path + ".tmp"
         with open(tmp, "w") as f:
-            json.dump({"day": self.day,
-                       "quests": [q.to_dict() for q in self.quests]},
-                      f, indent=2)
+            json.dump({
+                "schema_version": CURRENT_SCHEMA,
+                "day": self.day,
+                "quests": [q.to_dict() for q in self.quests],
+                "week": self.week,
+                "weeklies": [q.to_dict() for q in self.weeklies],
+                "bonus_day": self.bonus_day,
+            }, f, indent=2)
         os.replace(tmp, self.path)
 
     def roll(self, day: str, n: int = 3, rng=random) -> list:
-        """Ensure today's active quests exist. If the stored day differs from
-        `day`, pick `n` distinct templates as the new active set (progress
-        reset) and record the new day. Deterministic given `rng`."""
+        """Ensure today's active dailies exist. If the stored day differs from
+        `day`, pick `n` weighted distinct-metric templates as the new active set
+        (progress reset). Deterministic given `rng`."""
         if self.day != day:
             n = max(0, min(n, len(_TEMPLATES)))
-            picks = rng.sample(_TEMPLATES, n)
-            self.quests = [_template_quest(t) for t in picks]
+            self.quests = [_template_quest(t)
+                           for t in _weighted_distinct(_TEMPLATES, n, rng)]
             self.day = day
         return self.quests
 
+    def roll_weekly(self, week: str, n: int = 2, rng=random) -> list:
+        """Ensure this week's weekly quests exist (rerolled when `week` changes)."""
+        if self.week != week:
+            n = max(0, min(n, len(_WEEKLY_TEMPLATES)))
+            self.weeklies = [_template_quest(t)
+                             for t in _weighted_distinct(_WEEKLY_TEMPLATES, n, rng)]
+            self.week = week
+        return self.weeklies
+
     def record(self, metric: str, amount: float, rng=random) -> list:
-        """Bump progress on matching active, not-yet-done quests. Mark a quest
-        done when progress >= target. Returns the quests newly completed by
-        this call."""
+        """Bump matching active, not-yet-done dailies AND weeklies. Returns every
+        quest newly completed by this call -- each is a distinct quest object, so
+        a caller granting one reward per returned quest never double-pays (a
+        single event can legitimately finish a daily and a weekly = two rewards)."""
         newly: list = []
-        for q in self.quests:
+        for q in list(self.quests) + list(self.weeklies):
             if q.done or q.metric != metric:
                 continue
             q.progress += amount
@@ -109,8 +188,22 @@ class QuestLog:
                 newly.append(q)
         return newly
 
+    def all_dailies_done(self) -> bool:
+        return bool(self.quests) and all(q.done for q in self.quests)
+
+    def claim_daily_bonus(self, day: str) -> int:
+        """Return DAILY_CLEAR_BONUS the first time every daily is cleared on
+        `day`, else 0. Stamps bonus_day so it pays at most once per day."""
+        if self.all_dailies_done() and self.bonus_day != day:
+            self.bonus_day = day
+            return DAILY_CLEAR_BONUS
+        return 0
+
     def active(self) -> list:
         return list(self.quests)
+
+    def active_weeklies(self) -> list:
+        return list(self.weeklies)
 
 
 def _credit_scrap(cfg, wallet, amount: int) -> None:

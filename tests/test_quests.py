@@ -124,6 +124,73 @@ def test_all_templates_have_scrap():
         assert reward.get("scrap", 0) > 0, f"{tid} pays no scrap"
 
 
+def test_every_metric_has_a_template():
+    # no METRIC may be undeliverable: each one needs at least one quest template
+    from flippergotchi.game.quests import METRICS, _TEMPLATES, _WEEKLY_TEMPLATES
+    have = {t[2] for t in _TEMPLATES} | {t[2] for t in _WEEKLY_TEMPLATES}
+    assert set(METRICS) <= have, f"metrics with no template: {set(METRICS) - have}"
+
+
+def test_roll_distinct_metrics():
+    import random
+    q = _log()
+    q.roll("2026-06-16", n=3, rng=random.Random(5))
+    metrics = [x.metric for x in q.active()]
+    assert len(metrics) == len(set(metrics))      # never two quests on one metric
+
+
+def test_weekly_rolls_and_rerolls():
+    import random
+    q = _log()
+    q.roll_weekly("2026-W10", n=2, rng=random.Random(1))
+    first = [x.id for x in q.active_weeklies()]
+    assert len(first) == 2
+    q.roll_weekly("2026-W10", n=2)                # same week -> no reroll
+    assert [x.id for x in q.active_weeklies()] == first
+    q.roll_weekly("2026-W11", n=2, rng=random.Random(2))   # new week -> fresh
+    assert all(x.progress == 0 for x in q.active_weeklies())
+
+
+def test_record_bumps_daily_and_weekly():
+    from flippergotchi.game.quests import Quest
+    q = _log()
+    q.quests = [Quest("d", "daily catch", "catches", 1)]
+    q.weeklies = [Quest("w", "weekly catch", "catches", 1)]
+    done = q.record("catches", 1)
+    assert {x.id for x in done} == {"d", "w"}     # one event finishes both = 2 rewards
+
+
+def test_all_dailies_bonus_once_per_day():
+    from flippergotchi.game.quests import Quest, DAILY_CLEAR_BONUS
+    q = _log()
+    q.day = "2026-06-16"
+    q.quests = [Quest("a", "x", "catches", 1, progress=1, done=True)]
+    assert q.all_dailies_done()
+    assert q.claim_daily_bonus("2026-06-16") == DAILY_CLEAR_BONUS
+    assert q.claim_daily_bonus("2026-06-16") == 0          # only once per day
+    q.quests.append(Quest("b", "y", "cracks", 1))          # not all done now
+    q.bonus_day = ""
+    assert q.claim_daily_bonus("2026-06-16") == 0
+
+
+def test_migrate_v1_to_v2():
+    import json
+    from flippergotchi.game.quests import QuestLog, CURRENT_SCHEMA
+    p = os.path.join(tempfile.mkdtemp(), "q.json")
+    with open(p, "w") as f:                                # legacy v1: daily-only
+        json.dump({"day": "2026-06-16", "quests": [
+            {"id": "walk_2k", "description": "Walk 2 km", "metric": "distance_m",
+             "target": 2000, "progress": 500, "done": False, "reward": {"scrap": 30}}]}, f)
+    q = QuestLog(p)
+    assert q.schema_version == CURRENT_SCHEMA
+    assert q.active()[0].progress == 500                  # daily preserved
+    assert q.weeklies == [] and q.week == "" and q.bonus_day == ""
+    q.save()
+    with open(p) as f:
+        raw = json.load(f)
+    assert raw["schema_version"] == CURRENT_SCHEMA and "weeklies" in raw
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
