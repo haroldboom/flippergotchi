@@ -217,7 +217,9 @@ It's also an [Orna](https://orna.guide)-style GPS RPG layered on the same data:
 - **WEP & WPA1 are rare LEGENDARIES** (Wepwraith / Wparchon). Legacy security is
   trivially broken, so they're a prized, easy catch — and they crack **on the
   fly** in the field (no trip home): WEP via **aircrack-ng** (IV attack, no
-  wordlist), WPA1 via the handshake path. Still authorization-gated.
+  wordlist), WPA1 via the handshake path. Still authorization-gated, and the
+  first on-the-fly crack asks for a **one-time on-screen OK** (the same warning
+  as battling, with a *don't ask again* — no config files to touch).
 - **Bluetooth devices are smaller monsters** — see the BLE section above.
 - **Battling = cracking.** WPA2 is the slow one: capture the handshake, then
   `hashcat -m 22000` + rockyou at home; if it survives and you allow it, escalate

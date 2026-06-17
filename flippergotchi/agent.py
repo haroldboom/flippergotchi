@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 
 from . import persistence
@@ -19,7 +20,7 @@ from .game import shop as shop_mod
 from .game.achievements import AchievementBook
 from .game.ble import TrackerLog
 from .game.bestiary import Bestiary
-from .game.home import at_home
+from .game.home import WARNING, at_home
 from .game.ledger import Ledger
 from .game.quests import QuestLog
 from .game.shop import Wallet
@@ -50,6 +51,9 @@ class Agent:
         self.trackers = TrackerLog(getattr(cfg, "tracker_log_path",
                                            "~/.flippergotchi/trackers.json"))
         self.ledger = Ledger(cfg.ledger_path)
+        # prefs.json holds the dismissible warnings (battle, on-the-fly crack)
+        self._prefs = prefs_mod.load(cfg.prefs_path)
+        self._field_ack = None   # this-session on-the-fly consent (None=unasked)
         self._say = ""
         self._fx = None          # (mood, until_ts) transient face override
         self._last_save = 0.0
@@ -184,11 +188,15 @@ class Agent:
             self.wallet.earn(shop_mod.scrap_for_catch())
             self._achievements()
             self._progress(ups)
-            # weak/legacy networks (open / WEP / WPA1) are crackable ON THE FLY
-            # -- no trip home. Still gated to your authorized scope.
-            if m.encryption in ("open", "wep", "wpa") \
-                    and battle_mod.is_authorized(m, self.cfg):
-                self._field_battle(m)
+            # weak/legacy networks are crackable ON THE FLY -- no trip home.
+            # Still gated to your authorized scope; and CRACKING (WEP/WPA1)
+            # needs a one-time on-screen consent (same warning as battling).
+            # Open just associates (no crack), so it needs no consent.
+            if battle_mod.is_authorized(m, self.cfg):
+                if m.encryption == "open":
+                    self._field_battle(m)
+                elif m.encryption in ("wep", "wpa") and self._field_consent():
+                    self._field_battle(m)
         elif enc.state == encounter.ESCAPED:
             m.captured = False
             self.dex.add(m)
@@ -208,6 +216,39 @@ class Agent:
             })
         except Exception as e:  # noqa: BLE001 - never break the tick loop
             self.log(f"encounter render failed: {e}")
+
+    def _field_consent(self) -> bool:
+        """One-time consent before cracking WEP/WPA on the fly -- the SAME
+        warning as battling, with a 'don't ask again' that persists in prefs
+        (no config files). Returns True if cracking-in-the-field is OK.
+
+        Already ticked 'don't ask again' -> silent yes. Otherwise show the
+        warning once; interactively the player chooses (and can dismiss it
+        forever); non-interactively it stays paused until they confirm once."""
+        if self._prefs.get("hide_fieldcrack_warning"):
+            return True
+        if self._field_ack is not None:      # already answered this session
+            return self._field_ack
+        print(WARNING)
+        if not sys.stdin.isatty():
+            print("  on-the-fly cracking is paused until you OK it once "
+                  "(run interactively to confirm).")
+            self._field_ack = False
+            return False
+        try:
+            ans = input("  Crack WEP/WPA networks on the fly?  [y] yes  "
+                        "[a] yes, don't ask again  [n] no > ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            self._field_ack = False
+            return False
+        if ans.startswith("a"):
+            self._prefs["hide_fieldcrack_warning"] = True
+            prefs_mod.save(self.cfg.prefs_path, self._prefs)
+            print("  [x] won't ask again.")
+            self._field_ack = True
+        else:
+            self._field_ack = ans.startswith("y")
+        return self._field_ack
 
     def _field_battle(self, m) -> None:
         """On-the-fly crack of a weak/legacy network (open/WEP/WPA1) -- no home

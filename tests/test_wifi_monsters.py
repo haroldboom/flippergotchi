@@ -103,12 +103,34 @@ def test_open_network_field_battle(tmp_path, monkeypatch):
 def test_wep_field_battle_in_scope(tmp_path, monkeypatch):
     a = _agent(tmp_path, home_networks=["OldRouter"])
     _force_catch(monkeypatch, a)
+    a._prefs["hide_fieldcrack_warning"] = True          # consent already given
     monkeypatch.setattr(cracking_mod.random, "random", lambda: 0.0)  # sim crack lands
     a._encounter(_ap("OldRouter", enc="wep", bssid="AA:BB:CC:00:00:02"))
     m = a.dex.get("AA:BB:CC:00:00:02")
     assert m.species == "Wepwraith"
     # sim crack of a trivial WEP almost always lands -> defeated + a ledger row
     assert m.defeated and a.ledger.counts()["win"] >= 1
+
+
+def test_wep_not_cracked_without_consent(tmp_path, monkeypatch):
+    # in scope + caught, but the on-the-fly crack consent hasn't been given and
+    # there's no TTY to ask -> captured, NOT auto-cracked.
+    a = _agent(tmp_path, home_networks=["OldRouter"])
+    _force_catch(monkeypatch, a)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
+    a._encounter(_ap("OldRouter", enc="wep", bssid="AA:BB:CC:00:00:05"))
+    m = a.dex.get("AA:BB:CC:00:00:05")
+    assert m is not None and m.captured and not m.defeated
+    assert a.ledger.counts()["win"] == 0
+
+
+def test_open_needs_no_consent(tmp_path, monkeypatch):
+    # open networks just associate (no crack) -> no consent gate
+    a = _agent(tmp_path, home_networks=["FreeWifi"])
+    _force_catch(monkeypatch, a)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
+    a._encounter(_ap("FreeWifi", enc="open", bssid="AA:BB:CC:00:00:06"))
+    assert a.dex.get("AA:BB:CC:00:00:06").defeated
 
 
 def test_wpa2_is_not_field_cracked(tmp_path, monkeypatch):
