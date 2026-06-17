@@ -68,6 +68,10 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![variant through evolution](docs/variant-evo.png)
 
+…right down to its **own egg** — each species hatches from a distinct shell:
+
+![species eggs](docs/eggs.png)
+
 **The monsters** — WiFi APs are catchable creatures, **species by the router's
 brand** (Netgear, TP-Link, Linksys, ASUS, Cisco, ISP…), with **WEP & WPA1** as
 rare **legendaries**. Bluetooth devices are a friendlier **mini-monster** tier
