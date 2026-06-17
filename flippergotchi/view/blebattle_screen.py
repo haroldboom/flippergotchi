@@ -41,6 +41,33 @@ def _player_b64(stem: str = "adult") -> str:
     return _cache[key]
 
 
+def _fx_b64(name: str) -> str:
+    if ("fx", name) not in _cache:
+        with open(os.path.join(_SPRITES, "fx", name + ".png"), "rb") as f:
+            _cache[("fx", name)] = base64.b64encode(f.read()).decode()
+    return _cache[("fx", name)]
+
+
+def _beam_html(frac: float, owned: bool) -> str:
+    """The directional-antenna signal cone: nested right-opening arcs firing from
+    the antenna tip toward the device, intensifying with attack progress, plus a
+    target pulse on the device. ``owned`` -> full-strength lock-on."""
+    # 3 arcs rising up-right from the antenna tip toward the device; more light up
+    # as the attack progresses. (left, top, diameter)
+    waves = ""
+    specs = [(108, 52, 16), (132, 44, 24), (158, 36, 34)]
+    for i, (lx, ty, d) in enumerate(specs):
+        lit = owned or frac >= (i + 1) / 3.5
+        op = 0.95 if owned else (0.8 if lit else 0.12)
+        waves += (f"<div class='wave' style='left:{lx}px;top:{ty}px;"
+                  f"width:{d}px;height:{d}px;opacity:{op}'></div>")
+    pop = 1.0 if owned else min(0.85, 0.3 + frac * 0.5)
+    psz = 34 if owned else int(18 + frac * 12)
+    pulse = (f"<div class='pulse' style='width:{psz}px;height:{psz}px;"
+             f"opacity:{pop}'></div>")
+    return waves + pulse
+
+
 _CSS = """
   html,body{margin:0;background:#000;}
   *{box-sizing:border-box;image-rendering:pixelated;}
@@ -53,9 +80,17 @@ _CSS = """
     filter:drop-shadow(0 2px 0 #0008);}
   .shark{position:absolute;left:-8px;bottom:18px;height:66px;z-index:2;
     filter:drop-shadow(0 2px 0 #0009);}
-  .sig{position:absolute;left:52px;bottom:42px;width:40px;height:40px;z-index:1;
-    border-radius:50%;border:3px solid #7ddfff66;
-    box-shadow:0 0 0 6px #7ddfff22,0 0 0 12px #7ddfff11;opacity:.8;}
+  /* directional antenna gun, aimed up-right at the device */
+  .gun{position:absolute;left:34px;bottom:44px;height:26px;z-index:3;
+    transform:rotate(-18deg);transform-origin:left center;
+    filter:drop-shadow(0 1px 0 #0009);}
+  /* signal-cone arcs: a right-opening ) made by showing only a ring's right half */
+  .wave{position:absolute;border:3px solid #7ddfff;border-radius:50%;z-index:2;
+    clip-path:inset(0 0 0 52%);box-shadow:0 0 6px #7ddfff;}
+  /* target lock-on reticle centred on the device, in front of it */
+  .pulse{position:absolute;right:48px;top:44px;z-index:4;border-radius:50%;
+    transform:translate(50%,-50%);border:2px solid #aef2ff;
+    box-shadow:0 0 0 3px #7ddfff33,0 0 10px #7ddfff;}
   .card{position:absolute;top:5px;left:5px;width:122px;background:#0b1430d8;
     border:1px solid #33405e;border-radius:3px;padding:2px 5px;z-index:3;}
   .card .t{font-size:8px;font-weight:800;color:#aee3ff;}
@@ -78,9 +113,10 @@ _CSS = """
 # CSS injected past str.format via a __CSS__ marker (its { } would break format)
 _DOC = ("<!doctype html><html><head><meta charset='utf-8'><style>__CSS__"
         "</style></head><body><div class='screen'>"
-        "<div class='platform'></div><div class='sig'></div>"
+        "<div class='platform'></div>{beam}"
         "<img class='mon' src='data:image/png;base64,{sprite}'/>"
         "<img class='shark' src='data:image/png;base64,{shark}'/>"
+        "<img class='gun' src='data:image/png;base64,{antenna}'/>"
         "<div class='card'><div class='t'>BLE BATTLE</div>"
         "<div class='p'>pairing: <span class='pill'>{pairing}</span></div></div>"
         "{step}{banner}"
@@ -95,10 +131,14 @@ def _frame(sprite_b64, shark_b64, pairing, label, detail, frac, banner):
                 f"<div class='track'><div class='fill' "
                 f"style='width:{int(frac * 100)}%'></div></div></div>")
     bn = ""
+    owned = False
     if banner is not None:
         text, col = banner
+        owned = text.startswith("OWNED")
         bn = f"<div class='banner' style='color:{col}'>{_html.escape(text)}</div>"
+    beam = _beam_html(frac, owned)
     body = _DOC.format(sprite=sprite_b64, shark=shark_b64,
+                       antenna=_fx_b64("antenna"), beam=beam,
                        pairing=_html.escape(pairing),
                        step=step, banner=bn, line=_html.escape(detail)[:54])
     return body.replace("__CSS__", _CSS)
