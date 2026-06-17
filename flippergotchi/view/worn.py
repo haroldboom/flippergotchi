@@ -34,14 +34,15 @@ def _worn_b64(slot: str, rarity: str) -> str | None:
 #   eyepiece-> HUD lens over the viewer-left eye
 #   amulet  -> pendant hangs at the chest, below the mouth
 #   fin     -> augment fin riding the back, behind the dorsal mohawk
-#   weapon  -> blade slung over the right shoulder, samurai-style, hilt low
+#   weapon  -> twin katanas crossed on the back; symmetric X, centered, the
+#              wrapped handles rise over the shoulders, blades fan down behind
 # pieces in _BEHIND paint behind the character (sheathed on the back); the rest
 # paint in front. Within a layer, dict order is the paint order (later = front).
 _BEHIND = {"weapon", "fin"}
 _WORN_ANCHOR = {
     "fin":      (49, 2, 32, 12),
-    "weapon":   (52, 4, 46, -33),
-    "helmet":   (27, 4, 47, 0),
+    "weapon":   (10, 8, 80, 0),
+    "helmet":   (28, -6, 46, 0),
     "eyepiece": (30, 33, 19, 0),
     "amulet":   (40, 80, 21, 0),
 }
