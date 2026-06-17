@@ -1,11 +1,30 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 
 from . import persistence
 from .agent import Agent
 from .config import Config
 from .pet.state import PetState
+
+
+def _choose_hardcore(flag: bool, cfg) -> bool:
+    """Pick the mode for a brand-new pet. `--hardcore` forces it on; otherwise a
+    one-time on-screen prompt (skipped in --simulate or when there is no TTY, so
+    automation/sim default to Normal). The choice is LOCKED for the pet's life."""
+    if flag:
+        return True
+    if getattr(cfg, "simulate", False) or not sys.stdin.isatty():
+        return False
+    print("New pet! Pick a mode -- this is LOCKED for its whole life:")
+    print("  [N] Normal   -- your pet can't die; hunger is gentle, food optional")
+    print("  [H] Hardcore -- starvation is PERMADEATH (reborn as an egg); feed it!")
+    try:
+        return input("  mode [N/h] > ").strip().lower().startswith("h")
+    except (EOFError, KeyboardInterrupt):
+        return False
 
 
 def main() -> None:
@@ -34,6 +53,9 @@ def main() -> None:
     ap.add_argument("--variant", choices=["classic", "hammerhead", "goblin", "sawshark", "whaleshark"],
                     help="shark species variant")
     ap.add_argument("--reset", action="store_true", help="start a brand new pet")
+    ap.add_argument("--hardcore", action="store_true",
+                    help="start a HARDCORE pet: starvation is permadeath "
+                         "(new pet only; the mode is locked for its life)")
     # RPG subcommands (default is to just run the pet/scanner loop)
     ap.add_argument("command", nargs="?", default="run",
                     choices=["run", "dex", "battle", "encounter", "duel", "gear",
@@ -128,7 +150,18 @@ def main() -> None:
         cmd_battle(cfg, args.target, args.authorized, args.all, args.dont_show_again)
         return
 
-    state = PetState() if args.reset else persistence.load(cfg.state_path)
+    # a pet is "born" on --reset or the very first run (no save yet); that's the
+    # only time the mode can be chosen, and it's then locked into the save.
+    fresh = args.reset or not os.path.exists(os.path.expanduser(cfg.state_path))
+    if fresh:
+        state = PetState()
+        state.hardcore = _choose_hardcore(args.hardcore, cfg)
+        if state.hardcore:
+            print("** HARDCORE mode: keep it fed -- starvation is permanent. **")
+    else:
+        state = persistence.load(cfg.state_path)
+        if args.hardcore and not state.hardcore:
+            print("(--hardcore ignored: mode is locked for an existing pet)")
     if args.name or not state.name:
         state.name = cfg.name
 

@@ -349,7 +349,10 @@ class Agent:
                 self.log(f"[forage] stashed {kind.name} in the larder "
                          f"({self.larder.total()}/{self.larder.capacity})")
             self._quest("snacks", 1)
-        if random.random() < min(0.5, meters * self.cfg.forage_gear_per_m):
+        # a well-fed pet forages luckier: satiety lifts the gear-find odds (PvP/
+        # economy flavour only -- never touches cracking)
+        luck = 1.0 + min(100.0, getattr(self.state, "satiety", 0.0)) / 100.0 * 0.5
+        if random.random() < min(0.5, meters * self.cfg.forage_gear_per_m * luck):
             it = self.inv.add(equipment.roll_item(boost=self.state.level // 3))
             self.log(f"[loot] foraged {it.rarity} gear: {it.name} (+{it.power} pow)")
 
@@ -446,6 +449,8 @@ class Agent:
             self.wallet.earn(shop_mod.scrap_for_walk(meters))
             self._achievements()
         mechanics.tick(self.state, dt * self.cfg.time_scale, self.cfg)
+        if mechanics.is_dead(self.state):
+            self._hardcore_death()
         self._home_check()
         # occasional mood-driven chatter when nothing else is happening
         now = time.time()
@@ -454,6 +459,17 @@ class Agent:
             if m in ("hungry", "sick", "tired", "happy", "sleeping"):
                 self.speak(m)
             self._last_idle = now
+
+    def _hardcore_death(self) -> None:
+        """Hardcore mode: the pet starved to death. It is reborn as a fresh egg,
+        keeping only its name + the locked-in hardcore mode; all progress resets.
+        The bestiary/inventory/wallet (your collection) are left intact."""
+        old = self.state
+        self.log(f"[HARDCORE] {old.name} starved to death at Lv{old.level} "
+                 f"({old.stage}). Reborn as an egg -- keep it fed this time!")
+        self._fx_set("sick")
+        self.state = mechanics.reborn(old)
+        self._save()
 
     def _home_check(self) -> None:
         """One-shot 'you're home -> battle' prompt when you arrive home."""

@@ -44,14 +44,19 @@ class Fighter:
     gear: float = 0.0            # equipped-gear power bonus
     element: str = "Aether"      # for type-advantage
     addr: str = ""               # BLE address, for peers
+    satiety: float = 0.0         # well-fed buff: a small PvP-ONLY edge
 
     def power(self) -> float:
-        """Battle power: level dominates; collection, gear, condition add weight."""
+        """Battle power: level dominates; collection, gear, condition add weight.
+        Satiety is a small PvP-only edge -- this is the ONLY place hunger-side
+        state touches combat, and it lives in the duel (PvP) module, never in
+        battle.py/cracking.py (which are deterministic and take no PetState)."""
         return (self.level * 10.0
                 + self.handshakes * 0.5
                 + self.gear
                 + self.health * 0.2
-                + self.happiness * 0.1)
+                + self.happiness * 0.1
+                + self.satiety * 0.15)
 
 
 @dataclass

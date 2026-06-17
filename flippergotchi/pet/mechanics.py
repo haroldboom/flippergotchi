@@ -28,6 +28,41 @@ def stage_for_level(level: int) -> str:
     return name
 
 
+# --- satiety (well-fed buff) + starvation tuning ---------------------------
+SATIETY_PER_RESTORE = 0.8       # satiety gained per hunger-point a food restores
+SATIETY_DECAY_PER_HOUR = 12.0   # how fast the well-fed buff fades
+# health drain/hour by starvation severity (derived from hunger, no new field).
+# NORMAL mode floors health at 1 (faint); HARDCORE lets it reach 0 (-> death).
+_STARVE_DRAIN = {"": 0.0, "peckish": 0.0, "hungry": 6.0, "starving": 14.0, "faint": 24.0}
+
+
+def starvation_stage(state: PetState) -> str:
+    """The escalating hunger stage, derived from `hunger` (no persisted field)."""
+    h = state.hunger
+    if h >= 100:
+        return "faint"
+    if h >= 90:
+        return "starving"
+    if h >= 75:
+        return "hungry"
+    if h >= 60:
+        return "peckish"
+    return ""
+
+
+def is_dead(state: PetState) -> bool:
+    """Hardcore ONLY: the pet has starved to death and must be reborn as an egg.
+    In Normal mode this is always False (health is floored at 1)."""
+    return bool(getattr(state, "hardcore", False)) and state.health <= 0
+
+
+def reborn(state: PetState) -> PetState:
+    """A fresh egg after a hardcore death -- keeps only the name, element and the
+    locked-in hardcore mode; all progress/stats reset."""
+    return PetState(name=state.name, element=getattr(state, "element", "Aether"),
+                    hardcore=getattr(state, "hardcore", False))
+
+
 def mood(state: PetState) -> str:
     if state.asleep:
         return "sleeping"
@@ -54,9 +89,17 @@ def tick(state: PetState, dt: float, cfg) -> None:
         state.hunger = clamp(state.hunger + cfg.hunger_per_hour * hours)
         state.energy = clamp(state.energy - cfg.energy_per_hour * hours)
 
-    # health rewards care, punishes neglect
-    if state.hunger > 80 or state.energy < 10:
-        state.health = clamp(state.health - 10.0 * hours)
+    # the well-fed buff fades over time
+    state.satiety = clamp(state.satiety - SATIETY_DECAY_PER_HOUR * hours)
+
+    # health: starvation drains it (severity-scaled), care heals it. NORMAL mode
+    # floors at 1 (faint, recover by feeding); HARDCORE lets it reach 0 -> death.
+    drain = _STARVE_DRAIN.get(starvation_stage(state), 0.0)
+    if state.energy < 10:
+        drain = max(drain, 10.0)
+    if drain > 0:
+        floor = 0.0 if getattr(state, "hardcore", False) else 1.0
+        state.health = clamp(state.health - drain * hours, lo=floor)
     elif state.hunger < 40 and state.energy > 40:
         state.health = clamp(state.health + 5.0 * hours)
 
@@ -110,6 +153,8 @@ def snack(state: PetState, cfg, kind=None) -> list:
     restore = cfg.forage_food if kind is None else getattr(kind, "restore", cfg.forage_food)
     label = "snack" if kind is None else getattr(kind, "id", "snack")
     state.hunger = clamp(state.hunger - restore)
+    # eating banks a well-fed buff (bigger meals -> more satiety)
+    state.satiety = clamp(state.satiety + restore * SATIETY_PER_RESTORE)
     state.happiness = clamp(state.happiness + 3)
     return [{"type": "fed", "kind": label}] + _gain_xp(state, cfg.xp_per_snack, cfg)
 

@@ -30,10 +30,20 @@ class PetState:
     element: str = "Aether"   # your element, for duel type-advantage
     asleep: bool = False
 
+    # --- v2: active-care + cosmetics + mode (all default-safe for old saves) ---
+    # satiety: a short-lived "well-fed" buff (0..100) that decays over time and
+    # gives a small PvP/forage edge ONLY -- it never touches WiFi/BLE cracking.
+    satiety: float = 0.0
+    titles: list = field(default_factory=list)   # earned cosmetic titles
+    active_title: str = ""
+    # hardcore: opt-in at creation, LOCKED for this pet's life. Starvation kills
+    # (reset to egg) instead of flooring at 1 HP. Default False = the safe model.
+    hardcore: bool = False
+
     # On-disk schema version. Kept LAST so old saves lacking it still load and
     # positional/keyword construction in tests stays valid. Bumped by the
     # migrator in persistence.py when the shape of this dataclass changes.
-    schema_version: int = 1
+    schema_version: int = 2
 
     def age_seconds(self) -> float:
         return max(0.0, time.time() - self.born_at)

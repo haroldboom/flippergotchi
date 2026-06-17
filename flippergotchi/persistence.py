@@ -7,7 +7,7 @@ from .pet.state import PetState
 
 # The schema version this build writes. Bump it whenever PetState's on-disk
 # shape changes in a way a migration step needs to repair (see migrate()).
-CURRENT_SCHEMA = 1
+CURRENT_SCHEMA = 2
 
 
 def _v0_to_v1(data: dict) -> dict:
@@ -21,14 +21,19 @@ def _v0_to_v1(data: dict) -> dict:
     return data
 
 
+def _v1_to_v2(data: dict) -> dict:
+    """v2 adds satiety / titles / active_title / hardcore. All have safe defaults
+    that the backfill in migrate() already supplies, so an old v1 pet simply
+    becomes a Normal-mode (non-hardcore), zero-satiety, title-less pet -- an
+    identity step kept explicit for an auditable upgrade path."""
+    return data
+
+
 # Sequential upgrade steps, keyed by the version they upgrade FROM.
-# To add the next version:
-#   1. bump CURRENT_SCHEMA to 2 (and the default in PetState.schema_version),
-#   2. write `def _v1_to_v2(data): ... return data` that repairs a v1 dict,
-#   3. register it here: 1: _v1_to_v2.
-# migrate() then chains the steps until the data reaches CURRENT_SCHEMA.
+# migrate() chains the steps until the data reaches CURRENT_SCHEMA.
 _MIGRATIONS = {
     0: _v0_to_v1,
+    1: _v1_to_v2,
 }
 
 

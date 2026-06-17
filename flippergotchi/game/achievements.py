@@ -72,7 +72,8 @@ CATALOG: list[Badge] = [
     Badge("catch_50", "Beastmaster II", "Catch 50 monsters",
           "catches", 50, {"scrap": 300}, "catch", "beastmaster", "silver"),
     Badge("catch_100", "Beastmaster III", "Catch 100 monsters",
-          "catches", 100, {"scrap": 600, "food": 5, "gear": True},
+          "catches", 100, {"scrap": 600, "food": 5, "gear": True,
+                           "title": "the Beastmaster"},
           "catch", "beastmaster", "gold"),
     # -- cracks: the Safecracker ladder --
     Badge("crack_1", "Lockpicker", "Crack your first network",
@@ -88,7 +89,8 @@ CATALOG: list[Badge] = [
     Badge("duel_win_5", "Brawler", "Win 5 duels",
           "duel_wins", 5, {"scrap": 120}, "duel", "gladiator", "bronze"),
     Badge("duel_win_25", "Gladiator", "Win 25 duels",
-          "duel_wins", 25, {"scrap": 400, "food": 3}, "duel", "gladiator", "gold"),
+          "duel_wins", 25, {"scrap": 400, "food": 3, "title": "the Gladiator"},
+          "duel", "gladiator", "gold"),
     # -- walking: the Trailblazer ladder --
     Badge("walk_10k_m", "Trailblazer", "Walk 10 km total",
           "distance_m", 10000, {"scrap": 150}, "walk", "trailblazer", "bronze"),
@@ -103,7 +105,8 @@ CATALOG: list[Badge] = [
     Badge("level_10", "Seasoned", "Reach level 10",
           "level", 10, {"scrap": 200}, "meta", "", "silver"),
     Badge("evolve_to_legend", "Ascended", "Evolve into a legendary form",
-          "stage_legend", 1, {"scrap": 500, "food": 5}, "meta", "", "gold"),
+          "stage_legend", 1, {"scrap": 500, "food": 5, "title": "the Ascended"},
+          "meta", "", "gold"),
     Badge("full_loadout", "Geared Up", "Equip all 5 gear slots at once",
           "equipped_slots", FULL_LOADOUT_SLOTS, {"scrap": 180}, "meta", "", "silver"),
     # -- hidden / secret (masked until unlocked; shiny mechanic is future) --
@@ -162,6 +165,11 @@ def grant_reward(book, stats, state, cfg, wallet=None, inv=None) -> list:
         if rw.get("gear") and inv is not None:
             from . import equipment
             inv.add(equipment.roll_item(boost=getattr(state, "level", 1) // 2))
+        title = rw.get("title")
+        if title and hasattr(state, "titles") and title not in state.titles:
+            state.titles.append(title)
+            if not getattr(state, "active_title", ""):
+                state.active_title = title          # auto-equip the first earned
     if own is not None:
         own.save()
     return newly

@@ -163,7 +163,8 @@ def cmd_duel(cfg, target: str | None) -> None:
     you = duel_mod.Fighter(name=state.name, level=state.level,
                            handshakes=state.handshakes, health=state.health,
                            happiness=state.happiness, gear=inv.gear_power(),
-                           element=getattr(state, "element", "Aether"))
+                           element=getattr(state, "element", "Aether"),
+                           satiety=getattr(state, "satiety", 0.0))
     them = duel_mod.Fighter(name=peer["name"], level=peer["level"],
                             handshakes=peer["handshakes"],
                             gear=peer.get("gear_power", 0),
@@ -512,6 +513,10 @@ def cmd_achievements(cfg) -> None:
     unlocked = book.unlocked()
     print(f"  ACHIEVEMENTS  ({len(unlocked)}/{len(book.all())})   "
           f"scrap: {wallet.scrap}")
+    if getattr(state, "active_title", ""):
+        earned = len(getattr(state, "titles", []))
+        suffix = f"   ({earned} titles earned)" if earned > 1 else ""
+        print(f"  Title: {state.name} {state.active_title}{suffix}")
     _TIER = {"bronze": "B", "silver": "S", "gold": "G", "": "-"}
     last_cat = None
     for b in book.all():
