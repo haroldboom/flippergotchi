@@ -77,6 +77,39 @@ _WEEKLY_TEMPLATES = [
 ]
 
 
+@dataclass
+class ChainStep:
+    description: str
+    metric: str
+    target: float
+    reward: dict
+
+
+# Quest CHAINS: multi-step storylines from named givers. Definitions live here in
+# code; only per-chain progress ({step, progress, done}) is persisted. The active
+# step of each unfinished chain shows alongside the dailies. Chains are lifetime
+# (never reroll) -- a long-tail spine the daily/weekly loops lack.
+_CHAINS = [
+    ("first_steps", "Old Salt", "First Steps", [
+        ChainStep("Walk 1 km", "distance_m", 1000, {"scrap": 30}),
+        ChainStep("Catch 3 monsters", "catches", 3, {"scrap": 40}),
+        ChainStep("Crack your first network", "cracks", 1, {"scrap": 60, "gear": True}),
+    ]),
+    ("the_hunt", "Reefwarden", "The Hunt", [
+        ChainStep("Catch 20 monsters", "catches", 20, {"scrap": 60}),
+        ChainStep("Crack 5 networks", "cracks", 5, {"scrap": 90}),
+        ChainStep("Crack a WEP/WPA1 legendary", "legendary_kills", 1,
+                  {"scrap": 160, "gear": True}),
+    ]),
+    ("ghost_protocol", "Nullbyte", "Ghost Protocol", [
+        ChainStep("Tame 5 Bluetooth devices", "tames", 5, {"scrap": 50}),
+        ChainStep("Win 3 duels", "duel_wins", 3, {"scrap": 90}),
+        ChainStep("Walk 10 km", "distance_m", 10000, {"scrap": 140, "gear": True}),
+    ]),
+]
+_CHAIN_BY_ID = {cid: (giver, title, steps) for cid, giver, title, steps in _CHAINS}
+
+
 def _template_quest(tpl) -> Quest:
     tid, desc, metric, target, reward = tpl
     return Quest(id=tid, description=desc, metric=metric, target=target,
@@ -126,6 +159,7 @@ class QuestLog:
         self.lifetime_done: int = 0            # total quests ever completed
         self.streak: int = 0                   # consecutive all-dailies-clear days
         self.last_clear_day: str = ""
+        self.chains: dict = {}                 # chain_id -> {step, progress, done}
         self._load()
 
     def _load(self) -> None:
@@ -144,10 +178,12 @@ class QuestLog:
             self.lifetime_done = int(raw.get("lifetime_done", 0))
             self.streak = int(raw.get("streak", 0))
             self.last_clear_day = raw.get("last_clear_day", "")
+            self.chains = raw.get("chains", {}) if isinstance(raw.get("chains"), dict) else {}
         except Exception:
             self.day, self.quests = "", []
             self.week, self.weeklies, self.bonus_day = "", [], ""
             self.lifetime_done, self.streak, self.last_clear_day = 0, 0, ""
+            self.chains = {}
 
     def save(self) -> None:
         d = os.path.dirname(self.path)
@@ -165,6 +201,7 @@ class QuestLog:
                 "lifetime_done": self.lifetime_done,
                 "streak": self.streak,
                 "last_clear_day": self.last_clear_day,
+                "chains": self.chains,
             }, f, indent=2)
         os.replace(tmp, self.path)
 
@@ -205,8 +242,49 @@ class QuestLog:
             if q.progress >= q.target:
                 q.done = True
                 newly.append(q)
+        newly += self._advance_chains(metric, amount)
         self.lifetime_done += len(newly)      # feeds the quests_done capstone
         return newly
+
+    def _advance_chains(self, metric: str, amount: float) -> list:
+        """Advance any chain whose CURRENT step tracks `metric`. Returns the
+        completed steps as Quest objects (so the caller grants them uniformly)."""
+        done_steps: list = []
+        for cid, (giver, title, steps) in _CHAIN_BY_ID.items():
+            cs = self.chains.get(cid) or {"step": 0, "progress": 0.0, "done": False}
+            if cs.get("done") or cs.get("step", 0) >= len(steps):
+                continue
+            step = steps[cs["step"]]
+            if step.metric != metric:
+                self.chains[cid] = cs
+                continue
+            cs["progress"] = cs.get("progress", 0.0) + amount
+            if cs["progress"] >= step.target:
+                done_steps.append(Quest(
+                    id=f"{cid}:{cs['step']}",
+                    description=f"[{giver}] {step.description}",
+                    metric=step.metric, target=step.target,
+                    progress=step.target, done=True, reward=dict(step.reward)))
+                cs["step"] += 1
+                cs["progress"] = 0.0
+                if cs["step"] >= len(steps):
+                    cs["done"] = True
+            self.chains[cid] = cs
+        return done_steps
+
+    def active_chains(self) -> list:
+        """For display: (giver, title, step_desc, progress, target, idx, total) for
+        each unfinished chain's current step."""
+        out = []
+        for cid, (giver, title, steps) in _CHAIN_BY_ID.items():
+            cs = self.chains.get(cid) or {"step": 0, "progress": 0.0, "done": False}
+            i = cs.get("step", 0)
+            if cs.get("done") or i >= len(steps):
+                continue
+            st = steps[i]
+            out.append((giver, title, st.description, cs.get("progress", 0.0),
+                        st.target, i + 1, len(steps)))
+        return out
 
     def all_dailies_done(self) -> bool:
         return bool(self.quests) and all(q.done for q in self.quests)

@@ -245,6 +245,14 @@ def cmd_quests(cfg) -> None:
         print(f"  WEEKLY QUESTS ({q.week})")
         for quest in q.active_weeklies():
             _show(quest)
+    chains = q.active_chains()
+    if chains:
+        print("  STORY CHAINS")
+        for giver, title, desc, prog, target, idx, total in chains:
+            pct = min(100, int(prog / target * 100)) if target else 100
+            bar = "#" * (pct // 10) + "." * (10 - pct // 10)
+            print(f"  [ ] {title} ({idx}/{total}) -- {desc:<26} {bar} "
+                  f"{prog:g}/{target:g}   [{giver}]")
     q.save()
 
 

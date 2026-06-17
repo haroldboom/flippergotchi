@@ -217,6 +217,46 @@ def test_streak_increments_then_resets_on_missed_day():
     assert q.streak == 0
 
 
+def test_chain_advances_step_by_step_and_completes():
+    from flippergotchi.game.quests import _CHAINS
+    cid, giver, title, steps = _CHAINS[0]      # first_steps: walk1k -> catch3 -> crack1
+    q = _log()
+    done = q.record("distance_m", 1000)         # step 1
+    assert any(x.id == f"{cid}:0" for x in done)
+    assert q.chains[cid]["step"] == 1
+    assert any(x.id == f"{cid}:1" for x in q.record("catches", 3))   # step 2
+    assert any(x.id == f"{cid}:2" for x in q.record("cracks", 1))    # step 3
+    assert q.chains[cid]["done"] is True
+    # a finished chain never advances again
+    assert q.record("distance_m", 5000) == [] or \
+        all(not x.id.startswith(cid) for x in q.record("cracks", 1))
+
+
+def test_chain_step_carries_reward():
+    from flippergotchi.game.quests import _CHAINS
+    cid = _CHAINS[0][0]
+    q = _log()
+    done = q.record("distance_m", 1000)
+    step_q = next(x for x in done if x.id == f"{cid}:0")
+    assert step_q.reward.get("scrap", 0) > 0    # caller grants it like any quest
+
+
+def test_chain_progress_persists():
+    from flippergotchi.game.quests import QuestLog
+    q = _log()
+    q.record("distance_m", 500)                 # partial first step
+    q.save()
+    assert QuestLog(q.path).chains["first_steps"]["progress"] == 500
+
+
+def test_active_chains_lists_current_step():
+    q = _log()
+    chains = q.active_chains()
+    assert chains                               # all chains start active
+    giver, title, desc, prog, target, idx, total = chains[0]
+    assert idx == 1 and total >= 1 and giver
+
+
 def test_migrate_v2_to_v3():
     from flippergotchi.game.quests import migrate, CURRENT_SCHEMA
     raw = migrate({"schema_version": 2, "day": "x", "quests": [],
