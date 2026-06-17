@@ -55,7 +55,7 @@ def _beam_html(frac: float, owned: bool) -> str:
     # 3 arcs rising up-right from the antenna tip toward the device; more light up
     # as the attack progresses. (left, top, diameter)
     waves = ""
-    specs = [(108, 52, 16), (132, 44, 24), (158, 36, 34)]
+    specs = [(88, 60, 15), (116, 52, 22), (146, 44, 32)]
     for i, (lx, ty, d) in enumerate(specs):
         lit = owned or frac >= (i + 1) / 3.5
         op = 0.95 if owned else (0.8 if lit else 0.12)
@@ -80,9 +80,9 @@ _CSS = """
     filter:drop-shadow(0 2px 0 #0008);}
   .shark{position:absolute;left:-8px;bottom:18px;height:66px;z-index:2;
     filter:drop-shadow(0 2px 0 #0009);}
-  /* directional antenna gun, aimed up-right at the device */
-  .gun{position:absolute;left:34px;bottom:44px;height:26px;z-index:3;
-    transform:rotate(-18deg);transform-origin:left center;
+  /* compact directional antenna pistol, held at the shark's hand, aimed up-right */
+  .gun{position:absolute;left:44px;bottom:28px;height:23px;z-index:3;
+    transform:rotate(-26deg);transform-origin:left center;
     filter:drop-shadow(0 1px 0 #0009);}
   /* signal-cone arcs: a right-opening ) made by showing only a ring's right half */
   .wave{position:absolute;border:3px solid #7ddfff;border-radius:50%;z-index:2;
