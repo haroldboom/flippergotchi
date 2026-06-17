@@ -143,10 +143,3 @@ def test_wpa2_is_not_field_cracked(tmp_path, monkeypatch):
     assert a.ledger.counts()["win"] == 0
 
 
-def test_out_of_scope_weak_network_not_cracked(tmp_path, monkeypatch):
-    a = _agent(tmp_path, home_networks=[])   # deny-by-default
-    _force_catch(monkeypatch, a)
-    a._encounter(_ap("SomeoneElse", enc="wep", bssid="AA:BB:CC:00:00:04"))
-    m = a.dex.get("AA:BB:CC:00:00:04")
-    assert m is not None and not m.defeated     # refused -- not in your scope
-    assert a.ledger.counts()["win"] == 0

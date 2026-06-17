@@ -7,7 +7,6 @@ import time
 from . import persistence
 from . import prefs as prefs_mod
 from .ai.service import AIService
-from .core.authz import Authorizer
 from .core.bluetooth import BluetoothScanner
 from .core.wifi.backends import make_backend
 import random
@@ -35,9 +34,12 @@ class Agent:
     def __init__(self, cfg, state):
         self.cfg = cfg
         self.state = state
-        # active RF actions (deauth/capture) are gated to your authorized dojo
-        self.authz = Authorizer(cfg)
-        self.wifi = make_backend(cfg, is_authorized=self.authz.is_authorized)
+        # prefs holds the dismissible active-ops consent (see _consented)
+        self._prefs = prefs_mod.load(cfg.prefs_path)
+        self._field_ack = None   # this-session on-the-fly consent (None=unasked)
+        # active RF (deauth/injection / GATT connect) is enabled once the player
+        # has agreed to the on-screen warning -- not gated by a network list.
+        self.wifi = make_backend(cfg, is_authorized=self._consented)
         self.ble = BluetoothScanner(cfg) if cfg.scan_bluetooth else None
         self.gps = GpsReader(cfg)
         self.ai = AIService(cfg)
@@ -51,9 +53,6 @@ class Agent:
         self.trackers = TrackerLog(getattr(cfg, "tracker_log_path",
                                            "~/.flippergotchi/trackers.json"))
         self.ledger = Ledger(cfg.ledger_path)
-        # prefs.json holds the dismissible warnings (battle, on-the-fly crack)
-        self._prefs = prefs_mod.load(cfg.prefs_path)
-        self._field_ack = None   # this-session on-the-fly consent (None=unasked)
         self._say = ""
         self._fx = None          # (mood, until_ts) transient face override
         self._last_save = 0.0
@@ -189,14 +188,12 @@ class Agent:
             self._achievements()
             self._progress(ups)
             # weak/legacy networks are crackable ON THE FLY -- no trip home.
-            # Still gated to your authorized scope; and CRACKING (WEP/WPA1)
-            # needs a one-time on-screen consent (same warning as battling).
-            # Open just associates (no crack), so it needs no consent.
-            if battle_mod.is_authorized(m, self.cfg):
-                if m.encryption == "open":
-                    self._field_battle(m)
-                elif m.encryption in ("wep", "wpa") and self._field_consent():
-                    self._field_battle(m)
+            # CRACKING (WEP/WPA1) needs a one-time on-screen consent (the same
+            # warning as battling). Open just associates, so it needs none.
+            if m.encryption == "open":
+                self._field_battle(m)
+            elif m.encryption in ("wep", "wpa") and self._field_consent():
+                self._field_battle(m)
         elif enc.state == encounter.ESCAPED:
             m.captured = False
             self.dex.add(m)
@@ -216,6 +213,12 @@ class Agent:
             })
         except Exception as e:  # noqa: BLE001 - never break the tick loop
             self.log(f"encounter render failed: {e}")
+
+    def _consented(self, bssid: str = "", ssid: str = "") -> bool:
+        """Has the player agreed to active operations (deauth/injection/GATT
+        connect)? True once they tick 'don't ask again' on the crack warning.
+        Used as the capture backend's gate -- no network allow-list."""
+        return bool(self._prefs.get("hide_fieldcrack_warning"))
 
     def _field_consent(self) -> bool:
         """One-time consent before cracking WEP/WPA on the fly -- the SAME
@@ -373,7 +376,7 @@ class Agent:
         if getattr(self.ble, "mode", "sim") != "sim":
             if not getattr(self.cfg, "ble_enum", True):
                 return
-            if not self.authz.is_authorized(m.id, m.name):
+            if not self._consented():   # connecting is active -> needs consent
                 return
         try:
             result = self.ble.enumerate(m.id)

@@ -31,11 +31,13 @@ def test_monster_from_ap_marks_capture():
     assert m.kind == "wifi" and m.captured and m.defense > 0
 
 
-def test_battle_refused_without_authorization():
-    cfg = Config()  # empty home_networks
+def test_battle_no_longer_refuses_on_scope():
+    # authorization is the on-screen consent warning, not a network allow-list,
+    # so battle() itself never returns "refused" (it cracks / fails / etc.)
+    cfg = Config(simulate=True)
     m = monsters.from_ap({"ssid": "Stranger", "bssid": "11:22:33:44:55:66",
                           "encryption": "wpa2", "kind": "handshake"})
-    assert battle.battle(m, cfg)["result"] == "refused"
+    assert battle.battle(m, cfg)["result"] != "refused"
 
 
 def test_only_crackable_encryptions_spawn():

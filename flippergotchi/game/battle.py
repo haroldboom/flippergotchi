@@ -32,13 +32,13 @@ def is_authorized(monster, cfg) -> bool:
 
 def battle(monster, cfg, handshake_path: str | None = None,
            force_authorized: bool = False) -> dict:
+    # Authorization is the player's responsibility, captured by the on-screen
+    # WARNING they agree to (the `battle` command / on-the-fly consent) -- not a
+    # network allow-list. ``force_authorized`` is kept for API back-compat.
     if monster.kind == "ble":
         monster.defeated = True
         return {"result": "tamed", "via": "scan",
                 "key": "", "note": "BLE creatures are tamed by scanning, not cracked"}
-    if not (force_authorized or is_authorized(monster, cfg)):
-        return {"result": "refused", "via": "-", "key": "",
-                "note": "not in your authorized dojo (cfg.home_networks)"}
 
     res: CrackResult = LocalCracker(cfg).crack(monster, handshake_path)
     if res.result == "failed" and assess(monster.__dict__).recommend_cloud \

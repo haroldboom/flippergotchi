@@ -154,8 +154,6 @@ class Config:
     capture_dir: str = "~/.flippergotchi/captures"
     regdomain: str = ""                # `iw reg set` country code (e.g. "AU")
     deauth_count: int = 5              # deauth frames per authorized capture nudge
-    # authorization + audit (active RF actions are gated to your dojo)
-    allowlist_path: str = "~/.flippergotchi/allowlist.txt"  # extra BSSID/SSID scope
     audit_log: str = "~/.flippergotchi/audit.log"           # JSONL of active actions
     # "home" = where battling is offered: geofence and/or a home network in range
     home_location: list = field(default_factory=list)  # [lat, lon]

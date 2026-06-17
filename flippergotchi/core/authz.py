@@ -1,35 +1,22 @@
-"""Authorization scope guard -- the single source of truth for "may I actively
-touch this network?".
+"""Authorization audit + an optional convenience scope check.
 
-Flippergotchi's hard rule: *collecting/scanning is always fine, but every ACTIVE
-RF action (deauth / handshake capture / crack) is only permitted against networks
-you OWN or are explicitly cleared to test.* This module centralises that decision
-so the capture backend (:mod:`core.wifi.capture`) and the crack gate
-(:mod:`game.battle`) agree on exactly one definition of "in scope".
+The game's authorization is the on-screen **WARNING the player agrees to** (the
+`battle` command / on-the-fly consent), NOT a network allow-list -- you don't
+edit a config file to play. This module just provides:
 
-Two ways a target lands in scope:
+  * :func:`in_scope` -- an OPTIONAL convenience used by the standalone `capture`
+    and `cloud` commands: does (bssid, ssid) match ``cfg.home_networks``?
+    (deny-by-default when empty; pass ``--authorized`` to override there);
+  * :class:`Authorizer` -- the callable form plus :meth:`Authorizer.require`,
+    which appends a JSON **audit** line to ``cfg.audit_log`` for every active
+    action (permitted or refused), so there's a tamper-evident record.
 
-1. It matches ``cfg.home_networks`` -- a list of SSID/BSSID substrings (your
-   "dojo"), matched case-insensitively. This mirrors ``battle.is_authorized``.
-2. It appears in an explicit BSSID/SSID allowlist file (one entry per line,
-   ``#`` comments) at ``cfg.allowlist_path`` (default
-   ``~/.flippergotchi/allowlist.txt``).
-
-Deny by default: an empty scope authorises nothing. Defensive throughout --
-a string where a list was expected, ``None``, ints, a missing/unreadable file:
-all fold into "denied", never an exception.
-
-:class:`Authorizer` wraps this with the callable form the capture backend wants
-(``is_authorized(bssid, ssid) -> bool``) plus :meth:`Authorizer.require`, which
-makes the allow/deny decision for a named action AND appends a JSON audit line
-to ``cfg.audit_log`` (default ``~/.flippergotchi/audit.log``) for every active
-action -- permitted or refused -- so there is always a tamper-evident record of
-what the tool was asked to do.
+Defensive throughout: a string where a list was expected, ``None``, ints all
+fold into "denied", never an exception.
 
 Config fields read (all via getattr, defaults shown):
-    home_networks   list  []                              -- your dojo (ssid/bssid substrings)
-    allowlist_path  str   ~/.flippergotchi/allowlist.txt  -- explicit BSSID/SSID allowlist
-    audit_log       str   ~/.flippergotchi/audit.log      -- JSONL audit trail
+    home_networks   list  []                          -- optional convenience scope
+    audit_log       str   ~/.flippergotchi/audit.log  -- JSONL audit trail
 """
 from __future__ import annotations
 
@@ -40,7 +27,6 @@ import time
 
 log = logging.getLogger(__name__)
 
-DEFAULT_ALLOWLIST = "~/.flippergotchi/allowlist.txt"
 DEFAULT_AUDIT_LOG = "~/.flippergotchi/audit.log"
 
 # Active RF actions that MUST be authorized + audited.
@@ -64,43 +50,20 @@ def _as_needles(home) -> list:
     return [str(n).strip().lower() for n in items if n is not None and str(n).strip()]
 
 
-def load_allowlist(path) -> list:
-    """Read an allowlist file into a list of lowercase entries.
-
-    One BSSID/SSID per line; blank lines and ``#`` comments (including inline)
-    are ignored. Returns [] on a missing/unreadable file -- never raises.
-    """
-    if not path:
-        return []
-    p = os.path.expanduser(str(path))
-    try:
-        with open(p, "r", encoding="utf-8", errors="ignore") as fh:
-            raw = fh.read()
-    except OSError:
-        return []
-    out: list = []
-    for line in raw.splitlines():
-        entry = line.split("#", 1)[0].strip().lower()
-        if entry:
-            out.append(entry)
-    return out
-
-
 def in_scope(bssid, ssid, cfg) -> bool:
-    """True if actively touching (bssid, ssid) is authorised.
+    """True if actively touching (bssid, ssid) matches ``cfg.home_networks``.
 
-    A target is in scope when its BSSID or SSID matches any ``cfg.home_networks``
-    needle OR any entry in the allowlist file, by case-insensitive substring.
-    Deny by default: empty scope (no home networks, no allowlist) => False.
-    Never raises on weird input.
+    Used only by the standalone `capture` / `cloud` commands as an optional
+    convenience; the game's authorization is the on-screen WARNING (consent),
+    not a network list. Deny by default when home_networks is empty. Never
+    raises on weird input.
     """
     hay = f"{'' if ssid is None else ssid} {'' if bssid is None else bssid}".lower()
     if not hay.strip():
         return False
 
     needles = _as_needles(getattr(cfg, "home_networks", []))
-    needles += load_allowlist(getattr(cfg, "allowlist_path", DEFAULT_ALLOWLIST))
-    if not needles:                 # empty scope -> deny by default
+    if not needles:                 # empty -> deny by default
         return False
     return any(n in hay for n in needles)
 
@@ -137,9 +100,9 @@ class Authorizer:
         """
         allowed = self.is_authorized(bssid, ssid)
         if allowed:
-            reason = "in authorized scope (home_networks/allowlist)"
+            reason = "in scope (home_networks)"
         else:
-            reason = "target not in authorized scope (home_networks/allowlist)"
+            reason = "target not in scope (home_networks)"
         self._audit(action, bssid, ssid, allowed, reason)
         return allowed, reason
 

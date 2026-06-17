@@ -225,11 +225,12 @@ def test_timeout_returns_failed(monkeypatch, tmp_path):
 # --------------------------------------------------------------------------- #
 # battle() contract preserved
 # --------------------------------------------------------------------------- #
-def test_battle_refuses_out_of_scope():
-    cfg = Config()
+def test_battle_does_not_refuse_on_scope():
+    # consent-based authorization: battle() never returns "refused"
+    cfg = Config(simulate=True)
     m = _wifi(ssid="Stranger")
     r = battle.battle(m, cfg)
-    assert r["result"] == "refused"
+    assert r["result"] != "refused"
     assert "key" in r and "via" in r
 
 

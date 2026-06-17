@@ -55,7 +55,7 @@ def test_agent_sim_tick_earns_scrap_and_runs(tmp_path):
 def test_cmd_doctor_runs(tmp_path, capsys):
     commands.cmd_doctor(_cfg(tmp_path))
     out = capsys.readouterr().out
-    assert "Tools:" in out and "Scope" in out
+    assert "Tools:" in out and "Authorization" in out
 
 
 def test_cmd_shop_list_and_buy(tmp_path, capsys):

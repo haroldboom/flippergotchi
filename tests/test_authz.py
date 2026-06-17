@@ -1,6 +1,6 @@
 """Authorization scope guard + doctor preflight readout.
 
-No hardware/root/files required: probes are monkeypatched and audit/allowlist
+No hardware/root/files required: probes are monkeypatched and audit
 files go to tmp_path. Asserts deny-by-default, robustness on weird input, the
 JSONL audit trail, and the doctor report's section/marker shape.
 """
@@ -33,7 +33,6 @@ def test_in_scope_matches_home_networks_ssid_and_bssid():
 def test_in_scope_empty_scope_denies_by_default():
     cfg = Config()           # home_networks defaults to []
     cfg.home_networks = []
-    cfg.allowlist_path = "/nonexistent/allowlist.txt"
     assert authz.in_scope("AA:BB:CC:DD:EE:FF", "HomeNet", cfg) is False
 
 
@@ -59,41 +58,6 @@ def test_in_scope_never_crashes_on_weird_input():
     assert authz.in_scope("AA:BB", "Home", cfg) is False
     cfg.home_networks = 42
     assert authz.in_scope("AA:BB", "Home", cfg) is False
-
-
-# -- allowlist file ---------------------------------------------------------
-
-def test_load_allowlist_parses_comments_and_blanks(tmp_path):
-    p = tmp_path / "allowlist.txt"
-    p.write_text(
-        "# my gear\n"
-        "AA:BB:CC:DD:EE:FF\n"
-        "\n"
-        "LabNetwork   # inline comment\n"
-        "   # full comment line\n"
-    )
-    got = authz.load_allowlist(str(p))
-    assert got == ["aa:bb:cc:dd:ee:ff", "labnetwork"]
-
-
-def test_load_allowlist_missing_file_returns_empty():
-    assert authz.load_allowlist("/definitely/not/here.txt") == []
-    assert authz.load_allowlist("") == []
-    assert authz.load_allowlist(None) == []
-
-
-def test_in_scope_matches_allowlist_file(tmp_path):
-    p = tmp_path / "allowlist.txt"
-    p.write_text("DE:AD:BE:EF:00:01\nLabNet\n")
-    cfg = Config()
-    cfg.home_networks = []                 # nothing in home_networks
-    cfg.allowlist_path = str(p)
-    # BSSID from the allowlist.
-    assert authz.in_scope("DE:AD:BE:EF:00:01", "", cfg) is True
-    # SSID substring from the allowlist.
-    assert authz.in_scope("00:00:00:00:00:00", "LabNet-2G", cfg) is True
-    # Not listed -> denied.
-    assert authz.in_scope("11:22:33:44:55:66", "OtherNet", cfg) is False
 
 
 # -- Authorizer -------------------------------------------------------------
@@ -178,7 +142,8 @@ def test_doctor_report_sections_present(monkeypatch):
     cfg.home_networks = []
     out = doctor.report(cfg)
     assert isinstance(out, str)
-    for header in ("Tools:", "Privileges:", "Interface:", "Wordlist:", "Scope"):
+    for header in ("Tools:", "Privileges:", "Interface:", "Wordlist:",
+                   "Authorization"):
         assert header in out
     assert "You can:" in out
 
@@ -191,9 +156,10 @@ def test_doctor_report_tools_absent_shows_missing(monkeypatch):
     # Essential tools absent -> MISS markers + install hints.
     assert doctor.MISS in out
     assert "install hashcat" in out
-    # Empty scope -> deny-by-default warning + capability summary fallback.
-    assert "deny by default" in out
+    # No tools -> capability summary fallback.
     assert "nothing yet" in out
+    # Authorization is the on-screen consent, not a scope list.
+    assert "consent" in out
 
 
 def test_doctor_report_full_stack_can_do_everything(monkeypatch, tmp_path):
@@ -206,18 +172,6 @@ def test_doctor_report_full_stack_can_do_everything(monkeypatch, tmp_path):
     assert "[passive scan]" in out
     assert "[capture]" in out
     assert "[crack]" in out
-
-
-def test_doctor_report_uses_allowlist_for_scope(monkeypatch, tmp_path):
-    p = tmp_path / "allowlist.txt"
-    p.write_text("AA:BB:CC:DD:EE:FF\n")
-    monkeypatch.setattr(doctor._preflight, "preflight", _fake_preflight(True))
-    cfg = Config()
-    cfg.home_networks = []
-    cfg.allowlist_path = str(p)
-    out = doctor.report(cfg)
-    assert "allowlist" in out
-    assert "[capture]" in out      # scope satisfied via the allowlist file
 
 
 def test_doctor_run_prints(monkeypatch, capsys):

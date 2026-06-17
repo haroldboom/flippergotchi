@@ -19,11 +19,11 @@ a pwning machine.
 - **Walking is the fitness core.** GPS movement → XP → levels → evolutions
   (egg → hatchling → … → legend), and your shark **forages food** (and, rarely,
   gear) as you walk — that's how the pet actually stays fed.
-- **Crack & duel for loot.** Cracking a captured monster (at home) or duelling a
+- **Crack & duel for loot.** Cracking a captured monster (after a one-time warning) or duelling a
   rival Flippergotchi drops **equipment** you can equip.
 - **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
   phrases) narrates what the pet feels and what it just caught.
-- **A cyberpunk pixel-art shark character** (AI-generated sprites) in an **old-school
+- **A cyberpunk pixel-art shark character** in an **old-school
   Pokémon-style 2D HUD**, at the Flipper One's native **256×144**. It **evolves**
   egg→legend and comes in 5 colour variants.
 
@@ -61,67 +61,46 @@ with nearest-neighbour. The sprite **swaps with the action** (Pwnagotchi-style):
 
 ![variant through evolution](docs/variant-evo.png)
 
-**The monsters** — WiFi access points are catchable creatures whose **species is
-the router's brand** (Netgear, TP-Link, Linksys, ASUS, Cisco, ISP…), with **WEP
-& WPA1** as rare **legendaries**. Bluetooth devices are a friendlier
-**mini-monster** tier. The BLE species come from the
-real advert (device class + vendor): phones, wearables, audio, beacons,
-computers, **trackers**, HID input, smart-home, medical. Scanning is a
-*sighting*; an active **GATT enumerate** (`bettercap ble.enum` / `bleak`) is the
-deeper **"tame"** — richer reward the more services the device exposes (gated +
-audited like other active actions). A **tracker** (AirTag/Tile) that keeps
-following you raises an **unwanted-tracker safety alert** and shows up as a rare
-catch. Original cyberpunk pixel art throughout:
+**The monsters** — WiFi APs are catchable creatures, **species by the router's
+brand** (Netgear, TP-Link, Linksys, ASUS, Cisco, ISP…), with **WEP & WPA1** as
+rare **legendaries**. Bluetooth devices are a friendlier **mini-monster** tier
+(phones, wearables, audio, beacons, computers, trackers, HID, smart-home,
+medical):
 
 ![bestiary — WiFi villains + BLE mini-monsters](docs/monsters.png)
 
-**Encounters** render a classic Pokémon "A wild … appeared!" card — the monster
-on its platform, a stat card (species / level / encryption / crack-difficulty),
-and a Capture/Run menu:
+**Encounter → capture** — a Pokémon "A wild … appeared!" card, then a net-gun
+animation that mirrors the real flow (lock → **deauth** → listen for the WPA
+4-way handshake → **GOTCHA**, or time out with no handshake):
 
 ![encounter screens](docs/encounter.png)
-
-**Capturing** plays a net-gun animation that mirrors the real pentest flow: the
-shark locks the target, fires **deauth** frames to kick clients, then listens for
-the WPA **4-way handshake** until the capture timeout (a status HUD shows the
-deauth count + capture progress). Two outcomes — handshake netted, or it times
-out with no handshake:
 
 | Handshake captured | No handshake (timed out) |
 |:---:|:---:|
 | ![capture success](docs/capture.gif) | ![capture failed](docs/capture-fail.gif) |
 
-The listen window is **user-configurable** — `--capture-timeout <seconds>` (or
-`capture_timeout` in config); the same value drives the real capture and is shown
-on screen.
+**Battle Dojo** — `battle` opens a menu: **AUTO** cracks every fresh target,
+**MANUAL** scrolls a list to pick one (Flipper One: OK opens · Up/Down move · OK
+selects · Back exits):
 
-**PvP duel screen** — `duel <name>` renders a Pokémon-style 1v1: the rival
-Flippergotchi (HP box, upper-left) faces your character (mirrored, lower-right)
-with a live blow-by-blow in the dialogue box:
+![battle dojo — menu + target list](docs/battle-menu.png)
 
-![duel battle screen](docs/battle.png)
+**PvP duels & equipment** — `duel` renders a Pokémon 1v1 with a live blow-by-blow;
+`gear` shows your character **wearing** its loadout with total PvP power:
 
-**Equipment screen** — `gear` shows your character **wearing** the equipped
-loadout (each piece composited at its slot, rarity-glowing) beside the five
-slots, with your total **PvP power**:
+| Duel | Equipment |
+|:---:|:---:|
+| ![duel battle screen](docs/battle.png) | ![equipment screen](docs/equip.png) |
 
-![equipment screen](docs/equip.png)
+> ⚠️ **Authorized use only.** Capturing / deauthing / cracking is for networks you
+> own or are explicitly permitted to test — same as any WiFi audit tool.
 
-> ℹ️ The character sprites are **AI-generated** (Google Gemini image models,
-> `gemini-3-pro-image`) as original cyberpunk pixel art, then background-keyed to
-> true alpha and packed into `flippergotchi/view/sprites/`. The device chassis is
-> omitted (Flipper Devices' IP). Simulation renders — the hardware isn't out yet.
-
-> ⚠️ **Authorized use only.** Capturing handshakes / deauthing is for networks you
-> own or are explicitly permitted to test. Same rules as any WiFi audit tool.
-
-> 🤖 **Built with AI assistance.** This is a passion project I designed and
-> directed, but it was built hand-in-hand with an AI coding assistant — I
-> couldn't have written it to this standard on my own. The ideas, design
-> decisions, and direction are mine; much of the implementation was AI-assisted.
-> I'm sharing it openly in that spirit. If AI-assisted code isn't for you, no
-> hard feelings — feel free to give this one a miss. Otherwise, contributions
-> and feedback are very welcome. 🙏
+> 🤖 **Built with AI assistance.** I designed and directed this, but it was built
+> hand-in-hand with an AI coding assistant, and the original pixel art is
+> AI-generated (Google Gemini `gemini-3-pro-image`, then background-keyed to true
+> alpha). The ideas and direction are mine; much of the implementation was
+> AI-assisted. If AI-assisted code isn't for you, no hard feelings — feel free to
+> give this one a miss. Otherwise, contributions and feedback are very welcome. 🙏
 
 ---
 
@@ -166,8 +145,8 @@ gps (walking)      ─┘     │            │
 |---|---|---|
 | `core/wifi/` | native capture stack: monitor-mode mgmt, scan, hcxdumptool/scapy handshake+PMKID capture, `CaptureBackend` (auto: native→bettercap→sim) | sim ✅; hw path wired (needs on-device validation) |
 | `core/handshake.py` | EAPOL 4-way / PMKID validation (pure-python pcap fallback) + `hcxpcapngtool` → hc22000 | ✅ done & tested |
-| `core/authz.py` | deny-by-default scope guard for active RF actions + JSONL audit log | ✅ done & tested |
-| `core/preflight.py` + `game/doctor.py` | `doctor` preflight: tools / privileges / iface / wordlist / scope | ✅ done & tested |
+| `core/authz.py` | JSONL audit log of active RF actions (deauth/capture/crack) | ✅ done & tested |
+| `core/preflight.py` + `game/doctor.py` | `doctor` preflight: tools / privileges / iface / wordlist | ✅ done & tested |
 | `game/cracking.py` | hardened hashcat pipeline (PMKID/EAPOL, multi-wordlist + rules) | ✅ done & tested |
 | `game/achievements.py` · `shop.py` · `gearsets.py` | badges · "scrap" currency + shop · gear-set bonuses | ✅ done & tested |
 | `game/moves.py` | per-element PvP move sets + status effects | ✅ done & tested |
@@ -188,7 +167,7 @@ gps (walking)      ─┘     │            │
 | `view/capture_screen.py` | net-gun capture animation frames (aim→net→GOTCHA) | ✅ render |
 | `view/battle_menu.py` | Battle Dojo menu + scrollable target list + button map | ✅ render |
 | `view/monster_art.py` | species → enemy/mini-monster sprite lookup | ✅ done & tested |
-| `view/sprites/` | AI-generated cyberpunk sprites (character + monsters) | ✅ |
+| `view/sprites/` | cyberpunk pixel-art sprites (character + monsters) | ✅ |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
 | `game/monsters.py` | AP/BLE → collectible monster + stats | ✅ |
 | `game/bestiary.py` | your captured collection (savefile) | ✅ |
@@ -227,10 +206,9 @@ It's also an [Orna](https://orna.guide)-style GPS RPG layered on the same data:
 - **Only crackable networks are surfaced** (open / WEP / WPA / WPA2-PSK). WPA3,
   WPA2-Enterprise and OWE aren't wordlist-crackable, so they're not shown at all.
 
-> 🔒 **Battles are authorization-gated.** Capturing/collecting is passive and
-> always allowed, but *cracking* only runs against networks whose SSID/BSSID is
-> in `home_networks` (your dojo) — or a one-off `--authorized`. Crack only what
-> you own or are cleared to test.
+> 🔒 **Authorization is consent-based.** Cracking shows a **warning you agree to
+> once** (with a *don't ask again* — no config files); on-the-fly WEP/WPA cracking
+> asks the same. Crack only networks you own or are cleared to test.
 
 ### The encounter flow (Pokémon GO-style)
 
@@ -251,7 +229,7 @@ encryption. *Battling* (cracking) is a separate, deliberate step you do **at hom
 ```
 game/encounter.py   detect → Capture/Run → caught/escaped/fled  (+ animations)
 game/home.py        at_home(geofence OR home network in range) → battle unlocked
-game/battle.py      hashcat+rockyou → cloud, gated to your dojo, with a warning
+game/battle.py      hashcat+rockyou → cloud, consent-gated, with a warning
 ```
 
 ### CLI
@@ -261,7 +239,7 @@ python3 -m flippergotchi --simulate        # run: walk, encounter, capture, coll
 python3 -m flippergotchi encounter         # demo one encounter (popup + animation)
 python3 -m flippergotchi dex               # bestiary + your W/L/escalate record
 python3 -m flippergotchi battle            # open the Battle Dojo (auto/manual menu)
-python3 -m flippergotchi battle Linksys    # MANUAL: crack one (gated to home_networks)
+python3 -m flippergotchi battle Linksys    # MANUAL: crack one (after the warning)
 python3 -m flippergotchi battle --all      # AUTO: battle every fresh captured target
 python3 -m flippergotchi battle --all --dont-show-again   # ...and stop warning me
 python3 -m flippergotchi quests            # today's daily quests + progress
@@ -302,24 +280,12 @@ python3 -m flippergotchi --simulate --variant tiger   # pick your shark colour
 - The crack **warning** has a *do-not-show-again* (`--dont-show-again`) that
   persists in `prefs.json`.
 
-### The Battle Dojo (its own section)
+### The Battle Dojo
 
-Running `battle` with no target opens the **Battle Dojo** — a dedicated menu for
-working through your captured handshakes:
-
-![battle dojo — menu + target list](docs/battle-menu.png)
-
-- **AUTO BATTLE** (`battle --all`) — cracks every captured target you **haven't
-  battled yet** (fresh `attempts == 0`), one at a time, and prints a lifetime
-  **W / L / escalated** tally.
-- **MANUAL SELECT** (`battle <name>`) — scroll the list of captured monsters and
-  pick one to battle. The list shows level + encryption/rarity tags (legendaries
-  gold) with a scrollbar.
-
-On the device this is a real section with a **Flipper One button map**: **OK**
-opens the dojo from the home screen, **Up/Down** move the cursor, **OK** confirms
-(run auto / battle the highlighted target), **Back** closes it (see
-`view/battle_menu.py` `BUTTONS`). The same button map is shown on screen.
+`battle` (no target) opens the dojo (shown above): **AUTO** (`battle --all`)
+cracks every fresh target (`attempts == 0`); **MANUAL** (`battle <name>`) picks
+one from the scrollable list. On the device, **OK** opens it, **Up/Down** move,
+**OK** confirms, **Back** closes (`view/battle_menu.py` `BUTTONS`).
 
 When another Flippergotchi is detected advertising over **Bluetooth**, you can
 challenge it:
@@ -382,19 +348,18 @@ core/handshake.py       validate EAPOL 4-way (M1–M4) / PMKID before cracking �
                         pure-python pcap/pcapng parser, no external tool needed
 game/cracking.py        hashcat -m 22000 (PMKID/EAPOL), multi-wordlist + rules,
                         structured CrackResult; deterministic sim fallback
-core/authz.py           in_scope() + Authorizer: deny-by-default, allowlist file,
-                        JSONL audit log of every deauth/capture/crack
+core/authz.py           Authorizer: JSONL audit log of every deauth/capture/crack
 ```
 
-**Authorization model.** Passive scanning is always fine. *Active* actions
-(deauth, capture, crack) are refused unless the target matches `home_networks`
-**or** your `~/.flippergotchi/allowlist.txt` — deny-by-default, and every attempt
-(allowed or denied) is appended to `~/.flippergotchi/audit.log`. Only crack
-networks you own or are authorized to test.
+**Authorization model.** Passive scanning is always fine. Active operations
+(deauth, capture, crack) are authorized by an **on-screen warning you agree to
+once** — informed consent, like any WiFi audit tool, with no config files to
+edit. Every active action is still appended to `~/.flippergotchi/audit.log`. Only
+operate on networks you own or are cleared to test.
 
 **Preflight.** `python3 -m flippergotchi doctor` reports tools
 (`hcxdumptool`/`hcxpcapngtool`/`hashcat`/`iw`/…), privileges (root / CAP_NET_ADMIN),
-the monitor interface, the wordlist, and your scope — then a plain-English
+the monitor interface and the wordlist — then a plain-English
 "you can: [passive scan] [capture] [crack]" summary with fix-it hints.
 
 **Dry-run (validate on hardware safely).** `--dry-run` drives the *real* paths —
@@ -419,7 +384,7 @@ without executing it. Drop `--dry-run` (with proper authorization) to go live.
 
 1. **Capture:** install `hcxdumptool`/`hcxpcapngtool`/`hashcat`, set
    `simulate = false`, run `doctor` until it's green, add your AP to
-   `home_networks`/allowlist, point `interface` at the MT7921 monitor iface.
+   agree to the on-screen warning, and point `interface` at the MT7921 monitor iface.
    `make_backend()` then picks the native stack automatically (or set
    `capture_backend = "bettercap"` to drive a running bettercap REST session).
    On a live backend the encounter loop **actually runs** the deauth + handshake

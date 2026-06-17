@@ -6,18 +6,14 @@ then a one-line capability summary ("you can: [passive scan] [capture] [crack]")
 derived from what's actually present, plus actionable hints for whatever's
 missing.
 
-:func:`report` is pure string-building (it only CALLS preflight + load_allowlist),
+:func:`report` is pure string-building (it only CALLS preflight),
 so it's fully testable without hardware. :func:`run` just prints it -- the CLI
 ``doctor`` subcommand is wired up elsewhere.
 """
 from __future__ import annotations
 
 from ..core import preflight as _preflight
-from ..core.authz import (
-    DEFAULT_ALLOWLIST,
-    _as_needles,
-    load_allowlist,
-)
+from ..core.authz import _as_needles
 
 # Markers (ASCII so they render on the Flipper's tiny terminal too).
 OK = "[ OK ]"
@@ -29,16 +25,10 @@ _ESSENTIAL_TOOLS = {"hcxdumptool", "hcxpcapngtool", "hashcat", "iw", "ip"}
 
 
 def _scope(cfg) -> dict:
-    """Resolve the active authorization scope (home_networks + allowlist file)."""
+    """The optional convenience scope (home_networks). The game's real gate is
+    the on-screen consent warning, not a network list."""
     home = _as_needles(getattr(cfg, "home_networks", []))
-    allow_path = getattr(cfg, "allowlist_path", DEFAULT_ALLOWLIST)
-    allow = load_allowlist(allow_path)
-    return {
-        "home": home,
-        "allowlist": allow,
-        "allowlist_path": str(allow_path),
-        "any": bool(home or allow),
-    }
+    return {"home": home, "any": bool(home)}
 
 
 def report(cfg) -> str:
@@ -109,22 +99,13 @@ def report(cfg) -> str:
         lines.append("  hint: install a wordlist (e.g. rockyou.txt) or set "
                      "cfg.wordlist")
 
-    # -- Scope ------------------------------------------------------------
+    # -- Authorization ----------------------------------------------------
     lines.append("")
-    lines.append("Scope (networks you may actively touch):")
-    if scope["any"]:
-        if scope["home"]:
-            lines.append(f"  {OK} home_networks: {', '.join(scope['home'])}")
-        if scope["allowlist"]:
-            lines.append(
-                f"  {OK} allowlist ({len(scope['allowlist'])} entr"
-                f"{'y' if len(scope['allowlist']) == 1 else 'ies'}): "
-                f"{scope['allowlist_path']}")
-    else:
-        lines.append(f"  {WARN} empty scope -- ALL active actions denied "
-                     "(deny by default)")
-        lines.append(f"  hint: add your AP to cfg.home_networks, or list it in "
-                     f"{scope['allowlist_path']}")
+    lines.append("Authorization:")
+    lines.append(f"  {OK} on-screen consent -- you agree to the WARNING once "
+                 "(in-game, no config)")
+    if scope["home"]:
+        lines.append(f"  {OK} home_networks hint: {', '.join(scope['home'])}")
 
     # -- Capability summary ----------------------------------------------
     caps = _capabilities(pf, scope)
@@ -145,11 +126,10 @@ def _capabilities(pf: dict, scope: dict) -> list:
     if iface["exists"] and (tools.get("iw") or tools.get("bettercap")):
         caps.append("passive scan")
 
-    # Capture: privileged + a wireless iface + a capture tool + something in scope
-    # (otherwise capture would be passive-only and never elicit a handshake).
+    # Capture: privileged + a wireless iface + a capture tool. Active deauth is
+    # enabled once you agree to the on-screen consent (no scope list).
     if (priv["can_monitor"] and iface["exists"]
-            and (tools.get("hcxdumptool") or tools.get("bettercap"))
-            and scope["any"]):
+            and (tools.get("hcxdumptool") or tools.get("bettercap"))):
         caps.append("capture")
 
     # Crack: hashcat + a wordlist present.
