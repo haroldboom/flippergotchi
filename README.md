@@ -171,12 +171,13 @@ gps (walking)      ─┘     │            │
 | `core/preflight.py` + `game/doctor.py` | `doctor` preflight: tools / privileges / iface / wordlist | ✅ done & tested |
 | `game/cracking.py` | hardened hashcat pipeline (PMKID/EAPOL, multi-wordlist + rules) | ✅ done & tested |
 | `game/blebattle.py` | BLE battling: technique sequence (sniff/re-pair/brute-TK/KNOB/control) + loot | ✅ done & tested |
-| `game/achievements.py` · `shop.py` · `gearsets.py` | badges · "scrap" currency + shop · gear-set bonuses | ✅ done & tested |
+| `game/achievements.py` · `shop.py` · `gearsets.py` | tiered/hidden badges + titles + gear payouts · "scrap" shop (`--stash` food → larder) · gear-set bonuses | ✅ done & tested |
+| `game/food.py` · `game/larder.py` | typed foods (Scrap Chum→Power Cell) + a capped larder pantry | ✅ done & tested |
 | `game/moves.py` | per-element PvP move sets + status effects | ✅ done & tested |
 | `core/bettercap.py` | WiFi capture via bettercap REST | **sim works**; live wired (needs on-device validation) |
 | `pet/gps.py` | GPS movement → walk distance | **sim works**; gpsd = TODO |
-| `pet/mechanics.py` | hunger / xp / levels / evolution / mood | ✅ done & tested |
-| `pet/state.py` | the savefile | ✅ |
+| `pet/mechanics.py` | hunger / **satiety** / **escalating starvation** / xp / levels / evolution / mood | ✅ done & tested |
+| `pet/state.py` | the savefile (v2: satiety / titles / **hardcore** mode; `persistence.migrate`) | ✅ done & tested |
 | `ai/service.py` | event + mood → spoken line | ✅ (backend-pluggable) |
 | `ai/canned.py` | phrase pools, zero deps | ✅ default |
 | `ai/cpu_llama.py` | local GGUF via llama.cpp | works with a model |
@@ -193,7 +194,7 @@ gps (walking)      ─┘     │            │
 | `view/monster_art.py` | species → enemy/mini-monster sprite lookup | ✅ done & tested |
 | `view/sprites/` | cyberpunk pixel-art sprites (character + monsters) | ✅ |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
-| `game/monsters.py` | AP/BLE → collectible monster + stats | ✅ |
+| `game/monsters.py` | AP/BLE → collectible monster + stats + **shiny** (~1/256, stable) | ✅ |
 | `game/bestiary.py` | your captured collection (savefile) | ✅ |
 | `game/battle.py` | hashcat -m 22000 + rockyou → cloud fallback, auth-gated | sim ✅; hw path wired (needs on-device validation) |
 | `game/cracking.py` (CloudCracker) | real wpa-sec/onlinehashcrack upload + result retrieval | ✅ done & tested (wpa-sec validated path) |
@@ -203,7 +204,8 @@ gps (walking)      ─┘     │            │
 | `game/duel.py` | Digimon-style PvP: turn-based moves + status effects + STAB | ✅ done & tested |
 | `game/equipment.py` | gear: loot, equip, forfeit-on-loss | ✅ done & tested |
 | `game/elements.py` | Spark/Tide/Gale/Aether matchup chart | ✅ done & tested |
-| `game/quests.py` | daily quests + rewards | ✅ done & tested |
+| `game/quests.py` | daily + weekly + lifetime **story chains** + clear **streak**, scrap/food/gear rewards (`migrate` v3) | ✅ done & tested |
+| `view/feed_screen.py` · `view/badge_screen.py` | feeding screen (larder + hand-feed) · grayscale **badge wall** | ✅ render |
 | `prefs.py` | persistent prefs (e.g. dismissed warning) | ✅ |
 | `view/animations.py` | net-gun / flee ASCII animation frames | ✅ |
 | `core/bluetooth.py` | BLE devices → mini-monsters | sim ✅; BlueZ = TODO |
@@ -277,20 +279,32 @@ python3 -m flippergotchi --dry-run battle MyAP --authorized   # crack path, no h
 python3 -m flippergotchi cloud                    # cloud status + queued captures
 python3 -m flippergotchi cloud submit MyAP --authorized   # upload to wpa-sec
 python3 -m flippergotchi cloud results            # pull recovered keys into the dex
-python3 -m flippergotchi achievements      # badges unlocked + scrap balance
+python3 -m flippergotchi achievements      # tiered badge wall + progress + scrap
 python3 -m flippergotchi shop              # browse; `shop buy <id>` to spend scrap
+python3 -m flippergotchi shop buy ration --stash   # stash bought food in the larder
+python3 -m flippergotchi feed              # larder + hunger; `feed <id>` to hand-feed
+python3 -m flippergotchi title             # earned titles; `title <name>` to wear one
+python3 -m flippergotchi --reset --hardcore    # new pet, PERMADEATH on starvation
 python3 -m flippergotchi --simulate --manual   # choose [A]Capture/[B]Run yourself
-python3 -m flippergotchi --simulate --variant tiger   # pick your shark colour
+python3 -m flippergotchi --simulate --variant hammerhead   # pick your shark species
 ```
 
-- **Scrap economy**: cracking, catching, walking and winning duels earn **scrap**
-  — spend it in the `shop` on food, energy/repair, monster lures, or a gear
-  reroll token. **Achievements** unlock milestone badges (with small rewards).
-- **Gear sets**: matching themed pieces grant a set bonus to **PvP power only**
-  (never WiFi cracking — that stays deterministic from the network).
-
-- **Daily quests** (`quests`): walk N km, catch N monsters, crack one, win a duel,
-  forage snacks — completing one grants XP / handshakes / gear. Reroll each day.
+- **One scrap economy**: cracking, catching, walking, winning duels **and quests**
+  all pay **scrap** — spend it in the `shop` on food, repair, lures or a gear reroll.
+- **Quests** (`quests`): **daily** (weighted, never two on one metric) + **weekly**
+  + lifetime **story chains** with named givers (First Steps / The Hunt / Ghost
+  Protocol). Clearing every daily pays a bonus and builds a **streak**.
+- **Achievements** (`achievements`): tiered **bronze/silver/gold** ladders +
+  **hidden** secrets, live progress bars, and a grayscale **badge-wall** render.
+  Gold capstones mint gear or a **title** you can wear (`title <name>`).
+- **Hunger is food, food is real**: walking forages **typed foods** (Scrap Chum →
+  Power Cell) into a capped **Larder**; `feed` hand-feeds them. Eating banks a
+  **satiety** buff (small forage-luck + PvP edge — never cracking).
+- **Hardcore mode** (`--reset --hardcore`, chosen once, locked for the pet's life):
+  starvation is **permadeath** — reborn as an egg. Normal pets can't die.
+- **Shiny monsters**: ~1/256 and stable per AP/device — a ✨ prize catch.
+- **Gear sets**: matching pieces grant a set bonus to **PvP power only** (never
+  WiFi cracking — that stays deterministic from the network).
 - **Element type-advantage**: every fighter has an element (Spark/Tide/Gale/Aether);
   matchups tilt duel odds (`game/elements.py`).
 - **Manual mode** (`--manual`): you press A/B per encounter instead of the auto-policy.
