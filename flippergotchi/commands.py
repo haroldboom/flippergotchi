@@ -189,7 +189,8 @@ def cmd_duel(cfg, target: str | None) -> None:
             print(f"  [quest] {q.description} done -> {rw}")
         _quest_bonus(cfg, quests)
         quests.save()
-        _award(cfg, state, scrap=shop_mod.scrap_for_duel_win(), inv=inv)
+        _award(cfg, state, scrap=shop_mod.scrap_for_duel_win(), inv=inv,
+               quests=quests)
     else:
         forfeit = inv.pick_forfeit()
         if forfeit:
@@ -233,7 +234,8 @@ def cmd_quests(cfg) -> None:
         print(f"  [{'x' if quest.done else ' '}] {quest.description:<26} {mark}"
               f"   -> {reward}")
 
-    print(f"  DAILY QUESTS ({q.day})")
+    streak = f"   streak: {q.streak}d" if q.streak else ""
+    print(f"  DAILY QUESTS ({q.day})   completed lifetime: {q.lifetime_done}{streak}")
     for quest in q.active():
         _show(quest)
     if q.all_dailies_done():
@@ -303,7 +305,8 @@ def _show_warning(cfg, dont_show: bool) -> None:
         print("  [ ] do not show again  (pass --dont-show-again to tick this)\n")
 
 
-def _award(cfg, state, *, scrap: int = 0, inv=None, dex=None, ledger=None) -> None:
+def _award(cfg, state, *, scrap: int = 0, inv=None, dex=None, ledger=None,
+           quests=None) -> None:
     """Earn `scrap` for an action and unlock any newly-met achievements (printing
     + saving the wallet/book). The caller still owns saving state/inv/dex/ledger.
 
@@ -320,7 +323,8 @@ def _award(cfg, state, *, scrap: int = 0, inv=None, dex=None, ledger=None) -> No
         inv = inv or equip_mod.Inventory(cfg.inventory_path)
         book = AchievementBook(getattr(cfg, "achievements_path",
                                        "~/.flippergotchi/achievements.json"))
-        stats = ach_mod.build_stats(state, dex, inv, ledger)
+        qlog = quests if quests is not None else QuestLog(cfg.quests_path)
+        stats = ach_mod.build_stats(state, dex, inv, ledger, qlog)
         for b in ach_mod.grant_reward(book, stats, state, cfg, wallet, inv):
             rw = b.reward or {}
             bits = []
@@ -384,7 +388,7 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
             _quest_bonus(cfg, quests)
         if state is not None and dex is not None:
             _award(cfg, state, scrap=shop_mod.scrap_for_crack(),
-                   inv=inv, dex=dex, ledger=ledger)
+                   inv=inv, dex=dex, ledger=ledger, quests=quests)
     return cat or ""
 
 
@@ -508,7 +512,7 @@ def cmd_achievements(cfg) -> None:
     dex = Bestiary(cfg.bestiary_path)
     inv = equip_mod.Inventory(cfg.inventory_path)
     ledger = Ledger(cfg.ledger_path)
-    stats = ach_mod.build_stats(state, dex, inv, ledger)
+    stats = ach_mod.build_stats(state, dex, inv, ledger, QuestLog(cfg.quests_path))
 
     unlocked = book.unlocked()
     print(f"  ACHIEVEMENTS  ({len(unlocked)}/{len(book.all())})   "

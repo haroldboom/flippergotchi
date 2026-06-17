@@ -70,6 +70,26 @@ def test_build_stats_sources_cracks_from_ledger():
     assert stats["level"] == 3
 
 
+def test_quests_done_capstone_from_questlog():
+    # the cross-system tie: quest activity (lifetime_done) unlocks achievements
+    class FakeQ:
+        lifetime_done = 10
+        streak = 0
+    stats = ach.build_stats(PetState(), quests=FakeQ())
+    assert stats["quests_done"] == 10
+    book = ach.AchievementBook(_tmp("a.json"))
+    assert any(b.id == "quest_10" for b in book.check(stats))
+
+
+def test_streak_badge_unlocks():
+    class FakeQ:
+        lifetime_done = 0
+        streak = 7
+    book = ach.AchievementBook(_tmp("a.json"))
+    stats = ach.build_stats(PetState(), quests=FakeQ())
+    assert any(b.id == "streak_7" for b in book.check(stats))
+
+
 def test_hidden_badge_masked_until_unlocked():
     b = ach.get("shiny_find")
     assert b.hidden

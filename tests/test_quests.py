@@ -191,6 +191,41 @@ def test_migrate_v1_to_v2():
     assert raw["schema_version"] == CURRENT_SCHEMA and "weeklies" in raw
 
 
+def test_lifetime_done_increments():
+    from flippergotchi.game.quests import Quest
+    q = _log()
+    q.quests = [Quest("a", "x", "catches", 1)]
+    assert q.lifetime_done == 0
+    q.record("catches", 1)
+    assert q.lifetime_done == 1                # feeds the quests_done capstone
+
+
+def test_streak_increments_then_resets_on_missed_day():
+    q = _log()
+    q.roll("2026-06-16", n=2)
+    for x in q.quests:
+        x.done = True
+    assert q.claim_daily_bonus("2026-06-16") > 0
+    assert q.streak == 1
+    q.roll("2026-06-17", n=2)                  # 06-16 was cleared -> streak survives
+    for x in q.quests:
+        x.done = True
+    q.claim_daily_bonus("2026-06-17")
+    assert q.streak == 2
+    q.roll("2026-06-18", n=2)                  # fresh dailies, left incomplete
+    q.roll("2026-06-19", n=2)                  # rolling past an unfinished day -> reset
+    assert q.streak == 0
+
+
+def test_migrate_v2_to_v3():
+    from flippergotchi.game.quests import migrate, CURRENT_SCHEMA
+    raw = migrate({"schema_version": 2, "day": "x", "quests": [],
+                   "week": "", "weeklies": [], "bonus_day": ""})
+    assert raw["schema_version"] == CURRENT_SCHEMA == 3
+    assert raw["lifetime_done"] == 0 and raw["streak"] == 0
+    assert raw["last_clear_day"] == ""
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

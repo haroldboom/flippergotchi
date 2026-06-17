@@ -23,7 +23,8 @@ METRICS = ["distance_m", "catches", "cracks", "duel_wins", "snacks",
            "tames", "legendary_kills"]
 
 # persisted-file schema version for QuestLog (v2 adds the weekly + bonus blocks).
-CURRENT_SCHEMA = 2
+# v3 adds lifetime/streak tracking (lifetime_done, streak, last_clear_day).
+CURRENT_SCHEMA = 3
 # one-time scrap for clearing every daily in a day (the "finish the set" nudge).
 DAILY_CLEAR_BONUS = 80
 
@@ -98,13 +99,17 @@ def _weighted_distinct(templates, n: int, rng) -> list:
 
 
 def migrate(raw: dict) -> dict:
-    """Upgrade a persisted QuestLog dict to CURRENT_SCHEMA in place. v1 files
-    (no version, daily-only) gain the empty weekly + bonus blocks."""
+    """Upgrade a persisted QuestLog dict to CURRENT_SCHEMA in place. v1 (daily
+    only) gains the weekly+bonus blocks; v2 gains lifetime/streak tracking."""
     v = int(raw.get("schema_version", 1))
     if v < 2:
         raw.setdefault("week", "")
         raw.setdefault("weeklies", [])
         raw.setdefault("bonus_day", "")
+    if v < 3:
+        raw.setdefault("lifetime_done", 0)
+        raw.setdefault("streak", 0)
+        raw.setdefault("last_clear_day", "")
     raw["schema_version"] = CURRENT_SCHEMA
     return raw
 
@@ -118,6 +123,9 @@ class QuestLog:
         self.week: str = ""
         self.weeklies: list[Quest] = []
         self.bonus_day: str = ""               # day the all-clear bonus was paid
+        self.lifetime_done: int = 0            # total quests ever completed
+        self.streak: int = 0                   # consecutive all-dailies-clear days
+        self.last_clear_day: str = ""
         self._load()
 
     def _load(self) -> None:
@@ -133,9 +141,13 @@ class QuestLog:
             self.week = raw.get("week", "")
             self.weeklies = [Quest.from_dict(d) for d in raw.get("weeklies", [])]
             self.bonus_day = raw.get("bonus_day", "")
+            self.lifetime_done = int(raw.get("lifetime_done", 0))
+            self.streak = int(raw.get("streak", 0))
+            self.last_clear_day = raw.get("last_clear_day", "")
         except Exception:
             self.day, self.quests = "", []
             self.week, self.weeklies, self.bonus_day = "", [], ""
+            self.lifetime_done, self.streak, self.last_clear_day = 0, 0, ""
 
     def save(self) -> None:
         d = os.path.dirname(self.path)
@@ -150,6 +162,9 @@ class QuestLog:
                 "week": self.week,
                 "weeklies": [q.to_dict() for q in self.weeklies],
                 "bonus_day": self.bonus_day,
+                "lifetime_done": self.lifetime_done,
+                "streak": self.streak,
+                "last_clear_day": self.last_clear_day,
             }, f, indent=2)
         os.replace(tmp, self.path)
 
@@ -158,6 +173,10 @@ class QuestLog:
         `day`, pick `n` weighted distinct-metric templates as the new active set
         (progress reset). Deterministic given `rng`."""
         if self.day != day:
+            # a new day: if yesterday's dailies weren't all cleared, the
+            # consecutive-clear streak breaks
+            if self.day and not self.all_dailies_done():
+                self.streak = 0
             n = max(0, min(n, len(_TEMPLATES)))
             self.quests = [_template_quest(t)
                            for t in _weighted_distinct(_TEMPLATES, n, rng)]
@@ -186,6 +205,7 @@ class QuestLog:
             if q.progress >= q.target:
                 q.done = True
                 newly.append(q)
+        self.lifetime_done += len(newly)      # feeds the quests_done capstone
         return newly
 
     def all_dailies_done(self) -> bool:
@@ -196,6 +216,8 @@ class QuestLog:
         `day`, else 0. Stamps bonus_day so it pays at most once per day."""
         if self.all_dailies_done() and self.bonus_day != day:
             self.bonus_day = day
+            self.streak += 1                  # another consecutive clear
+            self.last_clear_day = day
             return DAILY_CLEAR_BONUS
         return 0
 

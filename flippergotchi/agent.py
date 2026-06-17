@@ -126,7 +126,7 @@ class Agent:
         hardcoded 0 here, so crack badges never unlocked in the agent loop)."""
         try:
             stats = achievements.build_stats(self.state, self.dex, self.inv,
-                                             self.ledger)
+                                             self.ledger, self.quests)
             for b in achievements.grant_reward(self.book, stats, self.state,
                                                self.cfg, self.wallet, self.inv):
                 self.log(f"[badge] ★ {b.name} -- {b.description}")

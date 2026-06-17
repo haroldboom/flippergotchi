@@ -24,6 +24,9 @@ from dataclasses import dataclass, field
 
 # slot count that counts as a "full loadout" (mirrors equipment.SLOTS length)
 FULL_LOADOUT_SLOTS = 5
+# on-disk schema for the achievements file. The format (a set of unlocked ids)
+# has been stable; the stamp is for forward-compat and mirrors the other stores.
+ACH_SCHEMA = 1
 
 
 @dataclass
@@ -109,6 +112,16 @@ CATALOG: list[Badge] = [
           "meta", "", "gold"),
     Badge("full_loadout", "Geared Up", "Equip all 5 gear slots at once",
           "equipped_slots", FULL_LOADOUT_SLOTS, {"scrap": 180}, "meta", "", "silver"),
+    # -- quests: the Questmaster ladder + streak (the cross-system capstone) --
+    Badge("quest_10", "Taskhand", "Complete 10 quests",
+          "quests_done", 10, {"scrap": 120}, "quests", "questmaster", "bronze"),
+    Badge("quest_50", "Questmaster", "Complete 50 quests",
+          "quests_done", 50, {"scrap": 300}, "quests", "questmaster", "silver"),
+    Badge("quest_200", "The Relentless", "Complete 200 quests",
+          "quests_done", 200, {"scrap": 700, "title": "the Relentless"},
+          "quests", "questmaster", "gold"),
+    Badge("streak_7", "Dedicated", "Clear every daily 7 days running",
+          "streak", 7, {"scrap": 250, "food": 3}, "quests", "", "silver"),
     # -- hidden / secret (masked until unlocked; shiny mechanic is future) --
     Badge("shiny_find", "Sparkle", "Find a shiny monster",
           "shinies", 1, {"scrap": 300, "food": 3}, "meta", "", "gold", hidden=True),
@@ -121,11 +134,11 @@ def get(badge_id: str) -> Badge | None:
     return _BY_ID.get(badge_id)
 
 
-def build_stats(state, dex=None, inv=None, ledger=None) -> dict:
+def build_stats(state, dex=None, inv=None, ledger=None, quests=None) -> dict:
     """The single progress snapshot the catalogue checks against, sourced from the
-    live stores so the agent loop and the CLI agree. In particular ``cracks`` comes
-    from the Ledger in BOTH (the agent path used to hardcode 0, so crack badges
-    could never unlock during normal play)."""
+    live stores so the agent loop and the CLI agree. ``cracks`` comes from the
+    Ledger in BOTH; ``quests_done``/``streak`` come from the QuestLog -- the
+    cross-system tie that lets quest activity unlock achievements."""
     catches = sum(1 for x in dex.all() if getattr(x, "captured", False)) if dex else 0
     cracks = ledger.counts().get("win", 0) if ledger else 0
     return {
@@ -137,6 +150,8 @@ def build_stats(state, dex=None, inv=None, ledger=None) -> dict:
         "stage": getattr(state, "stage", "egg"),
         "equipped_slots": len(getattr(inv, "equipped", {}) or {}) if inv else 0,
         "shinies": 0,
+        "quests_done": getattr(quests, "lifetime_done", 0) if quests else 0,
+        "streak": getattr(quests, "streak", 0) if quests else 0,
     }
 
 
@@ -210,7 +225,8 @@ class AchievementBook:
             os.makedirs(d, exist_ok=True)
         tmp = self.path + ".tmp"
         with open(tmp, "w") as f:
-            json.dump({"unlocked": sorted(self._unlocked)}, f, indent=2)
+            json.dump({"schema_version": ACH_SCHEMA,
+                       "unlocked": sorted(self._unlocked)}, f, indent=2)
         os.replace(tmp, self.path)
 
     def is_unlocked(self, badge_id: str) -> bool:
