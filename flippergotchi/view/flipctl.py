@@ -109,8 +109,10 @@ _HTML = """<!doctype html>
   .character.dmg3{{filter:brightness(.7) contrast(1.5);
     animation:hurtshake .2s steps(2) infinite;}}
   @keyframes hurtshake{{0%,100%{{transform:translateX(-.7px)}}50%{{transform:translateX(.7px)}}}}
-  .blood{{position:absolute;left:50%;top:-3px;transform:translateX(-50%);
-    width:86%;z-index:3;pointer-events:none;
+  /* sits low over the nose/snout so it reads as a NOSE BLEED running down the
+     mouth, not a head wound */
+  .blood{{position:absolute;left:50%;top:26px;transform:translateX(-50%);
+    width:60%;z-index:3;pointer-events:none;
     filter:brightness(.85) contrast(1.5) drop-shadow(0 0 1px #000);
     animation:bloodpulse 1.4s ease-in-out infinite;}}
   @keyframes bloodpulse{{0%,100%{{opacity:.92}}50%{{opacity:1}}}}
