@@ -125,3 +125,19 @@ def test_normal_pet_gets_no_hardcore_warning(tmp_path):
         agent._tick_i += 1
         agent._starve_warn_check()
     assert not logs  # Normal pets never starve to death -> no escalating warning
+
+
+# --- Doom-style HP damage --------------------------------------------------
+
+def test_hp_damage_escalates_as_health_falls(tmp_path):
+    # full HP: pristine -- no battered class APPLIED to the sprite, no scratches
+    # (the .dmgN CSS rules always exist; what matters is the class on the <img>)
+    full = _render(tmp_path, PetState(name="F", health=100))
+    assert 'class="character "' in full or 'class="character"' in full
+    assert "character dmg" not in full
+    assert 'class="scr"' not in full
+    # progressively battered + more claw scratches as HP drops
+    light = _render(tmp_path, PetState(name="F", health=55))
+    heavy = _render(tmp_path, PetState(name="F", health=10))
+    assert "character dmg1" in light and "character dmg3" in heavy
+    assert heavy.count('class="scr"') > light.count('class="scr"') > 0
