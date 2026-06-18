@@ -26,7 +26,7 @@ METRICS = ["distance_m", "catches", "cracks", "duel_wins", "snacks",
 # v3 adds lifetime/streak tracking (lifetime_done, streak, last_clear_day).
 CURRENT_SCHEMA = 3
 # one-time scrap for clearing every daily in a day (the "finish the set" nudge).
-DAILY_CLEAR_BONUS = 80
+DAILY_CLEAR_BONUS = 45
 
 
 @dataclass
@@ -49,16 +49,17 @@ class Quest:
 
 
 # DAILY template pool: (id, description, metric, target, reward). Scrap is tuned
-# so a full clear of `n` dailies + the all-clear bonus lands near ~150/day.
+# so a full clear of `n` dailies + the all-clear bonus averages ~150/day (see the
+# Monte-Carlo regression in test_quest_economy.py that pins the mean to a band).
 _TEMPLATES = [
     ("walk_2k", "Walk 2 km", "distance_m", 2000, {"xp": 50, "scrap": 30}),
-    ("walk_5k", "Walk 5 km", "distance_m", 5000, {"xp": 140, "scrap": 55}),
-    ("catch_5", "Catch 5 monsters", "catches", 5, {"handshakes": 3, "scrap": 40}),
-    ("crack_1", "Crack a network", "cracks", 1, {"xp": 80, "scrap": 55}),
-    ("duel_1", "Win a duel", "duel_wins", 1, {"gear": True, "scrap": 40}),
+    ("walk_5k", "Walk 5 km", "distance_m", 5000, {"xp": 140, "scrap": 40}),
+    ("catch_5", "Catch 5 monsters", "catches", 5, {"handshakes": 3, "scrap": 35}),
+    ("crack_1", "Crack a network", "cracks", 1, {"xp": 80, "scrap": 45}),
+    ("duel_1", "Win a duel", "duel_wins", 1, {"gear": True, "scrap": 35}),
     ("forage_3", "Forage 3 snacks", "snacks", 3, {"xp": 30, "scrap": 25}),
     ("tame_2", "Tame 2 Bluetooth devices", "tames", 2, {"xp": 40, "scrap": 35}),
-    ("legend_1", "Crack a WEP/WPA1 legendary", "legendary_kills", 1, {"scrap": 60}),
+    ("legend_1", "Crack a WEP/WPA1 legendary", "legendary_kills", 1, {"scrap": 45}),
 ]
 # roll weights: common everyday goals show often, rare ones (legendaries) rarely.
 _TEMPLATE_WEIGHT = {
@@ -108,6 +109,31 @@ _CHAINS = [
     ]),
 ]
 _CHAIN_BY_ID = {cid: (giver, title, steps) for cid, giver, title, steps in _CHAINS}
+
+
+def _load_quest_rows(rows) -> list:
+    """Tolerant row parse: skip only the malformed quest entries (a single bad
+    row must not blank the whole daily/weekly set)."""
+    out: list = []
+    for d in rows if isinstance(rows, list) else []:
+        try:
+            out.append(Quest.from_dict(d))
+        except Exception:
+            continue
+    return out
+
+
+def _day_gap(a: str, b: str):
+    """Whole-day gap between two YYYY-MM-DD strings (b - a), or None if either is
+    unparseable. Pure date arithmetic on the passed-in strings -- no clock read,
+    so streak adjacency stays deterministic/testable."""
+    from datetime import date
+    try:
+        ya, ma, da = (int(x) for x in a.split("-"))
+        yb, mb, db = (int(x) for x in b.split("-"))
+        return (date(yb, mb, db) - date(ya, ma, da)).days
+    except Exception:
+        return None
 
 
 def _template_quest(tpl) -> Quest:
@@ -171,9 +197,9 @@ class QuestLog:
             raw = migrate(raw if isinstance(raw, dict) else {})
             self.schema_version = int(raw.get("schema_version", CURRENT_SCHEMA))
             self.day = raw.get("day", "")
-            self.quests = [Quest.from_dict(d) for d in raw.get("quests", [])]
+            self.quests = _load_quest_rows(raw.get("quests"))
             self.week = raw.get("week", "")
-            self.weeklies = [Quest.from_dict(d) for d in raw.get("weeklies", [])]
+            self.weeklies = _load_quest_rows(raw.get("weeklies"))
             self.bonus_day = raw.get("bonus_day", "")
             self.lifetime_done = int(raw.get("lifetime_done", 0))
             self.streak = int(raw.get("streak", 0))
@@ -189,7 +215,7 @@ class QuestLog:
         d = os.path.dirname(self.path)
         if d:
             os.makedirs(d, exist_ok=True)
-        tmp = self.path + ".tmp"
+        tmp = f"{self.path}.tmp.{os.getpid()}"
         with open(tmp, "w") as f:
             json.dump({
                 "schema_version": CURRENT_SCHEMA,
@@ -203,6 +229,8 @@ class QuestLog:
                 "last_clear_day": self.last_clear_day,
                 "chains": self.chains,
             }, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, self.path)
 
     def roll(self, day: str, n: int = 3, rng=random) -> list:
@@ -210,10 +238,15 @@ class QuestLog:
         `day`, pick `n` weighted distinct-metric templates as the new active set
         (progress reset). Deterministic given `rng`."""
         if self.day != day:
-            # a new day: if yesterday's dailies weren't all cleared, the
-            # consecutive-clear streak breaks
+            # a new day breaks the consecutive-clear streak if EITHER the day we
+            # just left wasn't fully cleared, OR a calendar day was skipped
+            # entirely (the new day isn't the one right after our last all-clear).
             if self.day and not self.all_dailies_done():
                 self.streak = 0
+            elif self.last_clear_day:
+                gap = _day_gap(self.last_clear_day, day)
+                if gap is not None and gap > 1:
+                    self.streak = 0
             n = max(0, min(n, len(_TEMPLATES)))
             self.quests = [_template_quest(t)
                            for t in _weighted_distinct(_TEMPLATES, n, rng)]

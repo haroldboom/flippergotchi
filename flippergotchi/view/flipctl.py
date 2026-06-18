@@ -214,7 +214,8 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
     # active title subtitle under the name, truncated to fit (CSS ellipsis too)
     title = getattr(state, "active_title", "") or ""
     sub = (f'<div class="sub">{_html.escape(title[:24])}</div>' if title else "")
-    # Doom-style HP damage: escalating battered filter + claw scratches as HP drops
+    # Doom-style HP damage: hand-painted damaged face if the stage has one, else a
+    # battered filter + bloody wound overlay (see _damage_overlay) as HP drops
     dmg = _dmg_level(health)
     sprite_name = _sprite_for(state.stage, variant, mood, dmg)
     if dmg and sprite_name.endswith(f"-dmg{dmg}"):

@@ -63,9 +63,11 @@ class TrackerLog:
         d = os.path.dirname(self.path)
         if d:
             os.makedirs(d, exist_ok=True)
-        tmp = self.path + ".tmp"
+        tmp = f"{self.path}.tmp.{os.getpid()}"
         with open(tmp, "w") as f:
             json.dump({"seen": self._seen, "alerted": sorted(self._alerted)}, f)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, self.path)
 
     def record(self, addr: str, name: str = "", now: float | None = None) -> None:
@@ -76,16 +78,21 @@ class TrackerLog:
         else:
             e["count"] = int(e.get("count", 0)) + 1
             e["last"] = now
+            e.setdefault("first", now)   # backfill on a partial/edited entry
             if name:
                 e["name"] = name
 
     def is_stalker(self, addr: str, cfg) -> bool:
         e = self._seen.get(addr)
-        if not e:
+        if not isinstance(e, dict):
             return False
         need = int(getattr(cfg, "tracker_alert_sightings", 4) or 4)
         window = float(getattr(cfg, "tracker_alert_window_s", 120.0) or 120.0)
-        return e["count"] >= need and (e["last"] - e["first"]) >= window
+        # defensive reads: a corrupt/hand-edited entry must not crash this safety
+        # check (it's the anti-stalking alert), so missing fields read as 0.
+        count = int(e.get("count", 0) or 0)
+        span = float(e.get("last", 0) or 0) - float(e.get("first", 0) or 0)
+        return count >= need and span >= window
 
     def should_alert(self, addr: str, cfg) -> bool:
         """True exactly once -- when a tracker first qualifies as a stalker."""

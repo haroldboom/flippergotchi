@@ -81,7 +81,9 @@ def save(path: str, state: PetState) -> None:
     d = os.path.dirname(path)
     if d:
         os.makedirs(d, exist_ok=True)
-    tmp = path + ".tmp"
+    tmp = f"{path}.tmp.{os.getpid()}"
     with open(tmp, "w") as f:
         json.dump(state.to_dict(), f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, path)

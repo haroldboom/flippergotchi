@@ -39,9 +39,10 @@ class Agent:
         # prefs holds the dismissible active-ops consent (see _consented)
         self._prefs = prefs_mod.load(cfg.prefs_path)
         self._field_ack = None   # this-session on-the-fly consent (None=unasked)
-        # active RF (deauth/injection / GATT connect) is enabled once the player
-        # has agreed to the on-screen warning -- not gated by a network list.
-        self.wifi = make_backend(cfg, is_authorized=self._consented)
+        # active RF (deauth/injection) during a live capture is gated PER TARGET
+        # by _capture_authorized: consent AND (manual pick | in-scope), so one
+        # global "don't ask again" can't auto-deauth every AP in range.
+        self.wifi = make_backend(cfg, is_authorized=self._capture_authorized)
         self.ble = BluetoothScanner(cfg) if cfg.scan_bluetooth else None
         self.gps = GpsReader(cfg)
         self.ai = AIService(cfg)
@@ -180,6 +181,10 @@ class Agent:
             self._render_capture(m, enc.state == encounter.CAUGHT)
         if enc.state == encounter.CAUGHT:
             self.dex.add(m)
+            # operate on the STORED instance: on a re-encounter add() merges into
+            # the existing monster, so field-battle results (defeated/key) and the
+            # capture_path must be written to the canonical object to persist.
+            m = self.dex.get(m.id) or m
             ups = mechanics.collect(self.state, "handshake", self.cfg)  # catch it
             self._fx_set("excited")
             self.log(f"[catch] caught {m.species} '{ssid}' Lv{m.level} "
@@ -220,8 +225,25 @@ class Agent:
     def _consented(self, bssid: str = "", ssid: str = "") -> bool:
         """Has the player agreed to active operations (deauth/injection/GATT
         connect)? True once they tick 'don't ask again' on the crack warning.
-        Used as the capture backend's gate -- no network allow-list."""
+        The session-wide consent flag -- no network allow-list."""
         return bool(self._prefs.get("hide_fieldcrack_warning"))
+
+    def _capture_authorized(self, bssid: str = "", ssid: str = "") -> bool:
+        """Per-target gate for ACTIVE deauth during a LIVE handshake capture.
+
+        Requires the session consent AND a per-AP justification -- either manual
+        mode (the player picked this AP with a button) or the AP is in their
+        optional authorized scope (cfg.home_networks). For every other AP the
+        backend stays strictly passive (listens, never transmits), so a single
+        'don't ask again' can't turn the auto loop into indiscriminate mass
+        deauth of every network in range. Mirrors the standalone `capture`
+        command's deny-by-default stance; passive capture is unaffected."""
+        if not self._consented():
+            return False
+        if getattr(self.cfg, "manual", False):
+            return True
+        from .core.authz import in_scope
+        return in_scope(bssid, ssid, self.cfg)
 
     def _field_consent(self) -> bool:
         """One-time consent before cracking WEP/WPA on the fly -- the SAME
@@ -440,29 +462,39 @@ class Agent:
 
     def tick(self, dt: float) -> None:
         self._tick_i += 1
-        self.quests.roll(time.strftime("%Y-%m-%d"))   # daily quests (no-op same day)
-        self.quests.roll_weekly(time.strftime("%Y-W%W"))  # weekly horizon
-        self._events(self.wifi.scan())
-        self._spawn_ble()
-        meters = self.gps.distance()
-        if meters > 0:
-            self._progress(mechanics.walk(self.state, meters, self.cfg))
-            self._forage(meters)
-            self._quest("distance_m", meters)
-            self.wallet.earn(shop_mod.scrap_for_walk(meters))
-            self._achievements()
+        # The externally-driven work (radio scans, BLE polls, GPS-driven walk)
+        # consumes data we don't control -- a single malformed AP/event from real
+        # hardware must never kill the loop. Guard it; the deterministic decay +
+        # death check below always run so the pet keeps ticking either way.
+        try:
+            self.quests.roll(time.strftime("%Y-%m-%d"))   # daily quests (no-op same day)
+            self.quests.roll_weekly(time.strftime("%Y-W%W"))  # weekly horizon
+            self._events(self.wifi.scan())
+            self._spawn_ble()
+            meters = self.gps.distance()
+            if meters > 0:
+                self._progress(mechanics.walk(self.state, meters, self.cfg))
+                self._forage(meters)
+                self._quest("distance_m", meters)
+                self.wallet.earn(shop_mod.scrap_for_walk(meters))
+                self._achievements()
+        except Exception as e:  # noqa: BLE001 - never break the tick loop
+            self.log(f"tick step failed: {e}")
         mechanics.tick(self.state, dt * self.cfg.time_scale, self.cfg)
         self._starve_warn_check()
         if mechanics.is_dead(self.state):
             self._hardcore_death()
-        self._home_check()
-        # occasional mood-driven chatter when nothing else is happening
-        now = time.time()
-        if now - self._last_idle > 20:
-            m = mechanics.mood(self.state)
-            if m in ("hungry", "sick", "tired", "happy", "sleeping"):
-                self.speak(m)
-            self._last_idle = now
+        try:
+            self._home_check()
+            # occasional mood-driven chatter when nothing else is happening
+            now = time.time()
+            if now - self._last_idle > 20:
+                m = mechanics.mood(self.state)
+                if m in ("hungry", "sick", "tired", "happy", "sleeping"):
+                    self.speak(m)
+                self._last_idle = now
+        except Exception as e:  # noqa: BLE001 - never break the tick loop
+            self.log(f"tick idle step failed: {e}")
 
     # how many ticks between repeat STARVING warnings within the same stage
     _STARVE_WARN_EVERY = 6

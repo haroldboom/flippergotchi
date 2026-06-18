@@ -56,7 +56,6 @@ _VARIANT_OVERRIDE = {
 # per-stage nudge: heads sit at different heights/sizes. (top% delta, width scale)
 _STAGE_ADJUST = {
     "hatchling": (16, 0.78),
-    "fingerling": (7, 0.9),
     "juvenile": (2, 0.97),
     "adult": (0, 1.0),
     "alpha": (3, 1.05),

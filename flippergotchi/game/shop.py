@@ -68,9 +68,11 @@ class Wallet:
         d = os.path.dirname(self.path)
         if d:
             os.makedirs(d, exist_ok=True)
-        tmp = self.path + ".tmp"
+        tmp = f"{self.path}.tmp.{os.getpid()}"
         with open(tmp, "w") as f:
             json.dump({"scrap": int(self.scrap)}, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, self.path)
 
     def earn(self, amount: int) -> int:

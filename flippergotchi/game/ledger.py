@@ -16,20 +16,27 @@ class Ledger:
         self._load()
 
     def _load(self) -> None:
-        if os.path.exists(self.path):
-            try:
-                with open(self.path) as f:
-                    self.records = json.load(f)
-            except Exception:
-                self.records = []
+        if not os.path.exists(self.path):
+            return
+        try:
+            with open(self.path) as f:
+                raw = json.load(f)
+        except Exception:
+            return
+        # coerce to a list of dict rows: a non-list file (or stray scalar rows)
+        # must degrade to empty/skip rather than crash counts()/record() later,
+        # which feed achievements / profile / the dex.
+        self.records = [r for r in raw if isinstance(r, dict)] if isinstance(raw, list) else []
 
     def save(self) -> None:
         d = os.path.dirname(self.path)
         if d:
             os.makedirs(d, exist_ok=True)
-        tmp = self.path + ".tmp"
+        tmp = f"{self.path}.tmp.{os.getpid()}"
         with open(tmp, "w") as f:
             json.dump(self.records, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, self.path)
 
     def record(self, monster, result: str, via: str = "", key: str = "") -> str | None:
@@ -47,5 +54,7 @@ class Ledger:
     def counts(self) -> dict:
         c = {"win": 0, "loss": 0, "escalate": 0}
         for r in self.records:
-            c[r["result"]] = c.get(r["result"], 0) + 1
+            res = r.get("result") if isinstance(r, dict) else None
+            if res:
+                c[res] = c.get(res, 0) + 1
         return c

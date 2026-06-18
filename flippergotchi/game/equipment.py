@@ -104,20 +104,32 @@ class Inventory:
         try:
             with open(self.path) as f:
                 raw = json.load(f)
-            self.items = {d["id"]: Item.from_dict(d) for d in raw.get("items", [])}
-            self.equipped = {s: i for s, i in raw.get("equipped", {}).items()
-                             if i in self.items}
         except Exception:
-            self.items, self.equipped = {}, {}
+            return
+        if not isinstance(raw, dict):
+            return
+        # tolerant load: skip only the malformed rows, keep the rest of the bag.
+        rows = raw.get("items", [])
+        for d in rows if isinstance(rows, list) else []:
+            try:
+                it = Item.from_dict(d)
+                self.items[it.id] = it
+            except Exception:
+                continue
+        eq = raw.get("equipped", {})
+        if isinstance(eq, dict):
+            self.equipped = {s: i for s, i in eq.items() if i in self.items}
 
     def save(self) -> None:
         d = os.path.dirname(self.path)
         if d:
             os.makedirs(d, exist_ok=True)
-        tmp = self.path + ".tmp"
+        tmp = f"{self.path}.tmp.{os.getpid()}"
         with open(tmp, "w") as f:
             json.dump({"items": [it.to_dict() for it in self.items.values()],
                        "equipped": self.equipped}, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, self.path)
 
     def add(self, item: Item) -> Item:

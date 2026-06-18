@@ -23,7 +23,6 @@ from .game.monsters import label
 from .game.quests import QuestLog
 from .game.shop import Wallet
 from .pet import mechanics
-from .pet.state import PetState
 from .view import animations
 
 import time
@@ -140,6 +139,17 @@ def _render_encounter(cfg, m, line: str = "") -> str | None:
         return None
 
 
+# opponent shark species for the duel render (distinct silhouettes that read on
+# the mono screen). Picked deterministically per peer so a given rival always
+# shows as the same beast -- and never the player's own default sharkface.
+_OPP_SPECIES = ("hammerhead", "goblin", "sawshark", "whaleshark")
+
+
+def _opponent_sprite(key: str) -> str:
+    idx = sum(ord(c) for c in (key or "x")) % len(_OPP_SPECIES)
+    return f"{_OPP_SPECIES[idx]}-adult"
+
+
 def cmd_duel(cfg, target: str | None) -> None:
     """Challenge another Flippergotchi (detected over BLE) to a PvP duel."""
     state = persistence.load(cfg.state_path)
@@ -162,6 +172,14 @@ def cmd_duel(cfg, target: str | None) -> None:
         print(f"No peer named '{target}' nearby. Try `duel` to list them.")
         return
 
+    if int(peer.get("handshakes", 0) or 0) <= 0:
+        # a peer with no handshakes left has nothing to wager: refuse rather than
+        # let the same stale cached sighting be farmed for endless loot + quest
+        # credit. Walking near them again (a fresh BLE sighting) refreshes it.
+        print(f"{peer['name']} has no handshakes left to wager. Walk near them "
+              "again to refresh the matchup.")
+        return
+
     inv = equip_mod.Inventory(cfg.inventory_path)
     you = duel_mod.Fighter(name=state.name, level=state.level,
                            handshakes=state.handshakes, health=state.health,
@@ -181,6 +199,12 @@ def cmd_duel(cfg, target: str | None) -> None:
     # ...and the loser forfeits a bit of gear
     if res.you_won:
         state.duel_wins = getattr(state, "duel_wins", 0) + 1
+        # drain the staked handshakes from the cached peer and persist, so this
+        # sighting can't be re-dueled indefinitely (it depletes; a fresh BLE
+        # sighting refreshes the pool for a rematch).
+        if res.stake:
+            peer["handshakes"] = max(0, int(peer.get("handshakes", 0) or 0) - res.stake)
+            prefs_mod.save(cfg.peers_path, peers)
         loot = equip_mod.roll_item(boost=peer["level"])
         inv.add(loot)
         print(f"  you seized {loot.rarity} gear: {loot.name} (+{loot.power} pow)")
@@ -215,7 +239,8 @@ def cmd_duel(cfg, target: str | None) -> None:
         {"name": state.name, "level": state.level,
          "health": 100 if res.you_won else 30, "sprite": me_sprite},
         {"name": them.name, "level": them.level,
-         "health": 30 if res.you_won else 100, "sprite": "blue-adult"},
+         "health": 30 if res.you_won else 100,
+         "sprite": _opponent_sprite(them.addr or them.name)},
         res.log[-1] if res.log else f"{res.winner} wins!")
     print(f"  [screen] battle -> {out}")
 
