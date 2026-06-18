@@ -34,7 +34,7 @@ machine.
   where starvation means permadeath.
 - **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
   phrases) narrates what the pet feels and what it just caught.
-- **A cyberpunk pixel-art shark character** in an **old-school
+- **A cyberpunk pixel-art shark pet** in an **old-school
   creature-collector 2D HUD**, at the Flipper One's native **256×144**. It **evolves**
   egg→legend and comes in 5 **shark species** (different silhouettes, picked with `--variant`).
 
@@ -51,11 +51,11 @@ handshake → it lands in your bestiary** (the sprite swaps with the action):
 
 ![Flippergotchi gameplay](docs/demo.gif)
 
-| Idle | Equipped gear shows on the character | Hungry |
+| Idle | Equipped gear shows on the pet | Hungry |
 |:---:|:---:|:---:|
 | ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
 
-**Action faces** — the character image changes by mood/action: idle · happy · chomp
+**Action faces** — the pet's image changes by mood/action: idle · happy · chomp
 (catching) · hungry · sleeping · hurt. **Every evolution stage** has the full set
 (hatchling → legend), so the pet emotes at any age:
 
@@ -112,7 +112,7 @@ selects · Back exits):
 ![battle dojo — menu + target list](docs/battle-menu.png)
 
 **PvP duels & equipment** — `duel` renders a 1v1 with a live blow-by-blow;
-`gear` shows your character **wearing** its loadout with total PvP power:
+`gear` shows your pet **wearing** its loadout with total PvP power:
 
 | Duel | Equipment |
 |:---:|:---:|
@@ -127,6 +127,13 @@ and starvation is permadeath.
 | Feed & Larder | Badge wall | Shiny catch |
 |:---:|:---:|:---:|
 | ![feeding screen](docs/feed.png) | ![achievement badge wall](docs/badges.png) | ![a wild shiny monster](docs/shiny.png) |
+
+**Hardcore mode** (`--reset --hardcore`) — opt in once, locked for the pet's life.
+The pet wears an **HC** badge, takes **Doom-style battle damage** (it gets battered
+and gains claw-scars as HP falls), and a flashing **STARVING** warning fires before
+**permadeath** — let it starve and it's reborn as an egg, all progress gone:
+
+![hardcore mode — HC badge, escalating HP damage, starving warning](docs/hardcore.png)
 
 > ⚠️ **Authorized use only.** Capturing / deauthing / cracking is for networks you
 > own or are explicitly permitted to test — same as any WiFi audit tool.
@@ -149,7 +156,7 @@ One exists on your desk.
 ```bash
 cd flippergotchi
 pip install -e .                   # optional: installs the `flippergotchi` command
-./run-dev.sh                       # live full-screen character, fast-forwarded
+./run-dev.sh                       # live full-screen pet, fast-forwarded
 # or, with no install (pure stdlib):
 python3 -m flippergotchi --simulate --plain --ticks 60   # log-only, no clear
 ```
@@ -200,13 +207,13 @@ gps (walking)      ─┘     │            │
 | `view/tui.py` | dev terminal view | ✅ |
 | `view/flipctl.py` | 256×144 creature-collector HUD + pixel sprite | ✅ render; plugin = TODO |
 | `view/battle_screen.py` | 1v1 PvP duel screen render | ✅ render |
-| `view/equip_screen.py` | character-wearing-gear loadout screen render | ✅ render |
+| `view/equip_screen.py` | pet-wearing-gear loadout screen render | ✅ render |
 | `view/encounter_screen.py` | "A wild … appeared!" encounter card render | ✅ render |
 | `view/capture_screen.py` | net-gun capture animation frames (aim→net→GOTCHA) | ✅ render |
 | `view/battle_menu.py` | Battle Dojo menu + scrollable target list + button map | ✅ render |
 | `view/blebattle_screen.py` | BLE battle outcome card (own / control / immune) | ✅ render |
 | `view/monster_art.py` | species → enemy/mini-monster sprite lookup | ✅ done & tested |
-| `view/sprites/` | cyberpunk pixel-art sprites (character + monsters) | ✅ |
+| `view/sprites/` | cyberpunk pixel-art sprites (pet + monsters) | ✅ |
 | `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
 | `game/monsters.py` | AP/BLE → collectible monster + stats + **shiny** (~1/256, stable) | ✅ |
 | `game/bestiary.py` | your captured collection (savefile) | ✅ |
