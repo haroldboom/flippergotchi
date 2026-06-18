@@ -105,6 +105,9 @@ _HTML = """<!doctype html>
   .charwrap{{position:absolute;left:50%;bottom:33px;transform:translateX(-50%);
     height:82px;display:inline-block;z-index:1;
     filter:drop-shadow(0 2px 0 #0008);}}
+  /* starving: the bust slumps / head droops, like the DOOM near-death face */
+  .charwrap.faint{{transform:translateX(-50%) rotate(8deg) translateY(3px);
+    transform-origin:50% 94%;}}
   .character{{height:82px;display:block;position:relative;z-index:2;}}
   /* Doom-style battle damage: as HP falls the pet gets battered (darker + higher
      contrast) AND a bloody wound overlay drips down its face. Grayscale screen,
@@ -149,8 +152,8 @@ _HTML = """<!doctype html>
     font-size:7px;font-weight:800;letter-spacing:.5px;line-height:1;
     color:#000;background:#fff;border:1px solid #000;border-radius:3px;
     padding:1px 3px;filter:contrast(1.6);}}
-  .starve{{position:absolute;left:50%;top:18px;transform:translateX(-50%);z-index:4;
-    font-size:9px;font-weight:800;letter-spacing:1px;line-height:1;
+  .starve{{position:absolute;left:50%;bottom:32px;transform:translateX(-50%);z-index:5;
+    font-size:9px;font-weight:800;letter-spacing:1px;line-height:1;white-space:nowrap;
     color:#fff;background:#000;border:1px solid #fff;border-radius:2px;
     padding:1px 4px;filter:invert(1) contrast(1.8);
     animation:starveflash .6s steps(1) infinite;}}
@@ -162,7 +165,7 @@ _HTML = """<!doctype html>
 </style></head><body>
   <div class="screen">
     <div class="platform"></div>
-    <div class="charwrap"><img class="character {dmgcls}" src="data:image/png;base64,{sprite}"/>{worn}{damage}</div>
+    <div class="charwrap {faintcls}"><img class="character {dmgcls}" src="data:image/png;base64,{sprite}"/>{worn}{damage}</div>
     <div class="gear">{gear}</div>
     {hc}{starve}
     <div class="box hp">
@@ -204,9 +207,10 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
     worn = worn_mod.html(equipped or {}, state.stage, variant)
     # hardcore badge (fixed corner chip; normal pets show nothing)
     hc = '<div class="hc">HC ☠</div>' if getattr(state, "hardcore", False) else ""
-    # severe-starvation danger marker (flashing); visual only
-    starve = ('<div class="starve">! STARVING !</div>'
-              if mechanics.starvation_stage(state) in ("starving", "faint") else "")
+    # severe starvation: flashing danger marker + the bust slumps (head droops)
+    severe = mechanics.starvation_stage(state) in ("starving", "faint")
+    starve = '<div class="starve">! STARVING !</div>' if severe else ""
+    faintcls = "faint" if severe else ""
     # active title subtitle under the name, truncated to fit (CSS ellipsis too)
     title = getattr(state, "active_title", "") or ""
     sub = (f'<div class="sub">{_html.escape(title[:24])}</div>' if title else "")
@@ -221,7 +225,7 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
         name=_html.escape(state.name), level=state.level,
         sprite=_sprite_b64(sprite_name),
         gear=gear, worn=worn, hc=hc, starve=starve, sub=sub,
-        dmgcls=dmgcls, damage=damage,
+        dmgcls=dmgcls, damage=damage, faintcls=faintcls,
         health=health, hpcol=_hp_color(health),
         energy=int(max(0, state.energy)),
         food=int(max(0, min(100, 100 - state.hunger))),
