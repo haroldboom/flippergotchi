@@ -135,8 +135,19 @@ def test_hp_damage_escalates_as_health_falls(tmp_path):
     full = _render(tmp_path, PetState(name="F", health=100))
     assert "character dmg" not in full
     assert 'class="blood"' not in full
-    # progressively battered + a bloody wound overlay as HP drops
+    # default egg stage has no hand-painted damaged face -> the overlay fallback
     light = _render(tmp_path, PetState(name="F", health=55))
     heavy = _render(tmp_path, PetState(name="F", health=10))
     assert "character dmg1" in light and "character dmg3" in heavy
     assert 'class="blood"' in light and 'class="blood"' in heavy
+
+
+def test_damaged_face_overrides_mood_at_low_hp():
+    # a stage WITH hand-painted damaged faces (classic alpha) uses them at low HP,
+    # overriding the mood face -- and they carry the blood, so no overlay
+    from flippergotchi.view import flipctl
+    assert flipctl._sprite_for("alpha", "classic", "happy", 3) == "alpha-dmg3"
+    assert flipctl._sprite_for("alpha", "classic", "happy", 1) == "alpha-dmg1"
+    assert flipctl._sprite_for("alpha", "classic", "happy", 0) == "alpha-happy"
+    # a stage WITHOUT damaged art (egg) falls through -> overlay handles it
+    assert flipctl._sprite_for("egg", "classic", "idle", 3) == "egg"

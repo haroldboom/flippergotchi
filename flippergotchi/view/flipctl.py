@@ -46,12 +46,16 @@ def _exists(name: str) -> bool:
     return os.path.exists(os.path.join(_SPRITES, name + ".png"))
 
 
-def _sprite_for(stage: str, variant: str, mood: str) -> str:
+def _sprite_for(stage: str, variant: str, mood: str, dmg: int = 0) -> str:
+    base = stage if variant in ("classic", "") else f"{variant}-{stage}"
+    # a hand-painted DOOM-style damaged face overrides the mood face at low HP,
+    # when the art exists for this sprite (else the caller uses the blood overlay)
+    if dmg and _exists(f"{base}-dmg{dmg}"):
+        return f"{base}-dmg{dmg}"
     # a non-classic colour variant: use its per-stage sprite (no action faces),
     # falling back to the classic stage sprite (e.g. the shared egg)
     if variant not in ("classic", ""):
-        cand = f"{variant}-{stage}"
-        return cand if _exists(cand) else stage
+        return base if _exists(base) else stage
     # classic: swap to the action/mood face for this stage if it exists
     m = _MOOD_SPRITE.get(mood)
     if m and _exists(f"{stage}-{m}"):
@@ -71,20 +75,21 @@ def _blood_b64(n: int) -> str:
     return _cache[key]
 
 
-def _damage(health: int):
-    """Doom-style escalating battle damage from HP. Returns (character filter
-    class, bloody wound overlay html). >66% pristine; then a battered brightness/
-    contrast filter + a blood overlay (light/moderate/gory) dripping down the
-    face -- dark crimson that reads on the grayscale screen."""
+def _dmg_level(health: int) -> int:
+    """Damage tier from HP: 0 pristine, 1 light, 2 battered, 3 critical."""
     if health > 66:
-        return "", ""
+        return 0
     if health > 40:
-        lvl, n = "dmg1", 1
-    elif health > 18:
-        lvl, n = "dmg2", 2
-    else:
-        lvl, n = "dmg3", 3
-    return lvl, f'<img class="blood" src="data:image/png;base64,{_blood_b64(n)}">'
+        return 1
+    return 2 if health > 18 else 3
+
+
+def _damage_overlay(level: int):
+    """Fallback for sprites with no hand-painted damaged face: a battered filter
+    class + a bloody wound overlay dripping over the nose."""
+    if not level:
+        return "", ""
+    return f"dmg{level}", f'<img class="blood" src="data:image/png;base64,{_blood_b64(level)}">'
 
 
 _HTML = """<!doctype html>
@@ -206,10 +211,15 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
     title = getattr(state, "active_title", "") or ""
     sub = (f'<div class="sub">{_html.escape(title[:24])}</div>' if title else "")
     # Doom-style HP damage: escalating battered filter + claw scratches as HP drops
-    dmgcls, damage = _damage(health)
+    dmg = _dmg_level(health)
+    sprite_name = _sprite_for(state.stage, variant, mood, dmg)
+    if dmg and sprite_name.endswith(f"-dmg{dmg}"):
+        dmgcls, damage = "", ""          # the damaged face already shows the blood
+    else:
+        dmgcls, damage = _damage_overlay(dmg)
     html = _HTML.format(
         name=_html.escape(state.name), level=state.level,
-        sprite=_sprite_b64(_sprite_for(state.stage, variant, mood)),
+        sprite=_sprite_b64(sprite_name),
         gear=gear, worn=worn, hc=hc, starve=starve, sub=sub,
         dmgcls=dmgcls, damage=damage,
         health=health, hpcol=_hp_color(health),
