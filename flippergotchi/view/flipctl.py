@@ -63,30 +63,28 @@ def _hp_color(pct: float) -> str:
     return "#58d858" if pct > 50 else "#f0c020" if pct > 20 else "#e85040"
 
 
-# claw-scratch positions over the character: (left%, top%, rotate-deg). Earlier
-# entries appear first; more show as damage worsens.
-_SCRATCHES = [
-    (24, 22, 32), (52, 44, -26), (36, 62, 14),
-    (16, 40, -38), (60, 26, 40), (44, 14, -18),
-]
+def _blood_b64(n: int) -> str:
+    key = f"fx/blood{n}"
+    if key not in _cache:
+        with open(os.path.join(_SPRITES, "fx", f"blood{n}.png"), "rb") as f:
+            _cache[key] = base64.b64encode(f.read()).decode()
+    return _cache[key]
 
 
 def _damage(health: int):
     """Doom-style escalating battle damage from HP. Returns (character filter
-    class, claw-scratch overlay html). >66% pristine; then a battered brightness/
-    contrast filter + a growing set of scratch marks, all grayscale-safe."""
+    class, bloody wound overlay html). >66% pristine; then a battered brightness/
+    contrast filter + a blood overlay (light/moderate/gory) dripping down the
+    face -- dark crimson that reads on the grayscale screen."""
     if health > 66:
         return "", ""
     if health > 40:
-        lvl, n = "dmg1", 2
+        lvl, n = "dmg1", 1
     elif health > 18:
-        lvl, n = "dmg2", 4
+        lvl, n = "dmg2", 2
     else:
-        lvl, n = "dmg3", 6
-    marks = "".join(
-        f'<div class="scr" style="left:{l}%;top:{t}%;transform:rotate({r}deg)"></div>'
-        for l, t, r in _SCRATCHES[:n])
-    return lvl, f'<div class="dmg">{marks}</div>'
+        lvl, n = "dmg3", 3
+    return lvl, f'<img class="blood" src="data:image/png;base64,{_blood_b64(n)}">'
 
 
 _HTML = """<!doctype html>
@@ -103,16 +101,19 @@ _HTML = """<!doctype html>
     height:82px;display:inline-block;z-index:1;
     filter:drop-shadow(0 2px 0 #0008);}}
   .character{{height:82px;display:block;position:relative;z-index:2;}}
-  /* Doom-style battle damage: as HP falls the sprite gets battered (darker +
-     higher contrast) and gains claw-scratch marks. Grayscale-only, no colour. */
-  .character.dmg1{{filter:brightness(.92) contrast(1.12);}}
-  .character.dmg2{{filter:brightness(.8) contrast(1.3) saturate(0);}}
-  .character.dmg3{{filter:brightness(.62) contrast(1.55) saturate(0);
-    animation:hurtshake .25s steps(2) infinite;}}
-  @keyframes hurtshake{{0%,100%{{transform:translateX(-.6px)}}50%{{transform:translateX(.6px)}}}}
-  .dmg{{position:absolute;inset:0;z-index:3;pointer-events:none;}}
-  .scr{{position:absolute;width:16px;height:2px;border-radius:2px;
-    background:#000;box-shadow:0 1px 0 #ffffff66, 0 -1px 0 #ffffff33;opacity:.85;}}
+  /* Doom-style battle damage: as HP falls the pet gets battered (darker + higher
+     contrast) AND a bloody wound overlay drips down its face. Grayscale screen,
+     so the blood is dark crimson that reads as wet near-black. */
+  .character.dmg1{{filter:brightness(.95) contrast(1.1);}}
+  .character.dmg2{{filter:brightness(.85) contrast(1.25);}}
+  .character.dmg3{{filter:brightness(.7) contrast(1.5);
+    animation:hurtshake .2s steps(2) infinite;}}
+  @keyframes hurtshake{{0%,100%{{transform:translateX(-.7px)}}50%{{transform:translateX(.7px)}}}}
+  .blood{{position:absolute;left:50%;top:-3px;transform:translateX(-50%);
+    width:86%;z-index:3;pointer-events:none;
+    filter:brightness(.85) contrast(1.5) drop-shadow(0 0 1px #000);
+    animation:bloodpulse 1.4s ease-in-out infinite;}}
+  @keyframes bloodpulse{{0%,100%{{opacity:.92}}50%{{opacity:1}}}}
   .worn{{position:absolute;z-index:3;}}
   .worn.back{{z-index:1;}}
   .leg{{animation:legpulse 1.3s ease-in-out infinite;}}
