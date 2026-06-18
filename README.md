@@ -130,10 +130,11 @@ and starvation is permadeath.
 
 **Hardcore mode** (`--reset --hardcore`) — opt in once, locked for the pet's life.
 The pet wears an **HC** badge, takes **Doom-style battle damage** (it gets battered
-and gains claw-scars as HP falls), and a flashing **STARVING** warning fires before
-**permadeath** — let it starve and it's reborn as an egg, all progress gone:
+and a **bloody nose** runs down its face as HP falls), and a flashing **STARVING**
+warning fires before **permadeath** — let it starve and it's reborn as an egg, all
+progress gone:
 
-![hardcore mode — HC badge, escalating HP damage, starving warning](docs/hardcore.png)
+![hardcore mode — HC badge → escalating blood damage → STARVING → permadeath → reborn egg](docs/hardcore.gif)
 
 > ⚠️ **Authorized use only.** Capturing / deauthing / cracking is for networks you
 > own or are explicitly permitted to test — same as any WiFi audit tool.
