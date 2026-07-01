@@ -81,6 +81,11 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = Config.load(args.config)
+    # Resolve all state paths to concrete locations under state_dir. This makes
+    # `~` HOME-unset-safe (systemd) and moves every default path together when
+    # state_dir is overridden. Test suites build Config() directly and never hit
+    # this, so their explicit tmp paths are unaffected.
+    cfg.apply_state_dir()
     if args.simulate:
         cfg.simulate = True
     if args.dry_run:

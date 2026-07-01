@@ -4,6 +4,8 @@ import base64
 import html as _html
 import os
 
+from . import sink
+
 # Screen authored at the Flipper One's native 256x144, scaled up nearest-neighbour
 # (see docs render pipeline) for a crisp retro look. A classic creature-collector PvP
 # duel: the opponent stands upper-right with their HUD box upper-left, the player
@@ -76,11 +78,8 @@ _HTML = """<!doctype html>
 </body></html>"""
 
 
-def render(out_path: str, you: dict, them: dict, line: str = "") -> str:
-    path = os.path.expanduser(out_path)
-    d = os.path.dirname(path)
-    if d:
-        os.makedirs(d, exist_ok=True)
+def render_html(you: dict, them: dict, line: str = "") -> str:
+    """Build the 256x144 PvP duel document as a string (pure; no I/O)."""
     yhealth = int(max(0, min(100, you.get("health", 0))))
     thealth = int(max(0, min(100, them.get("health", 0))))
     html = _HTML.format(
@@ -92,6 +91,8 @@ def render(out_path: str, you: dict, them: dict, line: str = "") -> str:
         thealth=thealth, thpcol=_hp_color(thealth),
         line=_html.escape(line) if line else "",
     )
-    with open(path, "w") as f:
-        f.write(html)
-    return path
+    return html
+
+
+def render(out_path: str, you: dict, them: dict, line: str = "") -> str:
+    return sink.write(out_path, render_html(you, them, line))

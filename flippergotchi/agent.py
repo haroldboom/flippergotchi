@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import signal
 import sys
 import time
 
@@ -614,6 +615,33 @@ class Agent:
         self.ledger.save()
         prefs_mod.save(self.cfg.peers_path, self._peers)
 
+    def _raise_shutdown(self, signum, frame) -> None:
+        """Signal handler: turn SIGTERM/SIGINT into a KeyboardInterrupt so a
+        systemd stop/shutdown exits through the SAME clean save path as Ctrl-C
+        (the loop's `except`/`finally: self._save()`), instead of Python's
+        default SIGTERM which terminates WITHOUT running finally."""
+        raise KeyboardInterrupt
+
+    def _install_signal_handlers(self) -> dict:
+        """Route SIGTERM (and keep SIGINT) through _raise_shutdown. Returns the
+        previous handlers so run() can restore them. signal.signal() only works
+        on the main thread (raises ValueError elsewhere) -- guard it so tests and
+        off-main-thread use don't break; there we simply install nothing."""
+        saved: dict = {}
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            try:
+                saved[sig] = signal.signal(sig, self._raise_shutdown)
+            except (ValueError, OSError):  # not the main thread / unsupported
+                pass
+        return saved
+
+    def _restore_signal_handlers(self, saved: dict) -> None:
+        for sig, handler in saved.items():
+            try:
+                signal.signal(sig, handler)
+            except (ValueError, OSError):
+                pass
+
     def run(self, ticks: int | None = None) -> None:
         # backends are uniform: start() is a no-op in sim and self-degrades on
         # hardware errors, so it never raises out here.
@@ -625,6 +653,7 @@ class Agent:
         self.log(f"{self.state.name} waking up "
                  f"(stage={self.state.stage}, ai={self.ai.backend.name}, "
                  f"capture={backend})")
+        saved_handlers = self._install_signal_handlers()
         i, last = 0, time.time()
         try:
             while ticks is None or i < ticks:
@@ -640,4 +669,5 @@ class Agent:
         except KeyboardInterrupt:
             self.log("going to sleep... (saving state)")
         finally:
+            self._restore_signal_handlers(saved_handlers)
             self._save()

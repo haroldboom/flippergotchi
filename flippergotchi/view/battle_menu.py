@@ -16,6 +16,8 @@ import base64
 import html as _html
 import os
 
+from . import sink
+
 _SPRITES = os.path.join(os.path.dirname(__file__), "sprites")
 _cache: dict = {}
 
@@ -95,20 +97,10 @@ def _doc(body: str) -> str:
     return _DOC.format(body=body, foot=_FOOT).replace("__CSS__", _CSS)
 
 
-def _write(out_path: str, html: str) -> str:
-    path = os.path.expanduser(out_path)
-    d = os.path.dirname(path)
-    if d:
-        os.makedirs(d, exist_ok=True)
-    with open(path, "w") as f:
-        f.write(html)
-    return path
-
-
-def render_menu(out_path: str, ready: int, cracked: int = 0, cursor: int = 0,
-                player: str = "adult") -> str:
-    """The dojo menu: AUTO vs MANUAL. ``ready`` = captured targets not yet
-    battled; ``cursor`` 0=auto, 1=manual."""
+def menu_html(ready: int, cracked: int = 0, cursor: int = 0,
+              player: str = "adult") -> str:
+    """Build the dojo menu document as a string (pure; no I/O). ``ready`` =
+    captured targets not yet battled; ``cursor`` 0=auto, 1=manual."""
     opts = [
         ("AUTO BATTLE", f"crack all {ready} fresh target(s)"),
         ("MANUAL SELECT", "scroll the list, pick a target"),
@@ -124,19 +116,25 @@ def render_menu(out_path: str, ready: int, cracked: int = 0, cursor: int = 0,
             f"<span class='sub'>{ready} ready &middot; {cracked} cracked</span></div>"
             f"{rows}"
             f"<img class='shark' src='data:image/png;base64,{_sprite_b64(player)}'/>")
-    return _write(out_path, _doc(body))
+    return _doc(body)
 
 
-def render_list(out_path: str, items: list, cursor: int = 0,
-                window: int = 5) -> str:
-    """The scrollable target list. ``items`` = dicts with name/level/encryption
-    (+ optional rarity). ``cursor`` is the selected index."""
+def render_menu(out_path: str, ready: int, cracked: int = 0, cursor: int = 0,
+                player: str = "adult") -> str:
+    """Write the dojo menu to ``out_path``. Returns the written path."""
+    return sink.write(out_path, menu_html(ready, cracked, cursor, player))
+
+
+def list_html(items: list, cursor: int = 0, window: int = 5) -> str:
+    """Build the scrollable target-list document as a string (pure; no I/O).
+    ``items`` = dicts with name/level/encryption (+ optional rarity). ``cursor``
+    is the selected index."""
     n = len(items)
     if n == 0:
         body = ("<div class='title'>SELECT TARGET</div>"
                 "<div class='empty'>No captured targets.<br>Go catch some "
                 "monsters first!</div>")
-        return _write(out_path, _doc(body))
+        return _doc(body)
 
     cursor = max(0, min(cursor, n - 1))
     top = max(0, min(cursor - window // 2, max(0, n - window)))
@@ -165,4 +163,10 @@ def render_list(out_path: str, items: list, cursor: int = 0,
               f"style='top:{thumb_y}px;height:{thumb_h}px'></div></div>")
     body = (f"<div class='title'>SELECT TARGET"
             f"<span class='sub'>{cursor + 1}/{n}</span></div>{rows}{scroll}")
-    return _write(out_path, _doc(body))
+    return _doc(body)
+
+
+def render_list(out_path: str, items: list, cursor: int = 0,
+                window: int = 5) -> str:
+    """Write the scrollable target list to ``out_path``. Returns the written path."""
+    return sink.write(out_path, list_html(items, cursor, window))

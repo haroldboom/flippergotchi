@@ -12,6 +12,7 @@ import html as _html
 import os
 
 from . import monster_art
+from . import sink
 
 _SPRITES = os.path.join(os.path.dirname(__file__), "sprites")
 _cache: dict = {}
@@ -144,27 +145,28 @@ def _frame(sprite_b64, shark_b64, pairing, label, detail, frac, banner):
     return body.replace("__CSS__", _CSS)
 
 
-def render_sequence(out_dir: str, monster: dict, result: dict,
-                    player: str = "adult") -> list:
-    """Write one HTML frame per technique step; return the frame paths. ``player``
-    is the shark sprite stem doing the hacking."""
-    out_dir = os.path.expanduser(out_dir)
-    os.makedirs(out_dir, exist_ok=True)
+def sequence_html(monster: dict, result: dict, player: str = "adult") -> list:
+    """Build one HTML frame per technique step as a list of strings (pure; no
+    I/O). ``player`` is the shark sprite stem doing the hacking."""
     species = str(monster.get("species", "Monster"))
     pairing = _PAIRING_LABEL.get(str(monster.get("pairing", "")), "?")
     sprite = monster_art.sprite_b64(species) or _fallback_b64()
     shark = _player_b64(player or "adult")
     steps = (result or {}).get("steps") or [("RESULT", result.get("note", ""))]
     n = len(steps)
-    paths = []
-    for i, (label, detail) in enumerate(steps):
-        banner = _OUTCOME.get(label)            # set only on the terminal step
-        p = os.path.join(out_dir, f"blebattle_{i}.html")
-        with open(p, "w") as f:
-            f.write(_frame(sprite, shark, pairing, label, detail,
-                           (i + 1) / n, banner))
-        paths.append(p)
-    return paths
+    return [_frame(sprite, shark, pairing, label, detail, (i + 1) / n,
+                   _OUTCOME.get(label))          # banner only on the terminal step
+            for i, (label, detail) in enumerate(steps)]
+
+
+def render_sequence(out_dir: str, monster: dict, result: dict,
+                    player: str = "adult") -> list:
+    """Write one HTML frame per technique step; return the frame paths. ``player``
+    is the shark sprite stem doing the hacking."""
+    out_dir = os.path.expanduser(out_dir)
+    frames = sequence_html(monster, result, player)
+    return [sink.write(os.path.join(out_dir, f"blebattle_{i}.html"), html)
+            for i, html in enumerate(frames)]
 
 
 def render(out_path: str, monster: dict, result: dict,

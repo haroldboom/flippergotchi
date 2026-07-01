@@ -17,6 +17,7 @@ import html as _html
 import os
 
 from ..game import achievements as ach_mod
+from . import sink
 
 _TIER = {"bronze": "B", "silver": "S", "gold": "G", "": "-"}
 
@@ -53,18 +54,12 @@ _HTML = """<!doctype html>
 </body></html>"""
 
 
-def render(out_path: str, book, stats, state) -> str:
-    """Write the 256x144 badge wall.
+def render_html(book, stats, state) -> str:
+    """Build the 256x144 badge wall document as a string (pure; no I/O).
 
     ``book`` is a game.achievements.AchievementBook; ``stats`` the read-only
     progress snapshot (achievements.build_stats); ``state`` the PetState (used
-    only for the active title line). Returns out_path. Pure render -- no unlock,
-    no grant."""
-    path = os.path.expanduser(out_path)
-    d = os.path.dirname(path)
-    if d:
-        os.makedirs(d, exist_ok=True)
-
+    only for the active title line). Pure render -- no unlock, no grant."""
     rows = ""
     last_cat = None
     for b in book.all():
@@ -86,7 +81,9 @@ def render(out_path: str, book, stats, state) -> str:
                  f"<span class='nm'>{_html.escape(name)}</span>{hint}</div>")
 
     got, total = book.progress()
-    body = _HTML.format(rows=rows, got=got, total=total)
-    with open(path, "w") as f:
-        f.write(body)
-    return path
+    return _HTML.format(rows=rows, got=got, total=total)
+
+
+def render(out_path: str, book, stats, state) -> str:
+    """Write the 256x144 badge wall to ``out_path``. Returns out_path."""
+    return sink.write(out_path, render_html(book, stats, state))

@@ -20,6 +20,7 @@ import html as _html
 import os
 
 from . import monster_art
+from . import sink
 
 _SPRITES = os.path.join(os.path.dirname(__file__), "sprites")
 _FX = os.path.join(_SPRITES, "fx")
@@ -216,6 +217,23 @@ def beats(caught: bool = True, timeout: int = 20, deauth: int = 5) -> list:
     return _beats(caught, int(timeout), int(deauth))
 
 
+def sequence_html(monster: dict, caught: bool = True, player: str = "adult",
+                  timeout: int = 20, deauth: int = 5) -> list:
+    """Build the capture animation frames as a list of HTML strings (pure; no I/O).
+
+    ``monster`` needs at least ``species`` (sprite) and ``name``. ``player`` is
+    the shark sprite stem; ``timeout`` (s) and ``deauth`` (frame count) are the
+    live capture settings shown in the status HUD. ``caught=False`` renders the
+    timed-out "NO HANDSHAKE" outcome."""
+    species = str(monster.get("species", "Monster"))
+    name = str(monster.get("name", species))
+    shiny = bool(monster.get("shiny", False))
+    sprite = monster_art.sprite_b64(species) or _player_b64("adult")
+    shark = _player_b64(player or "adult")
+    return [_frame_html(sprite, shark, name, int(timeout), beat, shiny)
+            for beat in beats(caught, timeout, deauth)]
+
+
 def render_sequence(out_dir: str, monster: dict, caught: bool = True,
                     player: str = "adult", timeout: int = 20,
                     deauth: int = 5) -> list:
@@ -226,16 +244,6 @@ def render_sequence(out_dir: str, monster: dict, caught: bool = True,
     live capture settings shown in the status HUD. ``caught=False`` renders the
     timed-out "NO HANDSHAKE" outcome."""
     out_dir = os.path.expanduser(out_dir)
-    os.makedirs(out_dir, exist_ok=True)
-    species = str(monster.get("species", "Monster"))
-    name = str(monster.get("name", species))
-    shiny = bool(monster.get("shiny", False))
-    sprite = monster_art.sprite_b64(species) or _player_b64("adult")
-    shark = _player_b64(player or "adult")
-    paths = []
-    for i, beat in enumerate(beats(caught, timeout, deauth)):
-        p = os.path.join(out_dir, f"capture_{i}.html")
-        with open(p, "w") as f:
-            f.write(_frame_html(sprite, shark, name, int(timeout), beat, shiny))
-        paths.append(p)
-    return paths
+    frames = sequence_html(monster, caught, player, timeout, deauth)
+    return [sink.write(os.path.join(out_dir, f"capture_{i}.html"), html)
+            for i, html in enumerate(frames)]

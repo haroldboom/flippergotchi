@@ -5,6 +5,7 @@ import html as _html
 import os
 
 from ..pet import mechanics
+from . import sink
 from . import worn as worn_mod
 
 # Screen authored at the Flipper One's native 256x144, scaled up nearest-neighbour
@@ -186,12 +187,9 @@ _RARITY = {"common": "#b8c2cb", "uncommon": "#7fd1a6", "rare": "#5aa9ff",
            "epic": "#c07bf0", "legendary": "#ffcf4d"}
 
 
-def render(state, cfg, line: str = "", mood_override: str | None = None,
-           equipped: dict | None = None) -> str:
-    path = os.path.expanduser(cfg.flipctl_html_out)
-    d = os.path.dirname(path)
-    if d:
-        os.makedirs(d, exist_ok=True)
+def render_html(state, cfg, line: str = "", mood_override: str | None = None,
+                equipped: dict | None = None) -> str:
+    """Build the 256x144 live HUD document as a string (pure; no I/O)."""
     variant = getattr(cfg, "character_variant", "classic")
     mood = mood_override or mechanics.mood(state)
     nxt = mechanics.xp_to_next(state.level, cfg)
@@ -233,6 +231,11 @@ def render(state, cfg, line: str = "", mood_override: str | None = None,
         xp=int(max(0, min(100, state.xp / nxt * 100))) if nxt else 0,
         line=_html.escape(f'"{line}"') if line else "",
     )
-    with open(path, "w") as f:
-        f.write(html)
-    return path
+    return html
+
+
+def render(state, cfg, line: str = "", mood_override: str | None = None,
+           equipped: dict | None = None) -> str:
+    return sink.write(
+        cfg.flipctl_html_out,
+        render_html(state, cfg, line, mood_override, equipped))

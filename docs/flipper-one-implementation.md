@@ -112,6 +112,24 @@ These undermine the project's own stated safety guarantees. None is large.
 
 ## Priority 1 — Blocks running as a real app on-device
 
+> **Status (partial).** Done this pass, on `refactor/persistence-facade`:
+> item 6 (render/output seam split — `view/sink.py` + pure `*_html()` builders,
+> non-breaking), item 10 (SIGTERM graceful save), item 11 (config search path +
+> `packaging/flippergotchi.service` + `docs/deployment.md`), item 12 (HOME-safe
+> `state_dir` resolver), item 13 (dependency extras/pins + aarch64 QEMU CI +
+> `docs/packaging.md`), and item 14's safety half (GPS sanity-clamp + honest
+> README/`docs/movement-mechanic.md`). Test suite 381 → **417**.
+>
+> **Deferred — blocked on a decision or on hardware:** items 8 (DOM-delta
+> animation) and 9 (input routing) both need the delivery model settled and a
+> real device. Two decision spikes were produced to unblock them:
+> `docs/ui-render-through.md` (recommends a **Flatpak/AppImage full-screen WebKit
+> app**, not a FlipCTL plugin) with a runnable `tools/shoot.py` WebKit render
+> harness, and `docs/movement-mechanic.md` (recommends a tiered movement model:
+> Wi-Fi/BLE-scan heuristic by default, external/M.2 GNSS via the existing gpsd
+> path as an upgrade). These two product decisions are the user's to confirm
+> before the deferred items proceed.
+
 ### The biggest structural gap: no device UI or input layer
 Every interaction today is a terminal TUI (`os.system("clear")`, `print`, `input()`),
 stdin prompts, or an HTML file written to `/tmp/flippergotchi/*.html`. On a real Flipper

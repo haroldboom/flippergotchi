@@ -25,14 +25,24 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-# ai_backend = "cpu" (run a local GGUF model)
-ai = ["llama-cpp-python"]
-# native WiFi capture path
-wifi = ["scapy"]
-# live BLE scanning + Flippergotchi peer discovery
-ble = ["bleak"]
+# ai_backend = "cpu" -- run a local GGUF model via llama.cpp bindings.
+# 0.3.32 is the current release and the arm64/aarch64 CPU wheels cover
+# cp38-cp312 (matches this project's 3.10-3.12 classifiers). On Python 3.13+,
+# or arches without a wheel, pip builds from the sdist and needs a C/C++
+# toolchain (cmake + a compiler) -- see docs/packaging.md.
+ai-cpu = ["llama-cpp-python==0.3.32"]
+# Back-compat alias for the older `ai` extra name.
+ai = ["llama-cpp-python==0.3.32"]
+# native WiFi capture path (raw 802.11 frame parsing)
+wifi = ["scapy>=2.5.0"]
+# live BLE scanning + Flippergotchi peer discovery. >=0.22 keeps the
+# `BleakScanner.discover(return_adv=True)` API the code relies on and allows
+# the current 3.x line (BlueZ backend on Linux).
+ble = ["bleak>=0.22"]
 # test suite
 dev = ["pytest"]
+# host-only sprite tooling (tools/gen_sprite.py); NOT a device runtime dep.
+tools = ["numpy", "Pillow"]
 
 [project.urls]
 Homepage = "https://github.com/haroldboom/flippergotchi"

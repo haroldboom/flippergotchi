@@ -25,7 +25,11 @@ machine.
   handshake to add it to your **bestiary** (creature-collector style) — *not* food.
 - **Walking is the fitness core.** GPS movement → XP → levels → evolutions
   (egg → hatchling → … → legend), and your shark **forages food** (and, rarely,
-  gear) as you walk — that's how the pet actually stays fed.
+  gear) as you walk — that's how the pet actually stays fed. Note the Flipper One
+  has **no onboard GPS/GNSS and no IMU/accelerometer**
+  ([tech specs](https://docs.flipper.net/one/general/tech-specs)), so on real
+  hardware this needs an **externally attached GPS** (read via `gpsd`) or another
+  movement source — see [`docs/movement-mechanic.md`](docs/movement-mechanic.md).
 - **Crack & duel for loot.** Cracking a captured monster (after a one-time warning) or duelling a
   rival Flippergotchi drops **equipment** you can equip.
 - **A deep progression loop.** Daily/weekly **quests** + lifetime story **chains**,
@@ -197,7 +201,7 @@ gps (walking)      ─┘     │            │
 | `game/food.py` · `game/larder.py` | typed foods (Scrap Chum→Power Cell) + a capped larder pantry | ✅ done & tested |
 | `game/moves.py` | per-element PvP move sets + status effects | ✅ done & tested |
 | `core/bettercap.py` | WiFi capture via bettercap REST | **sim works**; live wired (needs on-device validation) |
-| `pet/gps.py` | GPS movement → walk distance | **sim works**; gpsd = TODO |
+| `pet/gps.py` | GPS movement → walk distance (**needs external GPS**: no onboard GNSS/IMU) | sim ✅; gpsd reader implemented + sanity-clamped (needs on-device validation) |
 | `pet/mechanics.py` | hunger / **satiety** / **escalating starvation** / xp / levels / evolution / mood | ✅ done & tested |
 | `pet/state.py` | the savefile (v2: satiety / titles / **hardcore** mode; `persistence.migrate`) | ✅ done & tested |
 | `ai/service.py` | event + mood → spoken line | ✅ (backend-pluggable) |
@@ -452,8 +456,13 @@ without executing it. Drop `--dry-run` (with proper authorization) to go live.
    real radio result decides catch vs. no-handshake — the capture file is kept on
    the monster for later cracking/upload. In `--simulate` this is skipped and the
    outcome stays a synthetic roll, so nothing changes without hardware.
-2. **Walking:** implement `GpsReader._gpsd_step()` against `gpsd`. Set
-   `gps_mode = "gpsd"`.
+2. **Walking:** attach an **external** USB/UART GPS (the Flipper One has no
+   onboard GNSS or IMU — [tech specs](https://docs.flipper.net/one/general/tech-specs)),
+   run `gpsd`, and set `gps_mode = "gpsd"`. `GpsReader._gpsd_step()` is already
+   implemented and sanity-clamps fixes (mode≥2 only, accuracy-gated, teleport
+   drop, speed cap) before they feed the walk economy; it just needs on-device
+   validation. Alternative movement sources are discussed in
+   [`docs/movement-mechanic.md`](docs/movement-mechanic.md).
 3. **Face:** wrap `view/flipctl.py`'s markup in a real FlipCTL plugin and map the
    D-pad / soft-buttons (feed, pause, sleep, stats) to actions.
 4. **AI:** convert a sub-3B model to `.rkllm`, finish `ai/rkllm_npu.py`, set
@@ -481,9 +490,14 @@ hardware — that's the design. Every hardware path is marked
   (`game/cracking.py` `CloudCracker`, `cloud submit` / `cloud results`).
 - Real-hardware paths are **implemented but unvalidated** (need a device):
   - `core/wifi/*` native capture · `core/bettercap.py` live REST client
-  - `pet/gps.py` gpsd reader · `core/bluetooth.py` BLE scan via optional `bleak`
+  - `pet/gps.py` gpsd reader (requires an **external** GPS — no onboard GNSS) ·
+    `core/bluetooth.py` BLE scan via optional `bleak`
   - still TODO: FlipCTL device plugin, RKLLM NPU backend.
-- Step counter via the device IMU (true pedometer) alongside GPS distance.
+- ~~Step counter via the device IMU (true pedometer) alongside GPS distance~~ —
+  **not possible on the Flipper One: it has no IMU/accelerometer**
+  ([tech specs](https://docs.flipper.net/one/general/tech-specs)). Any pedometer
+  would need an external sensor; see [`docs/movement-mechanic.md`](docs/movement-mechanic.md)
+  for movement-source options.
 - Reinforcement-learning channel hopper (classic Pwnagotchi A2C) as an optional
   capture optimizer — CPU, independent of the LLM.
 - Trade/share your bestiary; co-op "raids" on tough APs over BLE.

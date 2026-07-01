@@ -15,6 +15,7 @@ import html as _html
 import os
 
 from . import monster_art
+from . import sink
 
 _SPRITES = os.path.join(os.path.dirname(__file__), "sprites")
 _cache: dict = {}
@@ -99,15 +100,10 @@ _HTML = """<!doctype html>
 </body></html>"""
 
 
-def render(out_path: str, monster: dict, line: str = "") -> str:
-    """Write a 256x144 encounter card for ``monster`` (a dict with species/name/
-    level/encryption/defense). ``line`` overrides the default appear message.
-    Returns out_path."""
-    path = os.path.expanduser(out_path)
-    d = os.path.dirname(path)
-    if d:
-        os.makedirs(d, exist_ok=True)
-
+def render_html(monster: dict, line: str = "") -> str:
+    """Build the 256x144 encounter card for ``monster`` (a dict with species/
+    name/level/encryption/defense) as a string (pure; no I/O). ``line`` overrides
+    the default appear message."""
     species = str(monster.get("species", "Monster"))
     enc = str(monster.get("encryption", "") or "").lower()
     kind = str(monster.get("kind", "wifi"))
@@ -135,6 +131,9 @@ def render(out_path: str, monster: dict, line: str = "") -> str:
         defpct=defense, defcol=_diff_color(defense),
         sprite=sprite, line=_html.escape(msg),
     )
-    with open(path, "w") as f:
-        f.write(html)
-    return path
+    return html
+
+
+def render(out_path: str, monster: dict, line: str = "") -> str:
+    """Write a 256x144 encounter card for ``monster``. Returns out_path."""
+    return sink.write(out_path, render_html(monster, line))

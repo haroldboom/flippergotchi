@@ -1,0 +1,53 @@
+[Unit]
+Description=Flippergotchi - a Tamagotchi-style WiFi pet
+Documentation=https://github.com/haroldboom/flippergotchi
+# Wait for the network stack; the radio work degrades to passive/sim if absent.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# --- Identity ---------------------------------------------------------------
+# Replace with the account that owns the capture hardware. HOME MUST be set:
+# without it os.path.expanduser("~") returns a literal "~" and state would land
+# in "./~/.flippergotchi" under the service's working directory.
+User=flippergotchi
+Group=flippergotchi
+Environment=HOME=/var/lib/flippergotchi
+
+# --- State ------------------------------------------------------------------
+# systemd creates /var/lib/flippergotchi (0700, owned by User) and exports
+# $STATE_DIRECTORY. Point Flippergotchi's state_dir here so all JSON stores live
+# under the managed StateDirectory rather than a home dir.
+StateDirectory=flippergotchi
+WorkingDirectory=/var/lib/flippergotchi
+Environment=FLIPPERGOTCHI_CONFIG=/etc/flippergotchi/config.toml
+
+# --- Command ----------------------------------------------------------------
+# `flippergotchi` is the console script from [project.scripts]. No `-c`: the
+# config is found via $FLIPPERGOTCHI_CONFIG (or the default search path).
+ExecStart=/usr/bin/flippergotchi
+
+# --- Capabilities -----------------------------------------------------------
+# Monitor mode + raw 802.11 frame injection/capture need NET_ADMIN and NET_RAW.
+# AmbientCapabilities grants them to the unprivileged User without full root.
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+
+# --- Resilience -------------------------------------------------------------
+Restart=on-failure
+RestartSec=5
+# systemd's default SIGTERM stop is now handled: the process installs a SIGTERM
+# handler that flushes state before exiting (see agent.run()).
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# --- Hardening (relax if it interferes with radio tooling) ------------------
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

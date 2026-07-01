@@ -13,6 +13,7 @@ import html as _html
 import os
 
 from ..game.equipment import SLOTS
+from . import sink
 from . import worn as worn_mod
 from .worn import _RARITY
 
@@ -79,17 +80,13 @@ _HTML = """<!doctype html>
 </body></html>"""
 
 
-def render(out_path: str, inv, character_sprite: str = "adult") -> str:
-    """Write a 256x144 equipment screen for `inv` (a game.equipment.Inventory).
+def render_html(inv, character_sprite: str = "adult") -> str:
+    """Build the 256x144 equipment screen for `inv` (a game.equipment.Inventory)
+    as a string (pure; no I/O).
 
     The character `character_sprite` is drawn wearing its equipped pieces, with a
-    cream box per slot on the right and a PvP-power footer. Returns out_path.
+    cream box per slot on the right and a PvP-power footer.
     """
-    path = os.path.expanduser(out_path)
-    d = os.path.dirname(path)
-    if d:
-        os.makedirs(d, exist_ok=True)
-
     # worn gear: overlay each equipped piece on the character (shared anchors so
     # gear sits identically here and on the live HUD).
     equipped = {slot: it.rarity
@@ -124,6 +121,9 @@ def render(out_path: str, inv, character_sprite: str = "adult") -> str:
         sprite=_sprite_b64(character_sprite),
         worn=worn, slots=slots, power=inv.gear_power(),
     )
-    with open(path, "w") as f:
-        f.write(html)
-    return path
+    return html
+
+
+def render(out_path: str, inv, character_sprite: str = "adult") -> str:
+    """Write a 256x144 equipment screen for `inv`. Returns out_path."""
+    return sink.write(out_path, render_html(inv, character_sprite))

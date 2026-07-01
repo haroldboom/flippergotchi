@@ -1,4 +1,9 @@
 include README.md
 include LICENSE
 include requirements.txt
+include pyproject.toml
+include config.example.toml
+include docs/packaging.md
+# systemd unit(s) for on-device install (see docs/packaging.md).
+recursive-include packaging *.service
 recursive-include flippergotchi/view/sprites *.png

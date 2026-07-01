@@ -12,6 +12,7 @@ import os
 
 from ..pet import mechanics
 from . import flipctl
+from . import sink
 from ..game import food as food_mod
 
 
@@ -61,14 +62,10 @@ def _food_color(pct: float) -> str:
     return "#58d858" if pct > 55 else "#f0c020" if pct > 25 else "#e85040"
 
 
-def render(out_path: str, state, cfg, larder, eaten=None, line: str = "") -> str:
-    """Render the feeding screen. ``larder`` is a game.larder.Larder; ``eaten`` is
-    the food id just consumed (highlights the row + chomp face). Returns out_path."""
-    path = os.path.expanduser(out_path)
-    d = os.path.dirname(path)
-    if d:
-        os.makedirs(d, exist_ok=True)
-
+def render_html(state, cfg, larder, eaten=None, line: str = "") -> str:
+    """Build the feeding screen document as a string (pure; no I/O). ``larder`` is
+    a game.larder.Larder; ``eaten`` is the food id just consumed (highlights the
+    row + chomp face)."""
     variant = getattr(cfg, "character_variant", "classic")
     mood = "eating" if eaten else mechanics.mood(state)
     sprite = flipctl._sprite_b64(flipctl._sprite_for(state.stage, variant, mood))
@@ -99,6 +96,9 @@ def render(out_path: str, state, cfg, larder, eaten=None, line: str = "") -> str
         sprite=sprite, food=food_pct, foodcol=_food_color(food_pct),
         total=larder.total(), cap=larder.capacity, rows=rows,
         line=_html.escape(line))
-    with open(path, "w") as f:
-        f.write(body)
-    return path
+    return body
+
+
+def render(out_path: str, state, cfg, larder, eaten=None, line: str = "") -> str:
+    """Render the feeding screen to ``out_path``. Returns out_path."""
+    return sink.write(out_path, render_html(state, cfg, larder, eaten, line))

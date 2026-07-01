@@ -9,6 +9,34 @@ except ModuleNotFoundError:  # pragma: no cover
     tomllib = None
 
 
+# The built-in home for all persistent state. Per-store paths default under this
+# directory; overriding `state_dir` (config field) relocates every default path
+# coherently (see Config.resolve_path / Config.apply_state_dir).
+_DEFAULT_STATE_DIR = "~/.flippergotchi"
+
+
+def _concrete_base() -> str:
+    """A concrete state base to use when HOME is unavailable (e.g. under systemd
+    with no HOME set, where os.path.expanduser('~') returns a literal '~').
+
+    Prefers systemd's $STATE_DIRECTORY (set by `StateDirectory=flippergotchi`),
+    falling back to the FHS state location. Never returns a '~'-relative path."""
+    sd = os.environ.get("STATE_DIRECTORY", "")
+    sd = sd.split(os.pathsep)[0].strip() if sd else ""
+    return sd or "/var/lib/flippergotchi"
+
+
+def _safe_expanduser(value: str) -> str:
+    """expanduser that never yields a literal '~'. When HOME is unset the stdlib
+    leaves a leading '~' in place; anchor that tail under a concrete base so
+    state can never land in './~/...' relative to the process CWD."""
+    p = os.path.expanduser(str(value))
+    if p == "~" or p.startswith("~" + os.sep) or p.startswith("~/"):
+        tail = p[1:].lstrip("/\\")
+        return os.path.join(_concrete_base(), tail) if tail else _concrete_base()
+    return p
+
+
 def _coerce_scalar(v: str):
     v = v.strip()
     if len(v) >= 2 and v[0] == '"' and v[-1] == '"':
@@ -184,10 +212,37 @@ class Config:
     battlelist_html_out: str = "/tmp/flippergotchi/battlelist.html"  # target list
     blebattle_html_out: str = "/tmp/flippergotchi/blebattle.html"    # BLE outcome
     blebattle_frames_dir: str = "/tmp/flippergotchi/blebattle"       # BLE anim frames
+    # Root for all persistent state. Every *_path default lives under here; move
+    # this (config or $FLIPPERGOTCHI_CONFIG) to relocate ALL state together.
+    state_dir: str = "~/.flippergotchi"
     state_path: str = "~/.flippergotchi/state.json"
+
+    @staticmethod
+    def _search_config_path() -> str | None:
+        """Default config search path when none is passed explicitly. Returns the
+        first candidate that exists, else None (=> pure defaults). Order:
+        $FLIPPERGOTCHI_CONFIG, ./flippergotchi.toml, ~/.config/flippergotchi/
+        config.toml, /etc/flippergotchi/config.toml."""
+        candidates = []
+        env = os.environ.get("FLIPPERGOTCHI_CONFIG")
+        if env:
+            candidates.append(env)
+        candidates += [
+            "flippergotchi.toml",
+            "~/.config/flippergotchi/config.toml",
+            "/etc/flippergotchi/config.toml",
+        ]
+        for c in candidates:
+            if c and os.path.exists(os.path.expanduser(c)):
+                return c
+        return None
 
     @classmethod
     def load(cls, path: str | None) -> "Config":
+        # No explicit path -> consult the default search path so the device can
+        # run without `-c`. An explicit path keeps its exact prior behaviour.
+        if not path:
+            path = cls._search_config_path()
         cfg = cls()
         if not path:
             return cfg
@@ -205,3 +260,50 @@ class Config:
             if k in names:
                 setattr(cfg, k, v)
         return cfg
+
+    def _state_base_dir(self) -> str:
+        """The concrete directory `state_dir` resolves to (HOME-unset safe).
+
+        When HOME is unset the default ``~/.flippergotchi`` cannot expand, so the
+        concrete base (``$STATE_DIRECTORY`` or ``/var/lib/flippergotchi``)
+        replaces the whole ``~/...`` state root -- not just the leading ``~`` --
+        keeping the resulting tree clean (``/var/lib/flippergotchi/state.json``,
+        not ``.../.flippergotchi/state.json``)."""
+        base = os.path.expanduser(str(self.state_dir))
+        if base == "~" or base.startswith("~" + os.sep) or base.startswith("~/"):
+            base = _concrete_base()
+        return base
+
+    def resolve_path(self, value: str) -> str:
+        """Resolve a per-store path to a concrete filesystem location.
+
+        (a) A path still at its *default* location (under the built-in
+            ``~/.flippergotchi``) is relocated under ``state_dir`` -- so
+            overriding ``state_dir`` moves ALL state coherently.
+        (b) ``~`` is expanded and can never yield a literal ``~``: with HOME
+            unset (systemd) it anchors under a concrete base instead of creating
+            ``./~/.flippergotchi`` in the process CWD.
+
+        An explicitly-set path (anything not under the default base -- e.g. the
+        tmp paths the test suite injects) is passed through unchanged apart from
+        the same HOME-unset-safe ``~`` expansion.
+        """
+        value = str(value)
+        base = self._state_base_dir()
+        if value == _DEFAULT_STATE_DIR:
+            return base
+        if value.startswith(_DEFAULT_STATE_DIR + "/"):
+            return os.path.join(base, value[len(_DEFAULT_STATE_DIR) + 1:])
+        return _safe_expanduser(value)
+
+    def apply_state_dir(self) -> "Config":
+        """Rewrite every state-bearing path field in place to a concrete location
+        under ``state_dir`` (see resolve_path). Only fields whose *default* lives
+        under ``~/.flippergotchi`` are touched -- ephemeral render outputs
+        (``/tmp/...``) and non-path fields are left alone. Call once after load;
+        safe to call again (idempotent for already-resolved paths)."""
+        for fld in fields(self):
+            default = fld.default
+            if isinstance(default, str) and default.startswith(_DEFAULT_STATE_DIR):
+                setattr(self, fld.name, self.resolve_path(getattr(self, fld.name)))
+        return self

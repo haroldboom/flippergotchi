@@ -34,3 +34,45 @@ jobs:
         run: pip install -e .
       - name: Headless simulate run
         run: python -m flippergotchi --simulate --plain --ticks 5 --time-scale 50
+
+  aarch64:
+    # Exercises the arm64/aarch64 story (the Flipper One is an RK3576 Arm-Linux
+    # device) under emulation, since GitHub's hosted runners are x86_64. This
+    # runs the stdlib-only core install + full test suite inside an arm64
+    # Debian container via QEMU. It is slower than the native x86 jobs but must
+    # stay green -- it guards against arch-specific import/packaging breakage.
+    name: aarch64 (QEMU) core install + pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU (arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - name: Install + test on aarch64
+        run: |
+          docker run --rm --platform linux/arm64 \
+            -v "${{ github.workspace }}:/src" -w /src \
+            arm64v8/python:3.12-slim bash -euxo pipefail -c '
+              uname -m
+              pip install --no-cache-dir -e ".[dev]"
+              python -m flippergotchi --simulate --plain --ticks 5 --time-scale 50
+              python -m pytest -q
+            '
+
+  ble-import:
+    # BlueZ/bleak backend can not be functionally exercised on the hosted
+    # runners (no Bluetooth adapter), but we can at least prove the `ble` extra
+    # resolves and imports cleanly on Linux -- the platform the Flipper One
+    # actually uses. Keeps the BlueZ dependency story from silently rotting.
+    name: ble extra install + import
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install with the ble extra
+        run: pip install -e ".[ble]"
+      - name: Validate bleak import
+        run: python -c "import bleak; from bleak import BleakScanner; print('bleak', bleak.__version__)"
