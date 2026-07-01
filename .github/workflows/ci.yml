@@ -76,3 +76,34 @@ jobs:
         run: pip install -e ".[ble]"
       - name: Validate bleak import
         run: python -c "import bleak; from bleak import BleakScanner; print('bleak', bleak.__version__)"
+
+  previews:
+    # Regenerate the device-accurate render previews (docs/device/) through the
+    # real pipeline: HTML -> headless WebKit at 256x144 -> 6-bit grayscale +
+    # dithering. WebKit is the engine the Flipper One runs on DRM, so this guards
+    # that every screen still renders and the shoot.py harness keeps working.
+    #
+    # It uploads the regenerated set as an artifact rather than hard-failing on a
+    # diff against the committed PNGs: rendered images are not byte-deterministic
+    # across hosts (font hinting, antialiasing, PNG encoder all vary), so a strict
+    # `git diff` gate would be flaky. `make previews` DOES fail if the pipeline
+    # produces nothing, so a genuinely broken renderer still breaks CI.
+    name: device render previews (webkit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install app + preview harness (Playwright + WebKit host deps)
+        run: |
+          pip install -e .
+          make previews-deps
+      - name: Regenerate device previews
+        run: make previews
+      - name: Upload previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: device-previews
+          path: docs/device/*.png
+          if-no-files-found: error
