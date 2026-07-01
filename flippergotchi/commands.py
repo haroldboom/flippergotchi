@@ -24,6 +24,8 @@ from .game.quests import QuestLog
 from .game.shop import Wallet
 from .pet import mechanics
 from .view import animations
+from .view import screens
+from .gamestate import GameState
 
 import time
 
@@ -36,11 +38,15 @@ def _thisweek() -> str:
     return time.strftime("%Y-W%W")
 
 
-def _quest_bonus(cfg, quests) -> None:
-    """Pay the all-dailies-clear bonus once per day from the CLI side."""
+def _quest_bonus(cfg, quests, wallet=None) -> None:
+    """Pay the all-dailies-clear bonus once per day from the CLI side.
+
+    ``wallet`` (optional) lets the caller thread its shared Wallet so the bonus
+    accumulates on it (saved once by the caller); without one a fresh wallet is
+    loaded+saved for the credit."""
     bonus = quests.claim_daily_bonus(_today())
     if bonus:
-        quests_mod._credit_scrap(cfg, None, bonus)
+        quests_mod._credit_scrap(cfg, wallet, bonus)
         print(f"  [quest] all dailies cleared! +{bonus} scrap bonus")
 
 _ICON = {"cracked": "WIN", "tamed": "TAMED", "failed": "LOSS",
@@ -85,7 +91,7 @@ def cmd_encounter(cfg) -> None:
     e = enc_mod.Encounter(m)
     print(animations.popup(m))
     # render the visual 256x144 "A wild <species> appeared!" card
-    out = _render_encounter(cfg, m)
+    out = screens.render_encounter(cfg, m)
     if out:
         print(f"  [screen] encounter -> {out}")
     print("\n  > you chose: CAPTURE\n")
@@ -95,64 +101,15 @@ def cmd_encounter(cfg) -> None:
         print()
     # render the visual net-gun capture frames (the device swaps through these)
     caught = e.state == enc_mod.CAUGHT
-    frames = _render_capture(cfg, m, caught)
+    frames = screens.render_capture(cfg, m, caught)
     if frames:
         print(f"  [screen] capture animation -> {os.path.dirname(frames[0])} "
               f"({len(frames)} frames)")
     print(f"  => {e.message}")
 
 
-def _player_stem(cfg) -> str:
-    variant = getattr(cfg, "character_variant", "classic")
-    return "adult" if variant in ("classic", "") else f"{variant}-adult"
-
-
-def _render_capture(cfg, m, caught: bool) -> list | None:
-    """Best-effort visual net-gun capture frames; never breaks the flow.
-
-    The status HUD reflects the live deauth/capture settings (cfg.deauth_count,
-    cfg.capture_timeout) -- the same values the real capture uses."""
-    try:
-        from .view import capture_screen
-        out = getattr(cfg, "capture_frames_dir", "/tmp/flippergotchi/capture")
-        return capture_screen.render_sequence(
-            os.path.expanduser(out),
-            {"species": m.species, "name": label(m)},
-            caught=caught, player=_player_stem(cfg),
-            timeout=int(getattr(cfg, "capture_timeout", 20) or 20),
-            deauth=int(getattr(cfg, "deauth_count", 5) or 5))
-    except Exception:  # noqa: BLE001
-        return None
-
-
-def _render_encounter(cfg, m, line: str = "") -> str | None:
-    """Best-effort visual encounter card; never breaks the encounter flow."""
-    try:
-        from .view import encounter_screen
-        out = getattr(cfg, "encounter_html_out", "/tmp/flippergotchi/encounter.html")
-        return encounter_screen.render(os.path.expanduser(out), {
-            "species": m.species, "name": label(m), "level": m.level,
-            "encryption": m.encryption, "defense": m.defense, "kind": m.kind,
-            "shiny": getattr(m, "shiny", False),
-        }, line)
-    except Exception:  # noqa: BLE001
-        return None
-
-
-# opponent shark species for the duel render (distinct silhouettes that read on
-# the mono screen). Picked deterministically per peer so a given rival always
-# shows as the same beast -- and never the player's own default sharkface.
-_OPP_SPECIES = ("hammerhead", "goblin", "sawshark", "whaleshark")
-
-
-def _opponent_sprite(key: str) -> str:
-    idx = sum(ord(c) for c in (key or "x")) % len(_OPP_SPECIES)
-    return f"{_OPP_SPECIES[idx]}-adult"
-
-
 def cmd_duel(cfg, target: str | None) -> None:
     """Challenge another Flippergotchi (detected over BLE) to a PvP duel."""
-    state = persistence.load(cfg.state_path)
     peers = prefs_mod.load(cfg.peers_path)
 
     if not target:
@@ -180,69 +137,77 @@ def cmd_duel(cfg, target: str | None) -> None:
               "again to refresh the matchup.")
         return
 
-    inv = equip_mod.Inventory(cfg.inventory_path)
-    you = duel_mod.Fighter(name=state.name, level=state.level,
-                           handshakes=state.handshakes, health=state.health,
-                           happiness=state.happiness, gear=inv.gear_power(),
-                           element=getattr(state, "element", "Aether"),
-                           satiety=getattr(state, "satiety", 0.0))
-    them = duel_mod.Fighter(name=peer["name"], level=peer["level"],
-                            handshakes=peer["handshakes"],
-                            gear=peer.get("gear_power", 0),
-                            element=peer.get("element", "Aether"), addr=peer["addr"])
-    print(f"== DIGI-DUEL ==  {you.name} vs {them.name}\n")
-    res = duel_mod.duel(you, them, cfg)
-    for line in res.log:
-        print(f"  {line}")
-    duel_mod.apply_result(state, res)
+    with GameState(cfg) as gs:
+        state = gs.state
+        inv = gs.inv
+        # re-resolve the peer inside gs.peers so the handshake drain persists
+        # through gs.save() (gs.peers is the dict that gets written out)
+        peer = next((p for p in gs.peers.values()
+                     if p["name"].lower() == target.lower()
+                     or p["addr"] == target), peer)
+        you = duel_mod.Fighter(name=state.name, level=state.level,
+                               handshakes=state.handshakes, health=state.health,
+                               happiness=state.happiness, gear=inv.gear_power(),
+                               element=getattr(state, "element", "Aether"),
+                               satiety=getattr(state, "satiety", 0.0))
+        them = duel_mod.Fighter(name=peer["name"], level=peer["level"],
+                                handshakes=peer["handshakes"],
+                                gear=peer.get("gear_power", 0),
+                                element=peer.get("element", "Aether"),
+                                addr=peer["addr"])
+        print(f"== DIGI-DUEL ==  {you.name} vs {them.name}\n")
+        res = duel_mod.duel(you, them, cfg)
+        for line in res.log:
+            print(f"  {line}")
+        duel_mod.apply_result(state, res)
 
-    # ...and the loser forfeits a bit of gear
-    if res.you_won:
-        state.duel_wins = getattr(state, "duel_wins", 0) + 1
-        # drain the staked handshakes from the cached peer and persist, so this
-        # sighting can't be re-dueled indefinitely (it depletes; a fresh BLE
-        # sighting refreshes the pool for a rematch).
-        if res.stake:
-            peer["handshakes"] = max(0, int(peer.get("handshakes", 0) or 0) - res.stake)
-            prefs_mod.save(cfg.peers_path, peers)
-        loot = equip_mod.roll_item(boost=peer["level"])
-        inv.add(loot)
-        print(f"  you seized {loot.rarity} gear: {loot.name} (+{loot.power} pow)")
-        quests = QuestLog(cfg.quests_path)
-        quests.roll(_today())
-        quests.roll_weekly(_thisweek())
-        for q in quests.record("duel_wins", 1):
-            rw = quests_mod.grant_quest_reward(q, state, inv, cfg)
-            print(f"  [quest] {q.description} done -> {rw}")
-        _quest_bonus(cfg, quests)
-        quests.save()
-        _award(cfg, state, scrap=shop_mod.scrap_for_duel_win(), inv=inv,
-               quests=quests)
-    else:
-        forfeit = inv.pick_forfeit()
-        if forfeit:
-            inv.remove(forfeit.id)
-            print(f"  {them.name} stripped your {forfeit.name} (-{forfeit.power} pow)")
+        # ...and the loser forfeits a bit of gear
+        if res.you_won:
+            state.duel_wins = getattr(state, "duel_wins", 0) + 1
+            # drain the staked handshakes from the cached peer, so this sighting
+            # can't be re-dueled indefinitely (it depletes; a fresh BLE sighting
+            # refreshes the pool for a rematch).
+            if res.stake:
+                peer["handshakes"] = max(
+                    0, int(peer.get("handshakes", 0) or 0) - res.stake)
+            loot = equip_mod.roll_item(boost=peer["level"])
+            inv.add(loot)
+            print(f"  you seized {loot.rarity} gear: {loot.name} (+{loot.power} pow)")
+            quests = gs.quests
+            quests.roll(_today())
+            quests.roll_weekly(_thisweek())
+            for q in quests.record("duel_wins", 1):
+                rw = quests_mod.grant_quest_reward(q, state, inv, cfg, gs.wallet)
+                print(f"  [quest] {q.description} done -> {rw}")
+            _quest_bonus(cfg, quests, gs.wallet)
+            _award(cfg, state, scrap=shop_mod.scrap_for_duel_win(), inv=inv,
+                   dex=gs.dex, ledger=gs.ledger, quests=quests,
+                   wallet=gs.wallet, book=gs.book)
         else:
-            print("  you had no gear to forfeit.")
-    inv.save()
-    persistence.save(cfg.state_path, state)
-    verb = "won" if res.you_won else "lost"
-    print(f"\n  You {verb}. Handshake pool: {state.handshakes}  |  "
-          f"gear power: {inv.gear_power()}")
-    # render the 1v1 battle screen
-    from .view import battle_screen
-    variant = getattr(cfg, "character_variant", "classic")
-    me_sprite = state.stage if variant in ("classic", "") else f"{variant}-{state.stage}"
-    out = battle_screen.render(
-        os.path.expanduser(cfg.battle_html_out),
-        {"name": state.name, "level": state.level,
-         "health": 100 if res.you_won else 30, "sprite": me_sprite},
-        {"name": them.name, "level": them.level,
-         "health": 30 if res.you_won else 100,
-         "sprite": _opponent_sprite(them.addr or them.name)},
-        res.log[-1] if res.log else f"{res.winner} wins!")
-    print(f"  [screen] battle -> {out}")
+            forfeit = inv.pick_forfeit()
+            if forfeit:
+                inv.remove(forfeit.id)
+                print(f"  {them.name} stripped your {forfeit.name} "
+                      f"(-{forfeit.power} pow)")
+            else:
+                print("  you had no gear to forfeit.")
+        verb = "won" if res.you_won else "lost"
+        print(f"\n  You {verb}. Handshake pool: {state.handshakes}  |  "
+              f"gear power: {inv.gear_power()}")
+        # render the 1v1 battle screen
+        from .view import battle_screen
+        variant = getattr(cfg, "character_variant", "classic")
+        me_sprite = (state.stage if variant in ("classic", "")
+                     else f"{variant}-{state.stage}")
+        out = battle_screen.render(
+            os.path.expanduser(cfg.battle_html_out),
+            {"name": state.name, "level": state.level,
+             "health": 100 if res.you_won else 30, "sprite": me_sprite},
+            {"name": them.name, "level": them.level,
+             "health": 30 if res.you_won else 100,
+             "sprite": screens.opponent_sprite(them.addr or them.name)},
+            res.log[-1] if res.log else f"{res.winner} wins!")
+        print(f"  [screen] battle -> {out}")
 
 
 def cmd_quests(cfg) -> None:
@@ -342,23 +307,29 @@ def _show_warning(cfg, dont_show: bool) -> None:
 
 
 def _award(cfg, state, *, scrap: int = 0, inv=None, dex=None, ledger=None,
-           quests=None) -> None:
-    """Earn `scrap` for an action and unlock any newly-met achievements (printing
-    + saving the wallet/book). The caller still owns saving state/inv/dex/ledger.
+           quests=None, wallet=None, book=None) -> None:
+    """Earn `scrap` for an action and unlock any newly-met achievements. The
+    caller still owns saving state/inv/dex/ledger.
 
-    Uses the LIVE in-memory inv/dex/ledger so milestones reflect this action
-    without needing a reload, and routes the badge rewards through the single
-    achievements.grant_reward path. Never raises out of the reward loop."""
+    When ``wallet``/``book`` are supplied (e.g. threaded from a GameState) they
+    are mutated in place and left for the caller to save; otherwise a fresh
+    wallet/book is loaded and saved here. Uses the LIVE in-memory inv/dex/ledger
+    so milestones reflect this action without needing a reload, and routes the
+    badge rewards through the single achievements.grant_reward path. Never raises
+    out of the reward loop."""
     try:
-        wallet = Wallet(getattr(cfg, "wallet_path", "~/.flippergotchi/wallet.json"))
+        made_wallet = wallet is None
+        made_book = book is None
+        wallet = wallet or Wallet(getattr(cfg, "wallet_path",
+                                          "~/.flippergotchi/wallet.json"))
         if scrap:
             wallet.earn(scrap)
             print(f"      +{scrap} scrap  (balance: {wallet.scrap})")
         dex = dex or Bestiary(cfg.bestiary_path)
         ledger = ledger or Ledger(cfg.ledger_path)
         inv = inv or equip_mod.Inventory(cfg.inventory_path)
-        book = AchievementBook(getattr(cfg, "achievements_path",
-                                       "~/.flippergotchi/achievements.json"))
+        book = book or AchievementBook(getattr(cfg, "achievements_path",
+                                               "~/.flippergotchi/achievements.json"))
         qlog = quests if quests is not None else QuestLog(cfg.quests_path)
         stats = ach_mod.build_stats(state, dex, inv, ledger, qlog)
         for b in ach_mod.grant_reward(book, stats, state, cfg, wallet, inv):
@@ -370,14 +341,16 @@ def _award(cfg, state, *, scrap: int = 0, inv=None, dex=None, ledger=None,
                 bits.append("gear")
             extra = f"  ({', '.join(bits)})" if bits else ""
             print(f"      ★ ACHIEVEMENT: {b.name} -- {b.description}{extra}")
-        wallet.save()
-        book.save()
+        if made_wallet:
+            wallet.save()
+        if made_book:
+            book.save()
     except Exception as e:  # noqa: BLE001 - rewards must never break a battle/duel
         print(f"      [award skipped: {e}]")
 
 
 def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
-           quests=None, dex=None) -> str:
+           quests=None, dex=None, wallet=None, book=None) -> str:
     res = battle_mod.battle(m, cfg, force_authorized=authorized)
     m.attempts += 1
     m.last_result = res["result"]
@@ -391,7 +364,7 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
             from .view import blebattle_screen
             outdir = os.path.expanduser(getattr(cfg, "blebattle_frames_dir",
                                                 "/tmp/flippergotchi/blebattle"))
-            player = _player_stem(cfg)
+            player = screens.player_stem(cfg)
             if state is not None:
                 variant = getattr(cfg, "character_variant", "classic")
                 player = (state.stage if variant in ("classic", "")
@@ -419,12 +392,13 @@ def _fight(m, cfg, authorized: bool, ledger: Ledger, inv=None, state=None,
             if getattr(m, "rarity", "") == "legendary":
                 done += list(quests.record("legendary_kills", 1))
             for q in done:
-                rw = quests_mod.grant_quest_reward(q, state, inv, cfg)
+                rw = quests_mod.grant_quest_reward(q, state, inv, cfg, wallet)
                 print(f"      [quest] {q.description} done -> {rw}")
-            _quest_bonus(cfg, quests)
+            _quest_bonus(cfg, quests, wallet)
         if state is not None and dex is not None:
             _award(cfg, state, scrap=shop_mod.scrap_for_crack(),
-                   inv=inv, dex=dex, ledger=ledger, quests=quests)
+                   inv=inv, dex=dex, ledger=ledger, quests=quests,
+                   wallet=wallet, book=book)
     return cat or ""
 
 
@@ -463,69 +437,49 @@ def _render_dojo(cfg, dex, ledger, state) -> None:
     except Exception as e:  # noqa: BLE001
         print(f"  [screen] (render skipped: {e})")
 
-    print(f"\n  == BATTLE DOJO ==   {len(ready)} ready · {cracked} cracked")
-    print("  [A] AUTO BATTLE  — crack every fresh target  (`battle --all`)")
-    print("  [B] MANUAL       — pick one below            (`battle <name>`)")
-    if items:
-        print("\n  targets you haven't battled yet:")
-        for it in items[:12]:
-            tag = (it["rarity"] or it["encryption"] or "").upper()
-            print(f"    · {it['name']:<22} Lv{it['level']:<3} {tag}")
-        if len(items) > 12:
-            print(f"    … +{len(items) - 12} more")
-    else:
-        print("\n  No fresh targets — go catch some monsters first!")
-    b = battle_menu.BUTTONS  # device button map
-    print(f"\n  device: {b['open']} opens · {b['up']}/{b['down']} move · "
-          f"{b['select']} select · {b['back']} exit")
+    for ln in screens.dojo_lines(items, len(ready), cracked):
+        print(ln)
 
 
 def cmd_battle(cfg, target: str | None, authorized: bool,
                all_: bool = False, dont_show: bool = False) -> None:
-    dex = Bestiary(cfg.bestiary_path)
-    ledger = Ledger(cfg.ledger_path)
-    inv = equip_mod.Inventory(cfg.inventory_path)
-    state = persistence.load(cfg.state_path)
-    quests = QuestLog(cfg.quests_path)
-    quests.roll(_today())
-    quests.roll_weekly(_thisweek())
+    # the warning owns its own prefs load/save; do it before entering GameState
+    # so GameState reads the freshly-persisted prefs.
     _show_warning(cfg, dont_show)
 
-    if all_:
-        # AUTO BATTLE: every captured WiFi target you HAVEN'T battled yet
-        # (attempts == 0), one at a time. Unique BSSIDs; dedupe defensively.
-        queue = _ready_targets(dex)
-        if not queue:
-            print("Nothing to auto-battle (no fresh captured targets).")
-            return
-        print(f"Auto-battling {len(queue)} unique target(s)...\n")
-        for m in queue:
-            _fight(m, cfg, authorized, ledger, inv, state, quests, dex)
-        ledger.save()
-        dex.save()
-        inv.save()
-        quests.save()
-        persistence.save(cfg.state_path, state)
-        c = ledger.counts()
-        print(f"\nLifetime record: {c['win']} wins / {c['loss']} losses / "
-              f"{c['escalate']} escalated to cloud")
-        return
+    with GameState(cfg) as gs:
+        dex, ledger, inv, state, quests = (gs.dex, gs.ledger, gs.inv,
+                                           gs.state, gs.quests)
+        quests.roll(_today())
+        quests.roll_weekly(_thisweek())
 
-    if not target:
-        _render_dojo(cfg, dex, ledger, state)
-        return
-    m = dex.get(target)
-    if not m:
-        print(f"No monster matching '{target}' in your bestiary. Try `dex`.")
-        return
-    print(f"Engaging {m.species} '{label(m)}' (Lv{m.level}, "
-          f"{m.encryption or m.kind}, defense {m.defense})...")
-    _fight(m, cfg, authorized, ledger, inv, state, quests, dex)
-    ledger.save()
-    dex.save()
-    inv.save()
-    quests.save()
-    persistence.save(cfg.state_path, state)
+        if all_:
+            # AUTO BATTLE: every captured WiFi target you HAVEN'T battled yet
+            # (attempts == 0), one at a time. Unique BSSIDs; dedupe defensively.
+            queue = _ready_targets(dex)
+            if not queue:
+                print("Nothing to auto-battle (no fresh captured targets).")
+                return
+            print(f"Auto-battling {len(queue)} unique target(s)...\n")
+            for m in queue:
+                _fight(m, cfg, authorized, ledger, inv, state, quests, dex,
+                       wallet=gs.wallet, book=gs.book)
+            c = ledger.counts()
+            print(f"\nLifetime record: {c['win']} wins / {c['loss']} losses / "
+                  f"{c['escalate']} escalated to cloud")
+            return
+
+        if not target:
+            _render_dojo(cfg, dex, ledger, state)
+            return
+        m = dex.get(target)
+        if not m:
+            print(f"No monster matching '{target}' in your bestiary. Try `dex`.")
+            return
+        print(f"Engaging {m.species} '{label(m)}' (Lv{m.level}, "
+              f"{m.encryption or m.kind}, defense {m.defense})...")
+        _fight(m, cfg, authorized, ledger, inv, state, quests, dex,
+               wallet=gs.wallet, book=gs.book)
 
 
 def cmd_title(cfg, target=None) -> None:
@@ -674,43 +628,42 @@ def cmd_feed(cfg, target: str | None = None) -> None:
 
     Foraging stashes food in the larder while the pet isn't hungry; this is the
     player-driven verb that spends it. Renders the feeding screen."""
-    state = persistence.load(cfg.state_path)
-    larder = Larder(getattr(cfg, "larder_path", "~/.flippergotchi/larder.json"),
-                    getattr(cfg, "larder_capacity", 20))
-    eaten, msg = None, ""
-    if target:
-        fk = food_mod.get(target)
-        if fk is None:
-            msg = f"no such food '{target}'  (try: feed)"
-        elif not larder.take(fk.id):
-            msg = f"no {fk.name} in the larder"
-        else:
-            mechanics.snack(state, cfg, fk)
-            eaten = fk.id
-            larder.save()
-            persistence.save(cfg.state_path, state)
-            msg = f"fed {fk.name}  (+{int(fk.restore)} food)"
+    with GameState(cfg) as gs:
+        state = gs.state
+        larder = gs.larder
+        eaten, msg = None, ""
+        if target:
+            fk = food_mod.get(target)
+            if fk is None:
+                msg = f"no such food '{target}'  (try: feed)"
+            elif not larder.take(fk.id):
+                msg = f"no {fk.name} in the larder"
+            else:
+                mechanics.snack(state, cfg, fk)
+                eaten = fk.id
+                msg = f"fed {fk.name}  (+{int(fk.restore)} food)"
 
-    try:
-        from .view import feed_screen
-        out = getattr(cfg, "feed_html_out", "/tmp/flippergotchi/feed.html")
-        feed_screen.render(out, state, cfg, larder, eaten=eaten)
-        print(f"  [screen] feed -> {out}")
-    except Exception as e:  # noqa: BLE001 - render must never break the command
-        print(f"  [feed render failed: {e}]")
+        try:
+            from .view import feed_screen
+            out = getattr(cfg, "feed_html_out", "/tmp/flippergotchi/feed.html")
+            feed_screen.render(out, state, cfg, larder, eaten=eaten)
+            print(f"  [screen] feed -> {out}")
+        except Exception as e:  # noqa: BLE001 - render must never break the command
+            print(f"  [feed render failed: {e}]")
 
-    food_pct = int(max(0, min(100, 100 - state.hunger)))
-    print(f"  LARDER  ({larder.total()}/{larder.capacity})   food: {food_pct}%")
-    counts = larder.counts()
-    for fk in food_mod.all_kinds():
-        n = counts.get(fk.id, 0)
-        if n:
-            mark = "*" if eaten == fk.id else " "
-            print(f"  [{mark}] {fk.id:<8} x{n:<2} {fk.name} (+{int(fk.restore)} food)")
-    if not counts:
-        print("  (larder empty -- walk to forage food)")
-    if msg:
-        print(f"  -> {msg}")
+        food_pct = int(max(0, min(100, 100 - state.hunger)))
+        print(f"  LARDER  ({larder.total()}/{larder.capacity})   food: {food_pct}%")
+        counts = larder.counts()
+        for fk in food_mod.all_kinds():
+            n = counts.get(fk.id, 0)
+            if n:
+                mark = "*" if eaten == fk.id else " "
+                print(f"  [{mark}] {fk.id:<8} x{n:<2} {fk.name} "
+                      f"(+{int(fk.restore)} food)")
+        if not counts:
+            print("  (larder empty -- walk to forage food)")
+        if msg:
+            print(f"  -> {msg}")
 
 
 def cmd_shop(cfg, action: str | None, item: str | None,
@@ -738,18 +691,10 @@ def cmd_shop(cfg, action: str | None, item: str | None,
         if not item:
             print("Usage: shop buy <item-id> [--stash]")
             return
-        state = persistence.load(cfg.state_path)
-        inv = equip_mod.Inventory(cfg.inventory_path)
-        larder = Larder(getattr(cfg, "larder_path", "~/.flippergotchi/larder.json"),
-                        getattr(cfg, "larder_capacity", 20))
-        ok, msg = shop.buy(wallet, item, inv=inv, state=state,
-                           stash=stash, larder=larder)
-        print(f"  {msg}")
-        if ok:
-            wallet.save()
-            inv.save()
-            larder.save()
-            persistence.save(cfg.state_path, state)
+        with GameState(cfg) as gs:
+            ok, msg = shop.buy(gs.wallet, item, inv=gs.inv, state=gs.state,
+                               stash=stash, larder=gs.larder)
+            print(f"  {msg}")
         return
 
     print(f"  SHOP   (scrap: {wallet.scrap})   buy with `shop buy <id>`")
@@ -895,21 +840,20 @@ def cmd_cloud(cfg, action: str | None, target: str | None,
             print("  no recovered keys available (nothing cracked yet, or no "
                   "wpa_sec_key / not in live mode).")
             return
-        dex = Bestiary(cfg.bestiary_path)
-        ledger = Ledger(cfg.ledger_path)
-        applied = 0
-        for m in dex.all():
-            if m.kind == "wifi" and not m.defeated and m.id.upper() in results:
-                m.defeated = True
-                m.key = results[m.id.upper()]
-                m.last_result = "cracked"
-                ledger.record(m, "cracked", "cloud", m.key)
-                print(f"  [WIN] {label(m):<22} cracked via cloud -- key: {m.key}")
-                applied += 1
-        dex.save()
-        ledger.save()
-        print(f"  applied {applied} recovered key(s) of {len(results)} known to "
-              f"{service}.")
+        with GameState(cfg) as gs:
+            dex = gs.dex
+            ledger = gs.ledger
+            applied = 0
+            for m in dex.all():
+                if m.kind == "wifi" and not m.defeated and m.id.upper() in results:
+                    m.defeated = True
+                    m.key = results[m.id.upper()]
+                    m.last_result = "cracked"
+                    ledger.record(m, "cracked", "cloud", m.key)
+                    print(f"  [WIN] {label(m):<22} cracked via cloud -- key: {m.key}")
+                    applied += 1
+            print(f"  applied {applied} recovered key(s) of {len(results)} known "
+                  f"to {service}.")
         return
 
     if action == "submit":

@@ -374,7 +374,8 @@ def test_duel_win_drains_peer_pool(tmp_path, monkeypatch):
     # the opponent sprite the render used must be a real, non-fallback sprite
     import os
     from flippergotchi.view import battle_screen
-    name = commands._opponent_sprite("P1")
+    from flippergotchi.view import screens
+    name = screens.opponent_sprite("P1")
     assert os.path.exists(os.path.join(battle_screen._SPRITES, name + ".png"))
 
 
