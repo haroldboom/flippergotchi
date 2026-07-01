@@ -76,3 +76,36 @@ class Bestiary:
 
     def all(self) -> list:
         return sorted(self.monsters.values(), key=lambda m: (-m.level, m.name))
+
+    def species_summary(self) -> list[dict]:
+        """Group the (still BSSID-keyed, de-duped) entries by SPECIES for a
+        collection-style view. Read-only: does not touch on-disk state.
+
+        Returns one dict per distinct species actually caught, each with:
+          - ``species``: the species name
+          - ``kind``:    "wifi" | "ble" (which realm it belongs to)
+          - ``count``:   how many distinct APs/devices of this species are held
+          - ``best_level``: the highest level seen among them
+          - ``shiny``:   True if any caught individual is a shiny variant
+          - ``defeated``: True if any individual has been cracked/tamed
+
+        Sorted by count (desc) then species name, so the fullest collections
+        surface first."""
+        agg: dict[str, dict] = {}
+        for m in self.monsters.values():
+            row = agg.get(m.species)
+            if row is None:
+                agg[m.species] = {
+                    "species": m.species,
+                    "kind": m.kind,
+                    "count": 1,
+                    "best_level": m.level,
+                    "shiny": bool(getattr(m, "shiny", False)),
+                    "defeated": bool(m.defeated),
+                }
+            else:
+                row["count"] += 1
+                row["best_level"] = max(row["best_level"], m.level)
+                row["shiny"] = row["shiny"] or bool(getattr(m, "shiny", False))
+                row["defeated"] = row["defeated"] or bool(m.defeated)
+        return sorted(agg.values(), key=lambda r: (-r["count"], r["species"]))

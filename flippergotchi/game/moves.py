@@ -42,6 +42,12 @@ from .elements import ELEMENTS
 # Recognised status keywords (the engine knows how to resolve each).
 EFFECTS = ("stun", "bleed", "corrupt", "shield", "buff", "drain")
 
+# Critical hits: if the attacker exposes a positive ``crit_chance`` (the duel
+# engine derives it from equipped LUCK), damaging hits may crit for extra
+# damage. Attackers without the attribute never roll, so seeded sequences for
+# stat-less fighters are unchanged.
+CRIT_MULT = 1.5
+
 
 @dataclass(frozen=True)
 class Move:
@@ -170,6 +176,13 @@ def apply_move(attacker, defender, move: Move, rng, advantage: float = 1.0) -> d
     # Small deterministic variance (85%..100%) so equal fights still vary.
     variance = 0.85 + 0.15 * rng.random()
     damage = round(base * variance, 1) if move.power > 0 else 0.0
+
+    # LUCK-fed critical hit (only rolled when the attacker actually has crit,
+    # so legacy fighters consume the exact same rng sequence as before).
+    crit_chance = getattr(attacker, "crit_chance", 0.0)
+    if damage > 0 and crit_chance > 0 and rng.random() < crit_chance:
+        damage = round(damage * CRIT_MULT, 1)
+        note += " CRIT!"
 
     effects: list[str] = []
     if move.effect and rng.random() < move.chance:

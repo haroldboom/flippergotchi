@@ -23,6 +23,21 @@ def _stable_roll(seed: str, mod: int) -> int:
 def _is_shiny(seed: str) -> bool:
     return _stable_roll(seed, SHINY_ODDS) == 0
 
+
+def all_species() -> list[str]:
+    """The finite, sorted set of every catchable species name.
+
+    This is the denominator for the dex's "X / N species caught" counter. It is
+    derived straight from the existing WiFi and BLE species definitions, so it
+    stays in sync automatically as those tables grow -- no invented species."""
+    names = set(_WIFI_SPECIES.values()) | set(_BLE_SPECIES.values())
+    return sorted(names)
+
+
+def species_count() -> int:
+    """How many distinct species exist to be collected (the dex's N)."""
+    return len(all_species())
+
 # WiFi species now come from the AP's BRAND (vendor), not its encryption --
 # WPA2/open monsters are identified by who made the router. WEP and WPA(1) are
 # rare, trivially-cracked LEGENDARIES instead (legacy security = a prized find).

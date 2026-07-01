@@ -101,4 +101,18 @@ class AIService:
             "happy": "You're delighted with life right now. React.",
             "sleeping": "You're napping. Mumble something dreamy.",
             "content": "You're calmly vibing. Say something small.",
+            "starving": "You're STARVING -- food is at zero and you feel weak. "
+                        "Plead cutely for a snack.",
+            "faint": "You just fainted from neglect and collapsed. React weakly, "
+                     "begging to be revived.",
+            "quest_done": f"You just completed the quest '{arg or 'a quest'}'. "
+                          "Celebrate the accomplishment.",
+            "badge": f"You just earned the '{arg or 'a new'}' badge. "
+                     "React proudly.",
+            "cracked": f"You just cracked the WiFi password for '{arg or 'an AP'}'. "
+                       "Gloat playfully about your hacking skill.",
+            "crack_fail": f"You tried to crack '{arg or 'an AP'}' but the password "
+                          "held. React with cute frustration, vow to return.",
+            "shiny": f"You just caught a rare SHINY '{arg or 'monster'}'! "
+                     "React with amazed, giddy excitement.",
         }.get(event_key, "Say something in character.")

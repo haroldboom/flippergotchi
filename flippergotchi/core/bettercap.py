@@ -10,6 +10,10 @@ import urllib.request
 
 log = logging.getLogger(__name__)
 
+# Probability per sim poll that a fake AP detection is emitted. Kept low so
+# encounters are spaced out and feel earned rather than a firehose.
+SIM_AP_SPAWN_CHANCE = 0.12
+
 
 class BettercapClient:
     """Source of WiFi capture events (the pet's food supply).
@@ -274,7 +278,7 @@ class BettercapClient:
     def _sim_poll(self) -> list:
         # Emit AP *detections*; the agent turns each into an encounter and the
         # capture attempt is what produces a handshake (see game/encounter.py).
-        if random.random() < 0.35:
+        if random.random() < SIM_AP_SPAWN_CHANCE:
             return [{"type": "ap", **_rand_ap()}]
         return []
 

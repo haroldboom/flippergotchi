@@ -145,8 +145,12 @@ def test_hardcore_death_reborn_egg(tmp_path):
     cfg = _cfg(tmp_path)
     agent = Agent(cfg, PetState(name="Doomed", hardcore=True,
                                 hunger=100.0, health=0.0, level=12))
-    assert mechanics.is_dead(agent.state)
-    agent.tick(1.0)
+    # Death now has runway: at 0 HP the pet survives a fixed number of faint
+    # ticks (mechanics.FAINT_DEATH_GRACE_TICKS) before is_dead flips, giving the
+    # player warning frames. Drive past the grace window, then it reborns.
+    assert mechanics.is_dead(agent.state) is False       # not an instant cliff
+    for _ in range(mechanics.FAINT_DEATH_GRACE_TICKS + 1):
+        agent.tick(1.0)
     assert agent.state.stage == "egg"
     assert agent.state.level == 1
     assert agent.state.name == "Doomed"

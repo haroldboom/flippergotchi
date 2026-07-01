@@ -174,6 +174,77 @@ class Inventory:
         existing callers/tests are untouched. NEVER used for WiFi cracking."""
         return self.gear_power() + int(self.set_bonus().get("power", 0))
 
+    def stat_totals(self) -> dict:
+        """Equipped PvP stat totals: {"atk": int, "def": int, "luck": int}.
+
+        Sums each equipped item's rolled bonus (``bonus_stat``/``bonus_val``)
+        and folds in any active gear-set stat bonuses. This is the number the
+        duel resolver reads to seed a fighter's attack/defense/luck -- PvP
+        ONLY, never consulted by WiFi cracking."""
+        totals = {"atk": 0, "def": 0, "luck": 0}
+        for it in self.equipped_items():
+            if it.bonus_stat in totals:
+                totals[it.bonus_stat] += int(it.bonus_val)
+        for k, v in self.set_bonus().items():
+            if k in totals:
+                totals[k] += int(v)
+        return totals
+
+    def best_loadout(self, equip: bool = True) -> dict:
+        """Pick the best item for every slot, set bonuses included.
+
+        Searches combinations of each slot's strongest plain item and each
+        slot's strongest item per gear-set tag (so completing a set can beat a
+        slightly higher-power off-set piece), scoring by duel value:
+        gear power + set power bonus + set stat bonuses. With ``equip=True``
+        (default) the winning loadout is equipped in place.
+
+        Returns {slot: Item} for the chosen loadout (empty when the bag is
+        empty). Auto-equip helper for the agent loop / `equip best`."""
+        # candidates per slot: best overall + best of each set tag
+        cands: dict[str, list[Item]] = {}
+        for it in self.items.values():
+            cands.setdefault(it.slot, []).append(it)
+        slot_choices: list[list] = []
+        slots: list[str] = []
+        for slot, pool in cands.items():
+            best: dict[str, Item] = {}
+            for it in sorted(pool, key=lambda x: -x.power):
+                key = it.set or ""
+                if key not in best:
+                    best[key] = it
+            slots.append(slot)
+            slot_choices.append(list(best.values()))
+
+        def _score(items) -> float:
+            bonus = self._set_bonus_for(items)
+            return (sum(it.power for it in items)
+                    + bonus.get("power", 0)
+                    + bonus.get("atk", 0) + bonus.get("def", 0)
+                    + bonus.get("luck", 0))
+
+        best_combo: list = []
+        best_score = float("-inf")
+        from itertools import product
+        for combo in product(*slot_choices) if slot_choices else []:
+            s = _score(combo)
+            if s > best_score:
+                best_score, best_combo = s, list(combo)
+
+        loadout = {it.slot: it for it in best_combo}
+        if equip and loadout:
+            self.equipped = {slot: it.id for slot, it in loadout.items()}
+        return loadout
+
+    @staticmethod
+    def _set_bonus_for(items) -> dict:
+        """Set bonus for an arbitrary (not-necessarily-equipped) loadout."""
+        try:
+            from . import gearsets
+        except Exception:
+            return {}
+        return gearsets.set_bonus(list(items))
+
     def all(self) -> list:
         return sorted(self.items.values(), key=lambda x: (-x.power, x.slot))
 

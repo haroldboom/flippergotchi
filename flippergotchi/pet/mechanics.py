@@ -33,7 +33,25 @@ SATIETY_PER_RESTORE = 0.8       # satiety gained per hunger-point a food restore
 SATIETY_DECAY_PER_HOUR = 12.0   # how fast the well-fed buff fades
 # health drain/hour by starvation severity (derived from hunger, no new field).
 # NORMAL mode floors health at 1 (faint); HARDCORE lets it reach 0 (-> death).
-_STARVE_DRAIN = {"": 0.0, "peckish": 0.0, "hungry": 6.0, "starving": 14.0, "faint": 24.0}
+# The faint drain is deliberately gentler than the "starving" ramp so the final
+# slide to 0 HP is a visible slope, not a cliff -- this widens the death runway.
+_STARVE_DRAIN = {"": 0.0, "peckish": 0.0, "hungry": 6.0, "starving": 14.0, "faint": 18.0}
+
+# --- hardcore death runway --------------------------------------------------
+# Once a hardcore pet bottoms out at 0 HP it does NOT die instantly. It must
+# spend this many *real* ticks in the faint stage first (a fixed count, so the
+# grace is independent of time_scale -- a demo cranking time_scale still gets
+# the same number of "ABOUT TO DIE" frames to react on). The counter lives on
+# the state instance as a non-persisted attribute (`_faint_ticks`) so no new
+# serialised field is added.
+FAINT_DEATH_GRACE_TICKS = 3
+
+# --- sleep / energy restore -------------------------------------------------
+# maybe_sleep() puts a tired pet to sleep at/under the low threshold and wakes
+# it once rested at/over the high threshold. tick() already restores energy
+# while asleep, so this closes the loop: energy is no longer a one-way drain.
+SLEEP_ENERGY_LOW = 20.0    # fall asleep at/under this energy
+WAKE_ENERGY_HIGH = 80.0    # wake back up at/over this energy
 
 
 def starvation_stage(state: PetState) -> str:
@@ -52,8 +70,14 @@ def starvation_stage(state: PetState) -> str:
 
 def is_dead(state: PetState) -> bool:
     """Hardcore ONLY: the pet has starved to death and must be reborn as an egg.
+
+    Death is NOT instant: even at 0 HP the pet survives until it has spent
+    ``FAINT_DEATH_GRACE_TICKS`` real ticks in the faint stage (see ``tick``),
+    giving the player a fixed, time_scale-independent runway of warning frames.
     In Normal mode this is always False (health is floored at 1)."""
-    return bool(getattr(state, "hardcore", False)) and state.health <= 0
+    if not bool(getattr(state, "hardcore", False)) or state.health > 0:
+        return False
+    return getattr(state, "_faint_ticks", 0) >= FAINT_DEATH_GRACE_TICKS
 
 
 def reborn(state: PetState) -> PetState:
@@ -61,6 +85,34 @@ def reborn(state: PetState) -> PetState:
     locked-in hardcore mode; all progress/stats reset."""
     return PetState(name=state.name, element=getattr(state, "element", "Aether"),
                     hardcore=getattr(state, "hardcore", False))
+
+
+def maybe_sleep(state: PetState, cfg) -> bool:
+    """Manage the sleep/wake cycle from energy; call once per tick.
+
+    A tired, awake pet falls asleep at/under the low-energy threshold; a rested,
+    sleeping pet wakes at/over the high threshold. While asleep, ``tick`` restores
+    energy (and slows hunger), so this is the restore path that makes the
+    tired/sleeping faces reachable. Returns the resulting ``asleep`` flag.
+
+    Thresholds come from ``cfg`` (``sleep_energy_low`` / ``wake_energy_high``) via
+    getattr with module-constant defaults; a malformed cfg where low >= high is
+    clamped so the pet still eventually wakes."""
+    low = getattr(cfg, "sleep_energy_low", SLEEP_ENERGY_LOW)
+    high = getattr(cfg, "wake_energy_high", WAKE_ENERGY_HIGH)
+    try:
+        low = float(low)
+        high = float(high)
+    except (TypeError, ValueError):
+        low, high = SLEEP_ENERGY_LOW, WAKE_ENERGY_HIGH
+    if high <= low:                       # guard against a broken cfg
+        high = low + 1.0
+    if state.asleep:
+        if state.energy >= high:
+            state.asleep = False
+    elif state.energy <= low:
+        state.asleep = True
+    return state.asleep
 
 
 def mood(state: PetState) -> str:
@@ -106,6 +158,14 @@ def tick(state: PetState, dt: float, cfg) -> None:
     # happiness drifts toward a hunger-driven baseline
     target = clamp(90 - state.hunger)
     state.happiness = clamp(state.happiness + (target - state.happiness) * min(1.0, hours))
+
+    # hardcore death runway: count consecutive faint-stage ticks so is_dead can
+    # hold off until the grace window elapses. Any recovery out of faint resets
+    # the countdown (a fed-then-neglected pet gets the full runway again).
+    if getattr(state, "hardcore", False) and starvation_stage(state) == "faint":
+        state._faint_ticks = getattr(state, "_faint_ticks", 0) + 1
+    else:
+        state._faint_ticks = 0
 
     state.stage = stage_for_level(state.level)
 

@@ -55,26 +55,24 @@ _ICON = {"cracked": "WIN", "tamed": "TAMED", "failed": "LOSS",
 
 def cmd_dex(cfg) -> None:
     dex = Bestiary(cfg.bestiary_path)
-    rows = dex.all()
-    if not rows:
-        print("Your bestiary is empty. Go for a walk and catch some monsters!")
+    species = dex.species_summary()
+    total = monsters.species_count()
+    if not species:
+        print(f"Your dex is empty  (0 / {total} species caught).")
+        print("Go for a walk and catch some monsters!")
         return
     c = Ledger(cfg.ledger_path).counts()
-    print(f"  BESTIARY  ({len(rows)} unique BSSIDs)   "
+    caught = len(species)
+    total_indiv = sum(r["count"] for r in species)
+    print(f"  DEX  --  caught {caught} of {total} species "
+          f"({total_indiv} individuals)   "
           f"record: {c['win']}W / {c['loss']}L / {c['escalate']} escalated")
-    print(f"  {'lvl':>3}  {'species':<12} {'name':<22} {'type':<6} "
-          f"{'def':>3}  status")
-    for m in rows:
-        if m.defeated:
-            status = f"DEFEATED (key: {m.key})" if m.key else "tamed"
-        elif m.captured:
-            status = "captured - ready to battle"
-        else:
-            status = "spotted (not captured)"
-        if getattr(m, "shiny", False):
-            status = "✨SHINY " + status
-        print(f"  {m.level:>3}  {m.species:<12} {label(m)[:22]:<22} {m.kind:<6} "
-              f"{m.defense:>3}  {status}")
+    print(f"  {'species':<14} {'type':<5} {'#':>3}  {'best lvl':>8}  status")
+    for r in species:
+        status = "tamed" if r["defeated"] else "caught"
+        shiny = " ✨SHINY" if r["shiny"] else ""
+        print(f"  {r['species']:<14} {r['kind']:<5} {r['count']:>3}  "
+              f"{r['best_level']:>8}  {status}{shiny}")
 
 
 class _AlwaysHit:

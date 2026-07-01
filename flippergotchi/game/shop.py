@@ -24,14 +24,22 @@ import os
 from dataclasses import dataclass
 
 # ---- earn rules (pure helpers; agent.py wires these up itself) --------------
-SCRAP_PER_CRACK = 120
+SCRAP_PER_CRACK = 120       # real WEP/WPA crack — the top reward
 SCRAP_PER_DUEL_WIN = 60
 SCRAP_PER_KM = 40            # walking salvages this much per kilometre
-SCRAP_PER_CATCH = 15
+SCRAP_PER_CATCH = 8         # catching (encountering) a monster/AP
+SCRAP_PER_OPEN = 18         # walking into an OPEN network: catch-tier, NOT a crack
 
 
 def scrap_for_crack() -> int:
     return SCRAP_PER_CRACK
+
+
+def scrap_for_open() -> int:
+    """Scrap for stumbling onto an OPEN (unsecured) network. There's no crack to
+    perform, so this pays a catch-tier reward — deliberately far below
+    :func:`scrap_for_crack` (a real WEP/WPA break)."""
+    return SCRAP_PER_OPEN
 
 
 def scrap_for_duel_win() -> int:
@@ -106,20 +114,24 @@ class ShopItem:
 
 
 CATALOG: list[ShopItem] = [
-    ShopItem("ration", "Food Ration", 60,
+    ShopItem("ration", "Food Ration", 180,
              "Restore some hunger (feed the pet)", "feed", 25.0,
              food_id="squid"),
-    ShopItem("feast", "Salvage Feast", 140,
+    ShopItem("feast", "Salvage Feast", 280,
              "A big meal — restore lots of hunger", "feed", 60.0,
              food_id="cell"),
-    ShopItem("energy_snack", "Energy Snack", 90,
+    ShopItem("energy_snack", "Energy Snack", 300,
              "Restore energy", "energy", 35.0),
-    ShopItem("repair_kit", "Repair Kit", 110,
+    ShopItem("repair_kit", "Repair Kit", 360,
              "Restore health", "health", 40.0),
-    ShopItem("lure", "Monster Lure", 150,
+    ShopItem("lure", "Monster Lure", 450,
              "Consumable: boosts encounter rate (sets a lure flag)", "lure", 1.0),
-    ShopItem("reroll_token", "Gear Reroll Token", 220,
+    ShopItem("reroll_token", "Gear Reroll Token", 880,
              "Reroll an UNEQUIPPED item's rarity/stats", "reroll", 1.0),
+    # --- endgame sink: a long-horizon scrap purpose (a session earns ~2000) ---
+    ShopItem("skin_goldfin", "Golden Fin Skin", 5000,
+             "Cosmetic: a permanent gold skin for your pet (bragging rights)",
+             "cosmetic", 1.0),
 ]
 
 _BY_ID = {it.id: it for it in CATALOG}
@@ -209,6 +221,8 @@ class Shop:
             return self._apply_stat(eff, item.magnitude, state)
         if eff == "lure":
             return self._apply_lure(state)
+        if eff == "cosmetic":
+            return self._apply_cosmetic(item, state)
         if eff == "reroll":
             return self._apply_reroll(inv, target_item_id, rng)
         return False, f"Unknown effect for {item.name}"
@@ -240,6 +254,18 @@ class Shop:
         count = int(getattr(state, "lures", 0) or 0) + 1
         setattr(state, "lures", count)
         return True, f"Lure ready (x{count}) — encounter rate boosted"
+
+    @staticmethod
+    def _apply_cosmetic(item: ShopItem, state) -> tuple[bool, str]:
+        if state is None:
+            return False, "No pet to wear that"
+        # record the unlocked skin on the pet; refuse (no charge) if already owned
+        skins = set(getattr(state, "skins", None) or [])
+        if item.id in skins:
+            return False, f"{item.name} already unlocked"
+        skins.add(item.id)
+        setattr(state, "skins", sorted(skins))
+        return True, f"Unlocked {item.name}"
 
     @staticmethod
     def _apply_reroll(inv, target_item_id, rng) -> tuple[bool, str]:

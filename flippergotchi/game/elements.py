@@ -75,6 +75,28 @@ def advantage(attacker: str, defender: str) -> float:
     return advantage_multiplier(attacker, defender)
 
 
+# Accepted spellings when an element arrives from config / user input / radio
+# metadata. Keys are lowercase; values are canonical ELEMENTS entries.
+_ALIASES = {
+    "spark": "Spark", "2.4": "Spark", "2.4ghz": "Spark", "2g": "Spark",
+    "tide": "Tide", "5": "Tide", "5ghz": "Tide", "5g": "Tide",
+    "gale": "Gale", "6": "Gale", "6ghz": "Gale", "6g": "Gale",
+    "aether": "Aether", "ble": "Aether", "bt": "Aether",
+}
+
+
+def normalize(value) -> str | None:
+    """Canonicalise a user/config-supplied element ("spark", "5GHz", "BLE"...).
+
+    Returns the canonical element name from :data:`ELEMENTS`, or ``None`` when
+    the value doesn't map to any element. Never raises.
+    """
+    if not isinstance(value, str):
+        return None
+    key = value.strip().lower()
+    return _ALIASES.get(key)
+
+
 def matchup_note(attacker: str, defender: str) -> str:
     """Short human label for the matchup: "strong" / "weak" / "neutral"."""
     m = advantage_multiplier(attacker, defender)

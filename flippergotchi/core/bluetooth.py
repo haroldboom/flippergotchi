@@ -16,6 +16,10 @@ COMPANY_IDS = {
 DEVICE_CLASSES = ("phone", "wearable", "audio", "beacon", "computer",
                   "tracker", "input", "smarthome", "medical", "unknown")
 
+# Probability per sim poll that a generic BLE device is emitted. Kept low so
+# sim encounters are spaced out rather than firing on nearly every tick.
+SIM_BLE_SPAWN_CHANCE = 0.05
+
 # a small sim catalogue of realistic devices (name, vendor, advertised services,
 # class, connectable) so simulation exercises the full taxonomy.
 _SIM_DEVICES = [
@@ -92,7 +96,7 @@ class BluetoothScanner:
         # a recurring tracker tailing you (fixed addr -> triggers the alert)
         if random.random() < 0.04:
             return [self._sim_ble(_STALKER, addr=_STALKER_ADDR)]
-        if random.random() < 0.15:
+        if random.random() < SIM_BLE_SPAWN_CHANCE:
             return [self._sim_ble(random.choice(_SIM_DEVICES))]
         return []
 

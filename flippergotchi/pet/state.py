@@ -27,7 +27,11 @@ class PetState:
     duel_wins: int = 0        # PvP duels won (achievements/progression)
 
     stage: str = "egg"        # evolution stage, driven by level
-    element: str = "Aether"   # your element, for duel type-advantage
+    # Your duel element (Spark/Tide/Gale/Aether). First-class: settable at
+    # init/from config (use set_element for validated input), persisted via
+    # to_dict/from_dict, and READ by the duel resolver -- it is the player's
+    # side of the type chart, not a frozen default.
+    element: str = "Aether"
     asleep: bool = False
 
     # --- v2: active-care + cosmetics + mode (all default-safe for old saves) ---
@@ -47,6 +51,21 @@ class PetState:
 
     def age_seconds(self) -> float:
         return max(0.0, time.time() - self.born_at)
+
+    def set_element(self, element: str) -> bool:
+        """Set the duel element from user/config input, tolerantly.
+
+        Accepts canonical names plus common aliases (case-insensitive
+        "spark"/"tide"/"gale"/"aether", band spellings like "2.4GHz", "BLE").
+        Returns True and updates ``self.element`` on success; leaves the
+        element untouched and returns False for unknown values.
+        """
+        from ..game.elements import normalize
+        el = normalize(element)
+        if el is None:
+            return False
+        self.element = el
+        return True
 
     def to_dict(self) -> dict:
         return asdict(self)

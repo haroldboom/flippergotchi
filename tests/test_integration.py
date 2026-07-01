@@ -63,13 +63,13 @@ def test_cmd_shop_list_and_buy(tmp_path, capsys):
     Wallet(cfg.wallet_path)  # zero balance file
     # give the wallet enough to buy
     w = Wallet(cfg.wallet_path)
-    w.earn(100)
+    w.earn(200)
     w.save()
     commands.cmd_shop(cfg, None, None)          # browse
     assert "SHOP" in capsys.readouterr().out
     commands.cmd_shop(cfg, "buy", "ration")     # buy
     assert "Fed the pet" in capsys.readouterr().out
-    assert Wallet(cfg.wallet_path).scrap == 40   # 100 - 60
+    assert Wallet(cfg.wallet_path).scrap == 20   # 200 - 180
 
 
 def test_cmd_battle_awards_on_authorized_crack(tmp_path, capsys):

@@ -110,19 +110,19 @@ class Config:
     xp_per_handshake: float = 12.0     # XP for catching an AP-monster
     xp_per_pmkid: float = 7.0
     xp_per_meter: float = 0.15         # walking = exercise = xp
-    xp_per_snack: float = 2.0          # XP from eating a foraged snack
+    xp_per_snack: float = 0.5          # XP from eating a foraged snack (small: eating isn't a grind)
     energy_per_meter: float = 0.02
     base_xp: float = 120.0             # xp_to_next = base_xp * level**level_exp
     level_exp: float = 1.6
     # foraging: walking is how the pet finds FOOD (and, rarely, gear)
     forage_food: float = 12.0          # hunger restored per foraged snack (untyped)
-    forage_food_per_m: float = 0.06    # snack chance per metre walked (capped)
+    forage_food_per_m: float = 0.01    # snack chance per metre walked (capped) — periodic reward, not a firehose
     forage_gear_per_m: float = 0.0016  # gear-find chance per metre walked (capped)
     # larder: foraged food is stashed (not auto-eaten) while hunger is below this;
     # at/above it -- or when the larder is full -- the forage is eaten on the spot
     larder_path: str = "~/.flippergotchi/larder.json"
     larder_capacity: int = 20
-    forage_auto_eat_hunger: float = 55.0
+    forage_auto_eat_hunger: float = 80.0  # only auto-eat when genuinely hungry; below this, stash to the larder
 
     # ai backend: "canned" (no deps) | "cpu" (llama.cpp) | "npu" (RKLLM, future)
     ai_backend: str = "canned"

@@ -32,6 +32,15 @@ SHIELD_MULT = 1.5          # def_mult while shielded (incoming dmg / 1.5)
 BUFF_MULT = 1.35           # atk_mult while buffed (outgoing dmg * 1.35)
 DRAIN_FRAC = 0.5           # fraction of damage healed by "drain" moves
 
+# How equipped PvP stats (equipment.Inventory.stat_totals(): item bonuses +
+# gear-set stat bonuses) feed the resolver. All zero-safe: a stat-less fighter
+# behaves exactly like the pre-stat engine (same rng draws, same multipliers).
+ATK_STAT_SCALE = 0.010     # atk_mult = 1 + ATK * this (outgoing damage up)
+DEF_STAT_SCALE = 0.010     # def_mult = 1 + DEF * this (incoming damage down)
+LUCK_CRIT_SCALE = 0.005    # crit_chance = LUCK * this ...
+LUCK_CRIT_CAP = 0.35       # ...capped so crits stay spicy, not dominant
+LUCK_INIT_WEIGHT = 2.0     # LUCK also weighs the initiative (first-move) roll
+
 
 @dataclass
 class Fighter:
@@ -41,10 +50,15 @@ class Fighter:
     handshakes: int = 0          # size of the capture pool (the prize pool)
     health: float = 100.0
     happiness: float = 70.0
-    gear: float = 0.0            # equipped-gear power bonus
+    gear: float = 0.0            # equipped-gear power (use Inventory.pvp_power())
     element: str = "Aether"      # for type-advantage
     addr: str = ""               # BLE address, for peers
     satiety: float = 0.0         # well-fed buff: a small PvP-ONLY edge
+    # Equipped PvP stat totals (equipment.Inventory.stat_totals(), which folds
+    # in gear-set stat bonuses). Zero = the classic stat-less fighter.
+    atk: float = 0.0             # scales outgoing damage
+    defense: float = 0.0         # scales down incoming damage
+    luck: float = 0.0            # feeds crit chance + initiative
 
     def power(self) -> float:
         """Battle power: level dominates; collection, gear, condition add weight.
@@ -99,8 +113,16 @@ class _Combatant:
         self.element = fighter.element
         self.max_hp = _hp_from_power(fighter.power())
         self.hp = self.max_hp
-        self.atk_mult = 1.0
-        self.def_mult = 1.0
+        # Baseline multipliers seeded from equipped ATK/DEF totals (gear item
+        # bonuses + set bonuses). Buffs/shields stack ON TOP of these so gear
+        # keeps mattering mid-fight; with zero stats this is the classic 1.0.
+        self.base_atk = 1.0 + max(0.0, getattr(fighter, "atk", 0.0)) * ATK_STAT_SCALE
+        self.base_def = 1.0 + max(0.0, getattr(fighter, "defense", 0.0)) * DEF_STAT_SCALE
+        self.atk_mult = self.base_atk
+        self.def_mult = self.base_def
+        # LUCK -> crit chance, read by moves.apply_move via getattr.
+        self.luck = max(0.0, getattr(fighter, "luck", 0.0))
+        self.crit_chance = min(LUCK_CRIT_CAP, self.luck * LUCK_CRIT_SCALE)
         # status timers: keyword -> turns remaining
         self.dots: dict[str, int] = {}   # bleed / corrupt
         self.buff_turns = 0
@@ -113,10 +135,10 @@ class _Combatant:
             self.dots[effect] = max(self.dots.get(effect, 0), DOT_TURNS)
         elif effect == "buff":
             self.buff_turns = BUFF_TURNS
-            self.atk_mult = BUFF_MULT
+            self.atk_mult = self.base_atk * BUFF_MULT
         elif effect == "shield":
             self.shield_turns = SHIELD_TURNS
-            self.def_mult = SHIELD_MULT
+            self.def_mult = self.base_def * SHIELD_MULT
         elif effect == "stun":
             self.stunned = True
 
@@ -132,11 +154,11 @@ class _Combatant:
         if self.buff_turns > 0:
             self.buff_turns -= 1
             if self.buff_turns == 0:
-                self.atk_mult = 1.0
+                self.atk_mult = self.base_atk
         if self.shield_turns > 0:
             self.shield_turns -= 1
             if self.shield_turns == 0:
-                self.def_mult = 1.0
+                self.def_mult = self.base_def
         return lines
 
 
@@ -186,9 +208,13 @@ def _run_duel(you: Fighter, them: Fighter, cfg, rng) -> DuelResult:
     if note != "neutral":
         log.append(f"type matchup: {you.element} vs {them.element} -> {note} for you")
 
-    # Initiative: stronger fighter tends to move first (with a luck wobble).
+    # Initiative: stronger fighter tends to move first; equipped LUCK adds
+    # weight to the roll (zero luck on both sides reduces to the pure power
+    # ratio, preserving legacy seeded sequences).
     pa, pb = you.power(), them.power()
-    you_first = rng.random() < (pa / (pa + pb) if (pa + pb) > 0 else 0.5)
+    wa = pa + a.luck * LUCK_INIT_WEIGHT
+    wb = pb + b.luck * LUCK_INIT_WEIGHT
+    you_first = rng.random() < (wa / (wa + wb) if (wa + wb) > 0 else 0.5)
     order = [(a, b), (b, a)] if you_first else [(b, a), (a, b)]
 
     turn = 0
@@ -263,3 +289,133 @@ def apply_result(state, res: DuelResult) -> None:
         state.handshakes += res.stake
     else:
         state.handshakes = max(0, state.handshakes - res.stake)
+
+
+# ---------------------------------------------------------------------------
+# Loop-facing API: build fighters from live state and auto-resolve a duel.
+# ---------------------------------------------------------------------------
+
+def fighter_from_pet(state, inv=None, element: str | None = None) -> Fighter:
+    """Snapshot your live pet (+ equipped inventory) into a duel Fighter.
+
+    This is the ONE place player-side duel stats get assembled, so every
+    caller (cmd_duel, the auto-loop) gets the same wiring:
+
+    * ``gear`` comes from :meth:`Inventory.pvp_power` -- raw gear power PLUS
+      gear-set power bonuses (never the bare ``gear_power()``).
+    * ``atk``/``defense``/``luck`` come from :meth:`Inventory.stat_totals`
+      (item stat rolls + set stat bonuses), seeding the resolver's damage
+      multipliers, crit chance and initiative.
+    * ``element`` is taken from the argument if given (normalised through the
+      type chart's accepted spellings), else from ``state.element`` -- never
+      hardcoded.
+    """
+    from .elements import ELEMENTS, normalize
+    el = normalize(element) if element else None
+    if el is None:
+        raw = getattr(state, "element", "Aether")
+        el = normalize(raw) or (raw if raw in ELEMENTS else "Aether")
+    stats = inv.stat_totals() if inv is not None else {}
+    return Fighter(
+        name=getattr(state, "name", "you"),
+        level=getattr(state, "level", 1),
+        handshakes=getattr(state, "handshakes", 0),
+        health=getattr(state, "health", 100.0),
+        happiness=getattr(state, "happiness", 70.0),
+        gear=float(inv.pvp_power()) if inv is not None else 0.0,
+        element=el,
+        satiety=getattr(state, "satiety", 0.0),
+        atk=float(stats.get("atk", 0)),
+        defense=float(stats.get("def", 0)),
+        luck=float(stats.get("luck", 0)),
+    )
+
+
+def fighter_from_peer(peer: dict) -> Fighter:
+    """Build the opposing Fighter from a detected-peer record (see agent.py's
+    ``_peers``: name/addr/level/handshakes/gear_power/element)."""
+    from .elements import ELEMENTS, normalize
+    raw = peer.get("element", "Aether")
+    el = normalize(raw) or (raw if raw in ELEMENTS else "Aether")
+    gear = float(peer.get("gear_power", 0) or 0)
+    # peers only advertise a single gear number; give them modest generic
+    # stats from it so a geared peer isn't a pushover against your stat gear.
+    return Fighter(
+        name=peer.get("name", "?"),
+        level=int(peer.get("level", 1) or 1),
+        handshakes=int(peer.get("handshakes", 0) or 0),
+        gear=gear,
+        element=el,
+        addr=peer.get("addr", ""),
+        atk=gear * 0.5, defense=gear * 0.3, luck=gear * 0.2,
+    )
+
+
+@dataclass
+class AutoDuelOutcome:
+    """Everything the agent loop needs to narrate + settle an auto-duel."""
+    result: DuelResult           # full engine result (log, stake, powers)
+    you_won: bool
+    winner: str
+    loser: str
+    stake: int                   # handshakes transferred (already applied)
+    loot: object = None          # equipment.Item you seized (win), or None
+    forfeit: object = None       # equipment.Item you lost (loss), or None
+    summary: str = ""            # one-line narratable outcome
+
+
+def auto_resolve(player, peer_stats: dict, inv=None, element: str | None = None,
+                 cfg=None, rng=random) -> AutoDuelOutcome:
+    """AUTO-resolve a duel against a detected peer and settle everything.
+
+    The loop-callable seam: give it the live PetState, the peer record dict
+    (``{"name", "addr", "level", "handshakes", "gear_power", "element"}``),
+    the equipment Inventory and (optionally) an element override, and it:
+
+    1. builds both fighters (gear = ``pvp_power()`` incl. set bonuses; stats =
+       ``stat_totals()``; your element honoured, never hardcoded Aether),
+    2. runs the full turn engine (:func:`_run_duel` via :func:`duel`) with
+       :func:`moves.pick_move` acting as the move policy for BOTH sides,
+    3. settles the handshake stake on ``player`` and drains it from
+       ``peer_stats`` (so a cached sighting can't be farmed), increments
+       ``player.duel_wins`` on a win,
+    4. rolls gear loot on a win (added to ``inv``) or picks a forfeit on a
+       loss (removed from ``inv``).
+
+    Pure-ish: mutates only ``player``, ``peer_stats`` and ``inv``. Never
+    raises (the engine degrades to a power tiebreak internally). Callers own
+    persistence (gs.save()) and any quest/reward hooks.
+    """
+    you = fighter_from_pet(player, inv, element)
+    them = fighter_from_peer(peer_stats)
+    res = duel(you, them, cfg, rng)
+    apply_result(player, res)
+
+    loot = forfeit = None
+    if res.you_won:
+        player.duel_wins = getattr(player, "duel_wins", 0) + 1
+        if res.stake:
+            peer_stats["handshakes"] = max(
+                0, int(peer_stats.get("handshakes", 0) or 0) - res.stake)
+        if inv is not None:
+            from . import equipment as equip_mod
+            loot = equip_mod.roll_item(rng, boost=them.level)
+            inv.add(loot)
+    elif inv is not None:
+        forfeit = inv.pick_forfeit(rng)
+        if forfeit is not None:
+            inv.remove(forfeit.id)
+
+    bits = [f"{res.winner} beat {res.loser}"]
+    if res.stake:
+        bits.append(f"seized {res.stake} handshake(s)")
+    if loot is not None:
+        bits.append(f"looted {loot.name} (+{loot.power} pow)")
+    if forfeit is not None:
+        bits.append(f"{them.name} stripped your {forfeit.name}")
+    summary = ("WON: " if res.you_won else "LOST: ") + ", ".join(bits) + "."
+
+    return AutoDuelOutcome(
+        result=res, you_won=res.you_won, winner=res.winner, loser=res.loser,
+        stake=res.stake, loot=loot, forfeit=forfeit, summary=summary,
+    )
