@@ -7,8 +7,10 @@ import time
 from . import persistence
 from . import prefs as prefs_mod
 from .ai.service import AIService
+from .core.authz import Authorizer, in_scope
 from .core.bluetooth import BluetoothScanner
 from .core.wifi.backends import make_backend
+from .sanitize import clean
 import random
 
 from .game import battle as battle_mod
@@ -42,6 +44,10 @@ class Agent:
         # active RF (deauth/injection) during a live capture is gated PER TARGET
         # by _capture_authorized: consent AND (manual pick | in-scope), so one
         # global "don't ask again" can't auto-deauth every AP in range.
+        # Audits every active-RF decision the autonomous loop makes (deauth /
+        # crack / active BLE), which otherwise leave no trail unlike the
+        # standalone commands.
+        self._authz = Authorizer(cfg)
         self.wifi = make_backend(cfg, is_authorized=self._capture_authorized)
         self.ble = BluetoothScanner(cfg) if cfg.scan_bluetooth else None
         self.gps = GpsReader(cfg)
@@ -187,7 +193,7 @@ class Agent:
             m = self.dex.get(m.id) or m
             ups = mechanics.collect(self.state, "handshake", self.cfg)  # catch it
             self._fx_set("excited")
-            self.log(f"[catch] caught {m.species} '{ssid}' Lv{m.level} "
+            self.log(f"[catch] caught {m.species} '{clean(ssid)}' Lv{m.level} "
                      f"[{m.encryption}] -- {self.ai.analyze(ev)}")
             self.speak("caught", ssid)
             self._quest("catches", 1)
@@ -195,18 +201,30 @@ class Agent:
             self._achievements()
             self._progress(ups)
             # weak/legacy networks are crackable ON THE FLY -- no trip home.
-            # CRACKING (WEP/WPA1) needs a one-time on-screen consent (the same
-            # warning as battling). Open just associates, so it needs none.
+            # CRACKING (WEP/WPA1) is the most sensitive action: gate it PER
+            # TARGET (manual pick | in-scope) so one 'don't ask again' can't
+            # auto-crack every weak network in range, THEN take the one-time
+            # on-screen consent. Open just associates, so it needs neither.
             if m.encryption == "open":
                 self._field_battle(m)
-            elif m.encryption in ("wep", "wpa") and self._field_consent():
-                self._field_battle(m)
+            elif m.encryption in ("wep", "wpa"):
+                if not self._crack_in_scope(bssid, ssid):
+                    self._authz.audit("crack", bssid, ssid, False,
+                                      "AP out of authorized scope")
+                    self.log(f"[skip] '{clean(ssid)}' is out of your authorized "
+                             "scope -- caught but not cracked")
+                elif self._field_consent():
+                    self._authz.audit(
+                        "crack", bssid, ssid, True,
+                        "manual pick" if getattr(self.cfg, "manual", False)
+                        else "in authorized scope")
+                    self._field_battle(m)
         elif enc.state == encounter.ESCAPED:
             m.captured = False
             self.dex.add(m)
-            self.log(f"[escape] {ssid} broke free - no handshake")
+            self.log(f"[escape] {clean(ssid)} broke free - no handshake")
         else:  # FLED
-            self.log(f"[run] fled from {m.species} '{ssid}'")
+            self.log(f"[run] fled from {m.species} '{clean(ssid)}'")
 
     def _render_encounter(self, m) -> None:
         """Best-effort visual encounter card to cfg.encounter_html_out."""
@@ -229,20 +247,41 @@ class Agent:
         return bool(self._prefs.get("hide_fieldcrack_warning"))
 
     def _capture_authorized(self, bssid: str = "", ssid: str = "") -> bool:
-        """Per-target gate for ACTIVE deauth during a LIVE handshake capture.
+        """Per-target gate for ACTIVE deauth during a LIVE handshake capture,
+        consulted by the capture backend. Every decision is audit-logged so the
+        autonomous loop leaves the same tamper-evident trail as the standalone
+        `capture` command."""
+        allowed = self._capture_gate(bssid, ssid)
+        if allowed:
+            reason = ("consent + manual pick" if getattr(self.cfg, "manual", False)
+                      else "consent + in authorized scope")
+        else:
+            reason = "no consent, or AP out of authorized scope"
+        self._authz.audit("deauth", bssid, ssid, allowed, reason)
+        return allowed
 
-        Requires the session consent AND a per-AP justification -- either manual
-        mode (the player picked this AP with a button) or the AP is in their
-        optional authorized scope (cfg.home_networks). For every other AP the
-        backend stays strictly passive (listens, never transmits), so a single
-        'don't ask again' can't turn the auto loop into indiscriminate mass
-        deauth of every network in range. Mirrors the standalone `capture`
-        command's deny-by-default stance; passive capture is unaffected."""
+    def _capture_gate(self, bssid: str = "", ssid: str = "") -> bool:
+        """The deauth decision (no audit): session consent AND a per-AP
+        justification -- manual mode (the player picked this AP with a button)
+        or the AP is in their optional authorized scope (cfg.home_networks).
+        For every other AP the backend stays strictly passive, so one 'don't
+        ask again' can't turn the auto loop into indiscriminate mass deauth of
+        every network in range. Deny-by-default; passive capture is unaffected."""
         if not self._consented():
             return False
         if getattr(self.cfg, "manual", False):
             return True
-        from .core.authz import in_scope
+        return in_scope(bssid, ssid, self.cfg)
+
+    def _crack_in_scope(self, bssid: str = "", ssid: str = "") -> bool:
+        """Per-target scope gate for ON-THE-FLY cracking, mirroring
+        _capture_gate's per-AP justification: manual mode (the player picked
+        this AP) or the AP is in cfg.home_networks. Deny-by-default, so a single
+        'don't ask again' can't turn the auto loop into cracking every weak
+        network in range -- cracking is the most sensitive action, so it gets
+        the same scope discipline as deauth (it previously had none)."""
+        if getattr(self.cfg, "manual", False):
+            return True
         return in_scope(bssid, ssid, self.cfg)
 
     def _field_consent(self) -> bool:
@@ -418,6 +457,9 @@ class Agent:
                 return
             if not self._consented():   # connecting is active -> needs consent
                 return
+            # Active GATT connect on a real adapter -- audit it like deauth/crack.
+            self._authz.audit("ble_enum", m.id, getattr(m, "name", ""), True,
+                              "active GATT enumerate (consented)")
         try:
             result = self.ble.enumerate(m.id)
         except Exception as e:  # noqa: BLE001

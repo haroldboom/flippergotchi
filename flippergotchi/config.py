@@ -71,8 +71,10 @@ class Config:
     # wifi / bettercap
     interface: str = "mon0"
     bettercap_url: str = "http://127.0.0.1:8081"
-    bettercap_user: str = "user"       # REST API basic-auth (live mode)
-    bettercap_pass: str = "pass"
+    # REST API basic-auth (live mode). Unset by default -- set these to match
+    # your bettercap `api.rest` config; shipping real creds is a bad default.
+    bettercap_user: str = ""
+    bettercap_pass: str = ""
 
     # tamagotchi mechanics
     hunger_per_hour: float = 50.0      # how fast it gets hungry

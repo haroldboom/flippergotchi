@@ -27,9 +27,13 @@ class BettercapClient:
         cfg.bettercap_pass (defaults "user"/"pass" via getattr).
     """
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, is_authorized=None):
         self.cfg = cfg
         self.mode = "sim" if cfg.simulate else "live"
+        # Per-target gate for the ONLY active/transmitting action this client
+        # performs (deauth). Without it the live path would deauth on every
+        # capture regardless of consent/scope; mirrors the native backend.
+        self._is_authorized = is_authorized
         # When the live backend can't be reached we degrade to a no-op poll()
         # instead of crashing the agent. Set in start() on failure.
         self._degraded = False
@@ -69,8 +73,13 @@ class BettercapClient:
     def start(self):
         if self.mode != "live":
             return
-        user = str(getattr(self.cfg, "bettercap_user", "user"))
-        password = str(getattr(self.cfg, "bettercap_pass", "pass"))
+        user = str(getattr(self.cfg, "bettercap_user", ""))
+        password = str(getattr(self.cfg, "bettercap_pass", ""))
+        if not user and not password:
+            log.warning(
+                "bettercap REST credentials are unset (cfg.bettercap_user / "
+                "cfg.bettercap_pass); set them to match your bettercap "
+                "`api.rest` config or live capture will 401.")
         token = base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("ascii")
         self._auth_header = "Basic " + token
         iface = str(getattr(self.cfg, "interface", "mon0"))
@@ -133,7 +142,20 @@ class BettercapClient:
         cmds = []
         if channel:
             cmds.append(f"wifi.recon.channel {channel}")
-        cmds.append(f"wifi.deauth {target}")
+        # Deauth is the only transmitting action here. Gate it PER TARGET and
+        # suppress it entirely under --dry-run, exactly like the native backend
+        # -- when it's not allowed we still listen passively for a handshake.
+        active = self._authorized(target, ssid)
+        if bool(getattr(self.cfg, "dry_run", False)):
+            if active:
+                log.info("DRY-RUN: would deauth authorized target %s -- "
+                         "SUPPRESSED (passive listen only)", target)
+            active = False
+        elif not active:
+            log.info("bettercap capture for %s is PASSIVE-only (not an "
+                     "authorized/in-scope target): no deauth sent", target)
+        if active:
+            cmds.append(f"wifi.deauth {target}")
         for cmd in cmds:
             try:
                 self._request("/api/session", payload={"cmd": cmd})
@@ -167,6 +189,18 @@ class BettercapClient:
                 return self._handshakes_file() or None
             time.sleep(0.5)
         return None
+
+    def _authorized(self, bssid, ssid) -> bool:
+        """Consult the per-target gate; a missing or broken gate fails CLOSED
+        (passive), so we never transmit without an explicit yes."""
+        if self._is_authorized is None:
+            return False
+        try:
+            return bool(self._is_authorized(bssid, ssid))
+        except Exception as exc:  # noqa: BLE001 - a broken gate must fail CLOSED
+            log.warning("bettercap authorization callback raised (%s); "
+                        "treating as DENIED", exc)
+            return False
 
     def _known_channel(self, bssid_lower):
         """Channel cached from a prior detection, if the agent recorded one."""

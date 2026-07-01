@@ -92,9 +92,10 @@ class BettercapBackend(CaptureBackend):
 
     name = "bettercap"
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, is_authorized=None):
         self.cfg = cfg
-        self._client = BettercapClient(cfg)
+        self.is_authorized = is_authorized
+        self._client = BettercapClient(cfg, is_authorized=is_authorized)
 
     def start(self) -> None:
         try:
@@ -252,7 +253,7 @@ def make_backend(cfg, is_authorized=None) -> CaptureBackend:
     if choice == "sim":
         return SimBackend(cfg)
     if choice == "bettercap":
-        return BettercapBackend(cfg)
+        return BettercapBackend(cfg, is_authorized=is_authorized)
     if choice == "native":
         return NativeBackend(cfg, is_authorized=is_authorized)
 
@@ -261,4 +262,4 @@ def make_backend(cfg, is_authorized=None) -> CaptureBackend:
         log.info("capture backend: native (monitor-mode hcxdumptool/scapy)")
         return NativeBackend(cfg, is_authorized=is_authorized)
     log.info("capture backend: bettercap (native stack unavailable)")
-    return BettercapBackend(cfg)
+    return BettercapBackend(cfg, is_authorized=is_authorized)

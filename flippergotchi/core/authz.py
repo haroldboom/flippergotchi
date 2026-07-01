@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 DEFAULT_AUDIT_LOG = "~/.flippergotchi/audit.log"
 
 # Active RF actions that MUST be authorized + audited.
-ACTIVE_ACTIONS = ("deauth", "capture", "crack")
+ACTIVE_ACTIONS = ("deauth", "capture", "crack", "ble_enum")
 
 
 def _as_needles(home) -> list:
@@ -105,6 +105,17 @@ class Authorizer:
             reason = "target not in scope (home_networks)"
         self._audit(action, bssid, ssid, allowed, reason)
         return allowed, reason
+
+    def audit(self, action, bssid, ssid: str = "", allowed: bool = True,
+              reason: str = "") -> None:
+        """Record one audit line for an action the CALLER already decided.
+
+        Unlike :meth:`require` (which re-derives the decision from scope), this
+        logs the outcome the caller actually took -- so a manual-mode override
+        that transmits is recorded as ``allowed=True`` rather than diverging
+        from a scope check. Used by the autonomous agent loop, whose deauth /
+        crack / active-BLE decisions would otherwise leave no trail."""
+        self._audit(action, bssid, ssid, bool(allowed), str(reason))
 
     # -- audit ------------------------------------------------------------
     def _audit(self, action, bssid, ssid, allowed: bool, reason: str) -> None:

@@ -10,8 +10,10 @@ time_scale = 1.0
 # --- wifi / capture (live mode) ---
 interface = "mon0"
 bettercap_url = "http://127.0.0.1:8081"
-bettercap_user = "user"      # REST API basic-auth (bettercap `api.rest on`)
-bettercap_pass = "pass"
+# REST API basic-auth (bettercap `api.rest on`). Set these to YOUR own values;
+# leaving them unset keeps live capture disabled rather than shipping weak creds.
+bettercap_user = ""
+bettercap_pass = ""
 
 # --- tamagotchi mechanics ---
 hunger_per_hour = 50.0

@@ -64,6 +64,13 @@ mock, not a runnable environment for this project's HTML. Beware false hits:
 
 ## Priority 0 — Safety & correctness (do before any transmit on real hardware)
 
+> **Status: DONE** (commit on `refactor/persistence-facade`). All five items below
+> are fixed and covered by `tests/test_p0_safety.py` (11 tests). Note on item 4:
+> the SSID mitigation strips control chars, caps length, and delimits the value —
+> it closes terminal-injection and overflow and reduces prompt-injection surface,
+> but does not claim full LLM prompt-injection immunity (impact is limited to the
+> pet uttering attacker text; the default `canned` backend has no LLM at all).
+
 These undermine the project's own stated safety guarantees. None is large.
 
 1. **Gate bettercap deauth and honor `--dry-run`.**

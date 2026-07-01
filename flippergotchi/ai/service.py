@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from ..pet import mechanics
+from ..sanitize import clean
 from .canned import CannedBackend
+
+# Hard caps so a chatty (or manipulated) model can't overflow the 256x144
+# display / persona budget. One-liners get less room than the 2-sentence coach.
+_SAY_LIMIT = 160
+_COACH_LIMIT = 240
 
 PERSONA = (
     "You are {name}, a cyberpunk shark pet living inside a Flipper One. "
@@ -45,32 +51,40 @@ class AIService:
     def speak(self, event_key: str, state, arg: str = "", sub: str = "") -> str:
         # `arg` is the display flavor (ssid / level / stage); `sub` disambiguates
         # (e.g. handshake vs pmkid). Canned wants a structured "key:arg"; LLM
-        # backends want prose.
+        # backends want prose. `arg` can be an attacker-controlled SSID, so
+        # sanitize it before it reaches either a prompt or the display.
+        arg = clean(arg, 48)
         if self.backend.name == "canned":
             key = "fed_pmkid" if (event_key == "fed" and sub == "pmkid") else event_key
-            return self.backend.generate("", f"{key}:{arg}")
+            return clean(self.backend.generate("", f"{key}:{arg}"), _SAY_LIMIT)
         system = PERSONA.format(name=state.name, mood=mechanics.mood(state),
                                 level=state.level, stage=state.stage)
         try:
-            return self.backend.generate(system, self._describe(event_key, arg, sub)).strip()
+            return clean(self.backend.generate(
+                system, self._describe(event_key, arg, sub)), _SAY_LIMIT)
         except Exception:
-            return CannedBackend().generate("", f"{event_key}:{arg}")
+            return clean(CannedBackend().generate("", f"{event_key}:{arg}"), _SAY_LIMIT)
 
     def analyze(self, target: dict) -> str:
         """Analyst line for a target AP: difficulty + suggested attack."""
         from ..game.analysis import assess
         a = assess(target)
+        # a.ssid is attacker-controlled -- neutralize before prompt/display.
+        ssid = clean(a.ssid, 48)
         if self.backend.name == "canned":
-            return f"{a.ssid} [{a.encryption}] -> {a.label} ({a.difficulty}/100). {a.attack}"
+            return clean(f"{ssid} [{a.encryption}] -> {a.label} "
+                         f"({a.difficulty}/100). {a.attack}", _COACH_LIMIT)
         system = ("You are a witty WiFi-pentest coach inside a game. "
                   "Reply in at most 2 short, practical sentences.")
-        facts = (f"SSID {a.ssid}, {a.encryption}, difficulty {a.label} "
+        facts = (f"SSID {ssid}, {a.encryption}, difficulty {a.label} "
                  f"{a.difficulty}/100. Notes: {'; '.join(a.reasons) or 'none'}. "
                  f"Plan: {a.attack} Cmd: {a.hashcat_cmd or 'n/a'}.")
         try:
-            return self.backend.generate(system, "Coach the player: " + facts).strip()
+            return clean(self.backend.generate(
+                system, "Coach the player: " + facts), _COACH_LIMIT)
         except Exception:
-            return f"{a.ssid} [{a.encryption}] -> {a.label} ({a.difficulty}/100). {a.attack}"
+            return clean(f"{ssid} [{a.encryption}] -> {a.label} "
+                         f"({a.difficulty}/100). {a.attack}", _COACH_LIMIT)
 
     @staticmethod
     def _describe(event_key: str, arg: str, sub: str = "") -> str:
