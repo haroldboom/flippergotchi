@@ -28,7 +28,8 @@ class BettercapClient:
                 set api.rest.password pass; api.rest on"
         listening on cfg.bettercap_url (default http://127.0.0.1:8081).
       * HTTP basic-auth credentials come from cfg.bettercap_user /
-        cfg.bettercap_pass (defaults "user"/"pass" via getattr).
+        cfg.bettercap_pass (empty by default -- set them to your own; a warning
+        is logged if live capture runs without them).
     """
 
     def __init__(self, cfg, is_authorized=None):

@@ -3,55 +3,92 @@
 [![CI](https://github.com/haroldboom/flippergotchi/actions/workflows/ci.yml/badge.svg)](https://github.com/haroldboom/flippergotchi/actions/workflows/ci.yml)
 
 A **Tamagotchi-style WiFi pet** for the [**Flipper One**](https://docs.flipper.net/one).
-It shares Pwnagotchi's DNA — capturing WPA handshakes with the radio — but you
-**scan for nearby APs and choose which to capture** (a deliberate, per-AP
-mechanic — *not* indiscriminate deauth of everything in range), and the captures,
-walks, and AI personality are wired into a *pet you raise* instead of a pwning
-machine.
+It shares Pwnagotchi's DNA — using the radio to hunt Wi-Fi — but instead of a
+pwning machine you **raise a shark**: you scan for nearby APs and choose which to
+capture (a deliberate, per-AP mechanic, *not* indiscriminate deauth of everything
+in range), and the captures, walks, duels and AI personality feed a creature you
+care for over weeks.
 
-> 📟 **This is for the Flipper One — NOT the Flipper Zero.** The Flipper One is
-> the new, **unreleased** Rockchip RK3576 Arm-**Linux** handheld (Wi-Fi 6E +
-> 6 TOPS NPU + FlipCTL UI) — a full Linux computer, not the Zero's
-> microcontroller. The hardware isn't out yet, so today this runs entirely in
-> **simulation** on any Linux box; the radio/GPS/Bluetooth/NPU hooks are
-> clearly-marked TODOs that light up when the device ships.
+> 📟 **This is for the Flipper One — NOT the Flipper Zero.** The Flipper One
+> (announced May 2026, **not shipping yet**) is a Rockchip RK3576 Arm-**Linux**
+> handheld — Wi-Fi 6E, Bluetooth 5.2, a 6 TOPS NPU and the FlipCTL UI — a full
+> Linux computer, not the Zero's microcontroller. **Because the hardware isn't
+> out, this runs entirely in simulation today** (`--simulate`) on any Linux box.
+> It's a genuinely complete game against a simulated device: fake WiFi/GPS/BLE
+> events drive the *real* game loop, and every hardware hook is a clearly-marked,
+> abstraction-gated seam that lights up when a device exists. No overclaiming —
+> it's an impressive sim of an unreleased device.
 >
-> 🖥️ **The screen is a 256×144 monochrome LCD, 64-level grayscale (6-bit)**
-> ([official specs](https://docs.flipper.net/one/general/tech-specs)) — so every
-> render below is **grayscale**, exactly what the panel shows. (The source sprites
-> are colour and are auto-desaturated for the device.)
+> 🖥️ **The screen is 256×144, 6-bit (64-level) grayscale**
+> ([official specs](https://docs.flipper.net/one/general/tech-specs)) — so the
+> device renders below are grayscale and **dithered**, matching what the panel
+> shows. Source sprites are colour and auto-desaturated for the device.
 
 - **WiFi APs are monsters you catch.** Each access point is a creature; net its
-  handshake to add it to your **bestiary** (creature-collector style) — *not* food.
-- **Walking is the fitness core.** GPS movement → XP → levels → evolutions
-  (egg → hatchling → … → legend), and your shark **forages food** (and, rarely,
-  gear) as you walk — that's how the pet actually stays fed. Note the Flipper One
-  has **no onboard GPS/GNSS and no IMU/accelerometer**
-  ([tech specs](https://docs.flipper.net/one/general/tech-specs)), so on real
-  hardware this needs an **externally attached GPS** (read via `gpsd`) or another
+  handshake and it joins your **dex** (a real creature-collector collection —
+  "caught X of 19 species", not a packet log).
+- **Walking is the fitness core.** Movement → XP → levels → evolutions
+  (egg → … → legend), and your shark **forages food** (and, rarely, gear) as you
+  move. Note the Flipper One has **no onboard GPS/GNSS and no IMU**, so on real
+  hardware this needs an **externally attached GPS** (via `gpsd`) or another
   movement source — see [`docs/movement-mechanic.md`](docs/movement-mechanic.md).
-- **Crack & duel for loot.** Cracking a captured monster (after a one-time warning) or duelling a
-  rival Flippergotchi drops **equipment** you can equip.
-- **A deep progression loop.** Daily/weekly **quests** + lifetime story **chains**,
-  tiered & hidden **achievements** with wearable **titles**, a real **hunger/food/
-  larder** survival layer, **✨ shiny** catches, and an opt-in **Hardcore mode**
-  where starvation means permadeath.
-- **The onboard AI is its voice.** The RK3576 NPU (or a CPU model, or canned
-  phrases) narrates what the pet feels and what it just caught.
-- **A cyberpunk pixel-art shark pet** in an **old-school
-  creature-collector 2D HUD**, at the Flipper One's native **256×144**. It **evolves**
-  egg→legend and comes in 5 **shark species** (different silhouettes, picked with `--variant`).
+- **Combat that actually matters.** Duels resolve from your gear (ATK/DEF/LUCK +
+  set bonuses), your **element**, and a fair-fight matchmaker; the pet auto-duels
+  detected peers and `duel <name>` shows you the real odds first. Cracking Wi-Fi
+  stays a deterministic, tool-based act — a separate skill, not a stat check.
+- **A deep, weeks-long progression loop.** Daily/weekly/monthly **quests** +
+  lifetime story **chains**, tiered & hidden **achievements** with wearable
+  **titles**, a real **hunger/food/larder** survival layer, **✨ shiny** catches,
+  post-L40 **paragon** prestige, and a finite species-completion capstone.
+- **Stakes that fit the fantasy.** In normal mode, sustained neglect makes your
+  pet **sick** (XP stalls, foraging stops, happiness tanks) and it recovers when
+  you feed it — care matters, but it **never dies**. Opt into **Hardcore** and
+  starvation is permadeath, with a death runway and a gravestone/epitaph.
+- **The pet has a voice.** The RK3576 NPU (or a CPU model, or canned phrases)
+  narrates what the pet feels — and now speaks at *every* payoff: catches,
+  quests, badges, cracks, shinies, and its own hunger.
+- **A cyberpunk pixel-art shark** in a retro creature-collector 2D HUD at the
+  native **256×144**. It **evolves** egg→legend and comes in 5 **shark species**
+  (distinct silhouettes, picked with `--variant`).
 
 > **The economy at a glance:** walk → forage *food* (+ rare gear) · encounter →
-> *catch* AP-monsters · crack → *loot* + score · duel rivals → *steal*
-> gear & handshakes. APs are monsters; food comes from foraging.
+> *catch* AP-monsters · crack → *loot* + score · duel peers → gear & bragging
+> rights. Foraging is a periodic reward, not a firehose; scrap has real sinks
+> (up to a 5000-scrap cosmetic).
 
-### What it looks like
+---
 
-The game on the Flipper One's **256×144** screen — a retro creature-collector HUD
-(HP / XP / food / energy + dialogue box) with the cyberpunk shark, scaled crisp
-with nearest-neighbour. The full loop: **scan for APs → target one → net its
-handshake → it lands in your bestiary** (the sprite swaps with the action):
+## What it looks like
+
+### On the device (256×144, 6-bit grayscale, dithered)
+
+These are the **most device-accurate renders** — each screen's HTML is rendered
+in **headless WebKit** (the same engine the Flipper One runs on DRM) at exactly
+256×144, then pushed through a 6-bit grayscale + **Floyd–Steinberg dithering**
+step. They're the faithful *proxy* for the real panel (see
+[`docs/device/README.md`](docs/device/README.md) for fidelity caveats) and are
+reproducible with **`make previews`**.
+
+| Main HUD | `prime` evolution (L20) | Encounter |
+|:---:|:---:|:---:|
+| ![device HUD](docs/device/face.floyd.png) | ![prime stage](docs/device/prime.floyd.png) | ![encounter](docs/device/encounter.floyd.png) |
+
+| Feed / larder | Equipment | Badge wall |
+|:---:|:---:|:---:|
+| ![feed](docs/device/feed.floyd.png) | ![equip](docs/device/equip.floyd.png) | ![badges](docs/device/badges.floyd.png) |
+
+**Net-gun capture** — the animation frames, on-panel:
+
+| aim | net | listen | GOTCHA |
+|:---:|:---:|:---:|:---:|
+| ![capture 0](docs/device/capture_0.floyd.png) | ![capture 1](docs/device/capture_1.floyd.png) | ![capture 2](docs/device/capture_2.floyd.png) | ![capture 3](docs/device/capture_3.floyd.png) |
+
+### Colour showcase
+
+The layouts above are the same ones in these fuller-resolution colour renders
+(the source art is colour; the device desaturates it). The full loop: **scan for
+APs → target one → net its handshake → it lands in your dex** (the sprite swaps
+with the action):
 
 ![Flippergotchi gameplay](docs/demo.gif)
 
@@ -60,25 +97,33 @@ handshake → it lands in your bestiary** (the sprite swaps with the action):
 | ![idle](docs/render-idle.png) | ![geared](docs/render-geared.png) | ![hungry](docs/render-hungry.png) |
 
 **Action faces** — the pet's image changes by mood/action: idle · happy · chomp
-(catching) · hungry · sleeping · hurt. **Every evolution stage** has the full set
-(hatchling → legend), so the pet emotes at any age:
+(catching) · hungry · sleeping · hurt. **Every evolution stage** has the full set,
+so the pet emotes at any age:
 
 ![action faces](docs/moods.png)
 
-**Evolutions** — egg → hatchling → juvenile → adult → prime → alpha → legend
-(an evolution roughly every week through month 1; legend is reachable in ~4-6
-weeks of committed play, not a year). `adult` reuses the shipped adult art;
-`prime` currently borrows the alpha sprite as a placeholder — **FINAL-ART TODO:
-dedicated `prime` / `<variant>-prime` sprites.** Past L40 the pet keeps levelling
-and banks a **paragon** marker every 10 levels (no reset):
+**Evolutions** — egg → hatchling → juvenile → adult (L14) → prime (L20) →
+alpha (L25) → legend (L40). The curve was retuned (`level_exp = 1.4`) so an
+evolution lands **roughly weekly** early on and legend is reachable in **weeks,
+not a year**. Past L40 the pet keeps levelling and banks a **paragon** marker
+every 10 levels (non-destructive, no reset).
 
 ![evolution stages](docs/evolutions.png)
 
-**Shark species** (`--variant` / `character_variant`): classic · hammerhead · goblin · sawshark · whaleshark — distinct silhouettes that read on the mono screen, *not* recolours
+> **Honest art note:** `adult` reuses the shipped adult art, and the `prime`
+> sprites are **programmatically-derived placeholder art** (auto-generated from
+> the alpha set by `tools/gen_prime_sprites.py`) pending **final hand-drawn
+> `prime` / `<variant>-prime` sprites**. They ship and read on the panel, but
+> they're a placeholder.
+
+**Shark species** (`--variant` / `character_variant`): classic · hammerhead ·
+goblin · sawshark · whaleshark — distinct silhouettes that read on the mono
+screen, *not* recolours:
 
 ![shark species](docs/variants.png)
 
-…and your chosen species **persists through every evolution** (e.g. hammerhead, egg → legend):
+…and your chosen species **persists through every evolution** (e.g. hammerhead,
+egg → legend)…
 
 ![variant through evolution](docs/variant-evo.png)
 
@@ -88,31 +133,20 @@ and banks a **paragon** marker every 10 levels (no reset):
 
 **The monsters** — WiFi APs are catchable creatures, **species by the router's
 brand** (Netgear, TP-Link, Linksys, ASUS, Cisco, ISP…), with **WEP & WPA1** as
-rare **legendaries**. Bluetooth devices are a friendlier **mini-monster** tier
-(phones, wearables, audio, beacons, computers, trackers, HID, smart-home,
-medical):
+rare **legendaries**. Bluetooth devices are a friendlier **mini-monster** tier —
+whimsical "signal-sprites" you befriend rather than exploit (more below):
 
 ![bestiary — WiFi villains + BLE mini-monsters](docs/monsters.png)
 
-**Encounter → capture** — a "A wild … appeared!" card, then a net-gun
-animation that mirrors the real flow (lock → **deauth** → listen for the WPA
-4-way handshake → **GOTCHA**, or time out with no handshake):
+**Encounter → capture** — a "A wild … appeared!" card, then a net-gun animation
+that mirrors the real flow (lock → **deauth** → listen for the WPA 4-way
+handshake → **GOTCHA**, or time out with no handshake):
 
 ![encounter screens](docs/encounter.png)
 
 | Handshake captured | No handshake (timed out) |
 |:---:|:---:|
 | ![capture success](docs/capture.gif) | ![capture failed](docs/capture-fail.gif) |
-
-**BLE battling** — Bluetooth monsters battle too, as a short sequence of real
-attack techniques: **SNIFF** the connection → **RE-PAIR** to force a fresh
-exchange → **BRUTE TK** with **crackle** to recover the LTK and *own* it. A
-secure (LE Secure Connections) target isn't always immune — a **KNOB entropy
-DOWNGRADE** can weaken it to a brute-forceable key, or you can **GATT-WRITE** to
-take control (ring a tracker, toggle a bulb). Owning a device yields its LTK plus
-class-specific **intel** (location history, audio intercept, health records…).
-
-![ble battle — SNIFF → DOWNGRADE → BRUTE KEY → OWNED](docs/blebattle.png)
 
 **Battle Dojo** — `battle` opens a menu: **AUTO** cracks every fresh target,
 **MANUAL** scrolls a list to pick one (Flipper One: OK opens · Up/Down move · OK
@@ -127,26 +161,27 @@ selects · Back exits):
 |:---:|:---:|
 | ![duel battle screen](docs/battle.png) | ![equipment screen](docs/equip.png) |
 
-**Progression, food & trophies** — hunger is a real survival loop: walking forages
-**typed food** into a capped **Larder** you hand-feed (`feed`); a tiered badge wall
-with hidden secrets (`achievements`) mints **titles** you can wear; and the rarest
-catches are **✨ shiny** (~1/256). Opt into **Hardcore mode** (`--reset --hardcore`)
-and starvation is permadeath.
+**Progression, food & trophies** — hunger is a real survival loop: walking
+forages **typed food** into a capped **Larder** you hand-feed (`feed`); a tiered
+badge wall with hidden secrets (`achievements`) mints **titles** you can wear;
+and the rarest catches are **✨ shiny** (~1/256):
 
 | Feed & Larder | Badge wall | Shiny catch |
 |:---:|:---:|:---:|
 | ![feeding screen](docs/feed.png) | ![achievement badge wall](docs/badges.png) | ![a wild shiny monster](docs/shiny.png) |
 
-**Hardcore mode** (`--reset --hardcore`) — opt in once, locked for the pet's life.
-The pet wears an **HC** badge, takes **Doom-style battle damage** (it gets battered
-and a **bloody nose** runs down its face as HP falls), and a flashing **STARVING**
-warning fires before **permadeath** — let it starve and it's reborn as an egg, all
-progress gone:
+**Hardcore mode** (`--reset --hardcore`) — opt in once, locked for the pet's
+life. The pet wears an **HC** badge, takes **Doom-style battle damage** (a bloody
+nose runs down its face as HP falls), and gets a **death runway** of escalating
+**STARVING** warnings before **permadeath** — let it starve and it's reborn as an
+egg with a gravestone/epitaph, all progress gone. Normal-mode pets can get sick
+but never die:
 
 ![hardcore mode — HC badge → escalating blood damage → STARVING → permadeath → reborn egg](docs/hardcore.gif)
 
 > ⚠️ **Authorized use only.** Capturing / deauthing / cracking is for networks you
-> own or are explicitly permitted to test — same as any WiFi audit tool.
+> own or are explicitly permitted to test — same as any WiFi audit tool. The
+> consent gate, scope gate, `--dry-run`, and audit log below are all enforced.
 
 > 🤖 **Built with AI assistance.** I designed and directed this, but it was built
 > hand-in-hand with an AI coding assistant, and the original pixel art is
@@ -159,9 +194,9 @@ progress gone:
 
 ## Run it now (no hardware)
 
-Everything runs on a normal Linux box in **simulation mode** — fake WiFi + GPS
-events drive the real game loop, so you can watch the shark before a Flipper
-One exists on your desk.
+Everything runs on a normal Linux box in **simulation mode** — fake WiFi + GPS +
+BLE events drive the real game loop, so you can raise the shark before a Flipper
+One exists on your desk. The core is **pure Python 3.10+ stdlib**, no deps.
 
 ```bash
 cd flippergotchi
@@ -171,136 +206,117 @@ pip install -e .                   # optional: installs the `flippergotchi` comm
 python3 -m flippergotchi --simulate --plain --ticks 60   # log-only, no clear
 ```
 
-While it runs it also writes a **256×144 LCD mock-up** to
-`/tmp/flippergotchi/face.html` — open it in a browser to preview the on-device
-FlipCTL view.
+While it runs it writes a **256×144 LCD mock-up** to `/tmp/flippergotchi/*.html` —
+open it in a browser to preview the on-device view. To regenerate the
+device-accurate grayscale renders in `docs/device/`:
+
+```bash
+make previews-deps    # one-time: Playwright + WebKit (dev/CI only, not a runtime dep)
+make previews         # drive --simulate → render HTML → 256×144 WebKit → 6-bit + dither
+```
 
 Run the tests:
 
 ```bash
-python3 tests/test_mechanics.py    # or: python -m pytest
+python3 -m pytest -q
 ```
 
 ---
 
-## Architecture
+## Gameplay & mechanics
 
-```
-bettercap (radio)  ─┐
-                    ├─► Agent ──► PetState (hunger/xp/level/health…)
-gps (walking)      ─┘     │            │
-                          │            ├─► AIService ──► [canned | cpu-llama | rkllm-npu]
-                          │            │
-                          └────────────┴─► view ──► [TUI text | FlipCTL HTML/LCD]
-```
+### The dex is a real collection
 
-| Module | Role | Status |
-|---|---|---|
-| `core/wifi/` | native capture stack: monitor-mode mgmt, scan, hcxdumptool/scapy handshake+PMKID capture, `CaptureBackend` (auto: native→bettercap→sim) | sim ✅; hw path wired (needs on-device validation) |
-| `core/handshake.py` | EAPOL 4-way / PMKID validation (pure-python pcap fallback) + `hcxpcapngtool` → hc22000 | ✅ done & tested |
-| `core/authz.py` | JSONL audit log of active RF actions (deauth/capture/crack) | ✅ done & tested |
-| `core/preflight.py` + `game/doctor.py` | `doctor` preflight: tools / privileges / iface / wordlist | ✅ done & tested |
-| `game/cracking.py` | hardened hashcat pipeline (PMKID/EAPOL, multi-wordlist + rules) | ✅ done & tested |
-| `game/blebattle.py` | BLE battling: technique sequence (sniff/re-pair/brute-TK/KNOB/control) + loot | ✅ done & tested |
-| `game/achievements.py` · `shop.py` · `gearsets.py` | tiered/hidden badges + titles + gear payouts · "scrap" shop (`--stash` food → larder) · gear-set bonuses | ✅ done & tested |
-| `game/food.py` · `game/larder.py` | typed foods (Scrap Chum→Power Cell) + a capped larder pantry | ✅ done & tested |
-| `game/moves.py` | per-element PvP move sets + status effects | ✅ done & tested |
-| `core/bettercap.py` | WiFi capture via bettercap REST | **sim works**; live wired (needs on-device validation) |
-| `pet/gps.py` | GPS movement → walk distance (**needs external GPS**: no onboard GNSS/IMU) | sim ✅; gpsd reader implemented + sanity-clamped (needs on-device validation) |
-| `pet/mechanics.py` | hunger / **satiety** / **escalating starvation** / xp / levels / evolution / mood | ✅ done & tested |
-| `pet/state.py` | the savefile (v2: satiety / titles / **hardcore** mode; `persistence.migrate`) | ✅ done & tested |
-| `ai/service.py` | event + mood → spoken line | ✅ (backend-pluggable) |
-| `ai/canned.py` | phrase pools, zero deps | ✅ default |
-| `ai/cpu_llama.py` | local GGUF via llama.cpp | works with a model |
-| `ai/rkllm_npu.py` | NPU LLM (6 TOPS) | **stub** — waits on driver |
-| `view/faces.py` | shark ASCII expressions (TUI) | ✅ |
-| `view/tui.py` | dev terminal view | ✅ |
-| `view/flipctl.py` | 256×144 creature-collector HUD + pixel sprite | ✅ render; plugin = TODO |
-| `view/battle_screen.py` | 1v1 PvP duel screen render | ✅ render |
-| `view/equip_screen.py` | pet-wearing-gear loadout screen render | ✅ render |
-| `view/encounter_screen.py` | "A wild … appeared!" encounter card render | ✅ render |
-| `view/capture_screen.py` | net-gun capture animation frames (aim→net→GOTCHA) | ✅ render |
-| `view/battle_menu.py` | Battle Dojo menu + scrollable target list + button map | ✅ render |
-| `view/blebattle_screen.py` | BLE battle outcome card (own / control / immune) | ✅ render |
-| `view/monster_art.py` | species → enemy/mini-monster sprite lookup | ✅ done & tested |
-| `view/sprites/` | cyberpunk pixel-art sprites (pet + monsters) | ✅ |
-| `game/analysis.py` | crack-difficulty heuristics (the analyst) | ✅ done & tested |
-| `game/monsters.py` | AP/BLE → collectible monster + stats + **shiny** (~1/256, stable) | ✅ |
-| `game/bestiary.py` | your captured collection (savefile) | ✅ |
-| `game/battle.py` | hashcat -m 22000 + rockyou → cloud fallback, auth-gated | sim ✅; hw path wired (needs on-device validation) |
-| `game/cracking.py` (CloudCracker) | real wpa-sec/onlinehashcrack upload + result retrieval | ✅ done & tested (wpa-sec validated path) |
-| `game/encounter.py` | detect → Capture/Run state machine | ✅ done & tested |
-| `game/home.py` | "are we home?" gate for battling | ✅ |
-| `game/ledger.py` | wins / losses / escalations database | ✅ done & tested |
-| `game/duel.py` | Digimon-style PvP: turn-based moves + status effects + STAB | ✅ done & tested |
-| `game/equipment.py` | gear: loot, equip, forfeit-on-loss | ✅ done & tested |
-| `game/elements.py` | Spark/Tide/Gale/Aether matchup chart | ✅ done & tested |
-| `game/quests.py` | daily + weekly + lifetime **story chains** + clear **streak**, scrap/food/gear rewards (`migrate` v3) | ✅ done & tested |
-| `view/feed_screen.py` · `view/badge_screen.py` | feeding screen (larder + hand-feed) · grayscale **badge wall** | ✅ render |
-| `prefs.py` | persistent prefs (e.g. dismissed warning) | ✅ |
-| `view/animations.py` | net-gun / flee ASCII animation frames | ✅ |
-| `core/bluetooth.py` | BLE devices → mini-monsters | sim ✅; BlueZ = TODO |
+`dex` shows a **species collection** — one row per species with a **count**,
+**best level**, and a **✨ shiny** flag — and a running **"caught X of 19
+species"** total. Under the hood the bestiary is still keyed strictly by
+**BSSID**, so the same AP is never double-counted and two hidden networks never
+collapse into one; the display just rolls them up by species. Catching every
+species is a finite goal that mints the capstone title **"the Reefmaster."**
 
-## The RPG layer — a WiFi-pentest fitness game
+### Combat actually matters
 
-It's also a location-based GPS RPG layered on the same data:
+The RPG cluster is wired into the pet's daily life, not an orphan side-mode:
 
-- **You level up by walking** (GPS = fitness/XP), same as the pet.
-- **APs are monsters — species by the router's BRAND.** The vendor (from the
-  BSSID OUI / SSID) picks the species: Netgear→Gnashgear, TP-Link→Mantalink,
-  Linksys→Synksquid, ASUS→Asurpent, Cisco→Kragnet, an ISP→Telewyrm, unknown→
-  Crypterion. Band = element, clients = minions.
-- **WEP & WPA1 are rare LEGENDARIES** (Wepwraith / Wparchon). Legacy security is
-  trivially broken, so they're a prized, easy catch — and they crack **on the
-  fly** in the field (no trip home): WEP via **aircrack-ng** (IV attack, no
-  wordlist), WPA1 via the handshake path. Still authorization-gated, and the
-  first on-the-fly crack asks for a **one-time on-screen OK** (the same warning
-  as battling, with a *don't ask again* — no config files to touch).
-- **Bluetooth devices are smaller monsters** — see the BLE section above.
-- **Battling = cracking.** WPA2 is the slow one: capture the handshake, then
-  `hashcat -m 22000` + rockyou at home; if it survives and you allow it, escalate
-  to a **cloud crack** (real wpa-sec upload; `cloud results` pulls keys back).
-- **Only crackable networks are surfaced** (open / WEP / WPA / WPA2-PSK). WPA3,
-  WPA2-Enterprise and OWE aren't wordlist-crackable, so they're not shown at all.
+- **Duels resolve from real inputs** — equipped gear's **ATK / DEF / LUCK**,
+  **gear-set bonuses**, and your **element** (Spark / Tide / Gale / Aether) all
+  feed the resolver. LUCK is a viable build (it drives crits and initiative),
+  not a trap stat.
+- **The pet auto-duels detected peers**, but only ones matchmatched to a **fair
+  fight** (estimated win chance in a `[0.2, 0.85]` band) — an occasional,
+  competitive payoff, not a firehose of log spam.
+- **`duel <name>` shows you the odds before you commit** — resolver-accurate win
+  % (Monte-Carlo'd from the actual duel, not a cheap ratio) plus the element
+  matchup note.
+- **No 0%/100% locks** — the winner is rolled from the final HP share and clamped
+  to `[0.05, 0.95]`, so favourites stay favoured but an underdog always has a
+  shot.
+- **Stakes:** the loser forfeits a slice of **handshakes** and its weakest
+  *unequipped* gear (equipped pieces are protected).
 
-> 🔒 **Authorization is consent-based.** Cracking shows a **warning you agree to
-> once** (with a *don't ask again* — no config files); on-the-fly WEP/WPA cracking
-> asks the same. Crack only networks you own or are cleared to test.
+**Cracking is different.** WiFi cracking stays a **deterministic, tool-based
+act** — a wordlist attack whose odds come from the network's security, never from
+gear or stats. Gear only matters in PvP.
 
-### The encounter flow (location-based catching)
+### Walking, food & survival
 
-```
-AP detected ─► POPUP "[A] Capture  [B] Run"
-                 │
-       ┌─────────┴─────────┐
-   Capture                Run
-       │                    │
-  net-gun animation     flee animation
-   ├─ caught  → bestiary (handshake = food for the pet)
-   └─ escaped → broke free, no handshake
-```
+- **Walking forages typed food** (Scrap Chum → Power Cell) into a capped
+  **Larder** you hand-feed with `feed`. Foraging is tuned as a **periodic reward,
+  not a firehose** (`forage_food_per_m = 0.01`), and the pet only auto-eats when
+  genuinely hungry — so the larder and `feed` actually matter.
+- **Soft stakes (normal mode):** leave the pet neglected long enough (~6 h of
+  cumulative neglect) and it falls **sick** — XP stalls, it refuses to forage,
+  and happiness is capped — until you feed it back to health. Normal-mode health
+  is floored, so **it cannot die**; the stakes are care, not loss.
+- **Hardcore mode** (opt-in once, locked for life): starvation is **permadeath**,
+  but with a **runway** of escalating warning frames and a **gravestone/epitaph**
+  before it's reborn as an egg.
 
-Capture success is about **radio** (clients present, signal strength) — not
-encryption. *Battling* (cracking) is a separate, deliberate step you do **at home**:
+### Endgame & retention
 
-```
-game/encounter.py   detect → Capture/Run → caught/escaped/fled  (+ animations)
-game/home.py        at_home(geofence OR home network in range) → battle unlocked
-game/battle.py      hashcat+rockyou → cloud, consent-gated, with a warning
-```
+- **Extended badge ladders** (Beastmaster / Safecracker / Gladiator / Trailblazer
+  / Whisperer / Questmaster…) with hidden secrets, live progress bars, and a
+  grayscale badge wall.
+- A **finite species-completion capstone** — catch all 19 → "the Reefmaster."
+- A **shiny ladder** (first shiny → 5 → 15 → 50).
+- **Escalating clear-streak rewards** at 7 / 14 / 30 / 100 days.
+- A **rotating weekly challenge** and **month-scale quest chains**.
+- **Post-L40 paragon** prestige markers (non-destructive) and aspirational
+  wearable **titles**.
 
-### CLI
+### BLE: signal-sprites you befriend
+
+Bluetooth devices are the friendlier mini-monster tier. The tone is deliberately
+**whimsical, not surveillance** — you *win over* shy "signal-sprites" with actions
+like **LISTEN / GREET / HUM / EASE / ATTUNE / BOOP → FRIEND**, and they leave you
+small trinkets. This is *not* real-device exploitation.
+
+The one thing kept sharp is the **unwanted-tracker / stalker alert**: if a device
+follows you across scans, Flippergotchi flags it — a genuine protective safety
+feature, never about exploiting anyone else.
+
+### Onboarding
+
+A fresh pet (`--reset`) **prompts you to name it**, plays a one-time **hatch
+beat** ("*crack* — {name} hatched from its egg!") with two lines of how-to-play,
+and **suppresses the hashcat/analyst jargon for the first few catches** so the
+opening reads like a pet, not a pentest console.
+
+---
+
+## CLI
 
 ```bash
 python3 -m flippergotchi --simulate        # run: walk, encounter, capture, collect
 python3 -m flippergotchi encounter         # demo one encounter (popup + animation)
-python3 -m flippergotchi dex               # bestiary + your W/L/escalate record
+python3 -m flippergotchi dex               # species collection: caught X of 19
+python3 -m flippergotchi profile           # your pet's "life so far" summary
 python3 -m flippergotchi battle            # open the Battle Dojo (auto/manual menu)
 python3 -m flippergotchi battle Linksys    # MANUAL: crack one (after the warning)
 python3 -m flippergotchi battle --all      # AUTO: battle every fresh captured target
 python3 -m flippergotchi battle --all --dont-show-again   # ...and stop warning me
-python3 -m flippergotchi quests            # today's daily quests + progress
-python3 -m flippergotchi duel ByteSurf     # PvP duel (moves + element matchups)
+python3 -m flippergotchi quests            # daily + weekly + monthly chains + streak
+python3 -m flippergotchi duel ByteSurf     # PvP duel (shows odds + element matchup)
 python3 -m flippergotchi gear              # inventory / equip loadout
 python3 -m flippergotchi doctor            # preflight: tools/iface/wordlist/scope
 python3 -m flippergotchi scan              # passive AP discovery (no active actions)
@@ -320,84 +336,19 @@ python3 -m flippergotchi --simulate --manual   # choose [A]Capture/[B]Run yourse
 python3 -m flippergotchi --simulate --variant hammerhead   # pick your shark species
 ```
 
-- **One scrap economy**: cracking, catching, walking, winning duels **and quests**
-  all pay **scrap** — spend it in the `shop` on food, repair, lures or a gear reroll.
-- **Quests** (`quests`): **daily** (weighted, never two on one metric) + **weekly**
-  + lifetime **story chains** with named givers (First Steps / The Hunt / Ghost
-  Protocol). Clearing every daily pays a bonus and builds a **streak**.
-- **Achievements** (`achievements`): tiered **bronze/silver/gold** ladders +
-  **hidden** secrets, live progress bars, and a grayscale **badge-wall** render.
-  Gold capstones mint gear or a **title** you can wear (`title <name>`).
-- **Hunger is food, food is real**: walking forages **typed foods** (Scrap Chum →
-  Power Cell) into a capped **Larder**; `feed` hand-feeds them. Eating banks a
-  **satiety** buff (small forage-luck + PvP edge — never cracking).
-- **Hardcore mode** (`--reset --hardcore`, chosen once, locked for the pet's life):
-  starvation is **permadeath** — reborn as an egg. Normal pets can't die.
-- **Shiny monsters**: ~1/256 and stable per AP/device — a ✨ prize catch.
-- **Gear sets**: matching pieces grant a set bonus to **PvP power only** (never
-  WiFi cracking — that stays deterministic from the network).
-- **Element type-advantage**: every fighter has an element (Spark/Tide/Gale/Aether);
-  matchups tilt duel odds (`game/elements.py`).
-- **Manual mode** (`--manual`): you press A/B per encounter instead of the auto-policy.
-- **"You're home" prompt**: the run loop nudges you to `battle --all` when you
-  arrive in your dojo with monsters ready.
+- **One scrap economy**: cracking (120), duel wins (60), catching (8), OPEN
+  networks (18, catch-tier — *not* a full crack), walking and quests all pay
+  **scrap** — spend it in the `shop` on food, repair, lures, a gear reroll, or the
+  **5000-scrap Golden Fin Skin** cosmetic sink.
+- **Quests**: daily (weighted, never two on one metric) + a **rotating weekly
+  challenge** + **month-scale story chains** with named givers. Clearing every
+  daily builds a **streak** with rewards at 7/14/30/100 days.
+- **Element type-advantage**: every fighter has an element; matchups tilt duel
+  odds (`game/elements.py`).
+- Every battle is logged to `game/ledger.py` (win = cracked, loss = failed,
+  escalate = uploaded to the cloud cracker).
 
-- The bestiary is keyed strictly by **BSSID**, so two different hidden networks
-  never collapse into one and the same AP is never duplicated.
-- Every battle is logged to `game/ledger.py` (**win** = cracked, **loss** =
-  failed, **escalate** = uploaded to the cloud cracker).
-- The crack **warning** has a *do-not-show-again* (`--dont-show-again`) that
-  persists in `prefs.json`.
-
-### The Battle Dojo
-
-`battle` (no target) opens the dojo (shown above): **AUTO** (`battle --all`)
-cracks every fresh target (`attempts == 0`); **MANUAL** (`battle <name>`) picks
-one from the scrollable list. On the device, **OK** opens it, **Up/Down** move,
-**OK** confirms, **Back** closes (`view/battle_menu.py` `BUTTONS`).
-
-When another Flippergotchi is detected advertising over **Bluetooth**, you can
-challenge it:
-
-```bash
-python3 -m flippergotchi duel              # list nearby Flippergotchis
-python3 -m flippergotchi duel ByteSurf     # challenge one
-python3 -m flippergotchi gear              # your inventory + equipped loadout
-python3 -m flippergotchi gear <item-id>    # toggle equip / unequip
-```
-
-- **Power** = level (dominant) + handshake pool + **equipped gear** + condition.
-  Win chance comes from the power ratio, but upsets are always possible
-  (clamped 8–92%), so a strong loadout matters but never guarantees a win.
-- **Stakes:** the loser forfeits a slice of their **handshakes** *and* **a bit
-  of gear** (weakest *unequipped* item first — equipped gear is protected).
-- **Gear = findable pieces you slot on:** five slots — **helmet · eyepiece ·
-  amulet · weapon · fin** — each item rolls a PvP stat (ATK / DEF / LUCK) and a
-  rarity (common→legendary). Loot them from captures and walks; only *equipped*
-  pieces count.
-- **Distinct art + effects per rarity:** every slot has 5 looks (common grey → legendary radiant gold). Worn pieces glow by rarity (rare cyan · epic purple · **legendary gold, with a live pulse**).
-- **Gear only matters in PvP.** It does **not** help against WiFi monsters —
-  cracking is a deterministic wordlist attack, not a stat check.
-
-The **analyst** runs automatically on every capture (difficulty + suggested
-attack + the exact hashcat command); on the `cpu`/`npu` AI backend it's narrated
-by the local LLM, on `canned` it's the deterministic heuristic.
-
-## AI backends
-
-Set `ai_backend` in config (or leave default):
-
-- **`canned`** — phrase pools, no dependencies. The default; always available.
-- **`cpu`** — a small GGUF (e.g. Qwen2.5-1.5B-Instruct) via `llama-cpp-python`.
-  Runs today on the RK3576 A72 cores. Set `ai_model_path`. **This is the
-  launch-day path.**
-- **`npu`** — Rockchip **RKLLM** runtime on the 6 TOPS NPU. *Stubbed* until the
-  mainline RK3576 NPU "rocket" driver ships
-  ([tracking issue #55](https://github.com/flipperdevices/flipperone-linux-build-scripts/issues/55)).
-  `build_backend()` falls back automatically, so nothing breaks before then.
-
-The whole point of the abstraction: **ship on `canned`/`cpu` now, flip to `npu`
-later with no redesign.**
+---
 
 ## The WiFi penetration stack
 
@@ -406,131 +357,211 @@ handshake *validation* (not just "we wrote a file"), a hard authorization gate o
 every active action, and a `doctor` that tells you exactly what's missing.
 
 ```
-core/wifi/monitor.py    monitor-mode iface mgmt: detect MT7921, airmon-ng / iw,
+core/wifi/monitor.py    monitor-mode iface mgmt: MT7921 detect, airmon-ng / iw,
                         rfkill, regdomain, channel set + hop plans, capabilities()
 core/wifi/scan.py       passive AP/client discovery (iw scan / airodump CSV)
 core/wifi/capture.py    handshake + PMKID capture: hcxdumptool → scapy fallback,
-                        AUTHORIZED targeted deauth only
+                        AUTHORIZED targeted deauth only; honors --dry-run
 core/wifi/backends.py   CaptureBackend abstraction; make_backend() auto-selects
-                        native → bettercap → sim (override: cfg.capture_backend)
+                        native → bettercap → sim, forwarding the authz gate to ALL
 core/handshake.py       validate EAPOL 4-way (M1–M4) / PMKID before cracking —
                         pure-python pcap/pcapng parser, no external tool needed
 game/cracking.py        hashcat -m 22000 (PMKID/EAPOL), multi-wordlist + rules,
                         structured CrackResult; deterministic sim fallback
-core/authz.py           Authorizer: JSONL audit log of every deauth/capture/crack
+core/authz.py           Authorizer: JSONL audit of every deauth/capture/crack/ble
 ```
 
-**Authorization model.** Passive scanning is always fine. Active operations
-(deauth, capture, crack) are authorized by an **on-screen warning you agree to
-once** — informed consent, like any WiFi audit tool, with no config files to
-edit. Every active action is still appended to `~/.flippergotchi/audit.log`. Only
-operate on networks you own or are cleared to test.
+- **Only crackable networks are surfaced** (open / WEP / WPA / WPA2-PSK). WPA3,
+  WPA2-Enterprise and OWE aren't wordlist-crackable, so they aren't shown.
+- **WEP & WPA1 are rare LEGENDARIES** (Wepwraith / Wparchon) — legacy security is
+  trivially broken, so they're a prized catch and crack **on the fly** in the
+  field (still consent- *and* scope-gated).
+- **Battling WPA2 = cracking at home**: capture the handshake, then
+  `hashcat -m 22000` + rockyou; if it survives and you allow it, escalate to a
+  **cloud crack** (real wpa-sec upload; `cloud results` pulls keys back).
+
+### Safety & authorization (enforced end-to-end)
+
+The consent/scope discipline the project advertises is **actually enforced in
+code**, and covered by `tests/test_p0_safety.py`:
+
+- **Consent-gated capture on ALL backends.** `make_backend()` forwards the
+  authorization gate to the **bettercap** backend as well as native — and it
+  **fails closed** (passive-only) if the gate is missing or errors, so the
+  default path can't silently deauth.
+- **`--dry-run` is honored on the real paths.** Monitor mode, passive scan,
+  capture-listen, handshake validation and hashcat command *construction* all
+  run — but the two irreversible/expensive actions (deauth injection and actually
+  running hashcat) are suppressed. Walk the whole stack with a monitor-mode dongle
+  without transmitting.
+- **On-the-fly cracking is scope-gated.** Field cracking requires **both** a scope
+  check (`in_scope` against your `home_networks`, or a manual pick) **and** the
+  one-time consent — dismissing the warning does *not* let the daemon crack
+  anything it happens to catch.
+- **The autonomous loop is audited.** The agent's deauth, crack, and active BLE
+  actions are written to `~/.flippergotchi/audit.log` (JSONL), not just the
+  standalone CLI commands.
+- **SSIDs are sanitized.** Attacker-controlled SSIDs are stripped of control/ANSI
+  characters and length-capped before they reach any prompt, log line, or the
+  256×144 display (limiting terminal-injection and prompt-injection surface; the
+  default `canned` backend has no LLM at all).
+- **No weak default creds ship.** `bettercap_user` / `bettercap_pass` and cloud
+  API keys default to empty — leaving them unset keeps live capture disabled
+  rather than shipping guessable credentials.
 
 **Preflight.** `python3 -m flippergotchi doctor` reports tools
-(`hcxdumptool`/`hcxpcapngtool`/`hashcat`/`iw`/…), privileges (root / CAP_NET_ADMIN),
-the monitor interface and the wordlist — then a plain-English
+(`hcxdumptool`/`hcxpcapngtool`/`hashcat`/`iw`/…), privileges (root / CAP_NET_ADMIN
+/ CAP_NET_RAW), the monitor interface and the wordlist — then a plain-English
 "you can: [passive scan] [capture] [crack]" summary with fix-it hints.
 
-**Dry-run (validate on hardware safely).** `--dry-run` drives the *real* paths —
-monitor mode, passive scan, capture-listen, handshake validation, and hashcat
-command construction — but suppresses the two irreversible/expensive actions:
-**deauth injection** and **actually running hashcat**. Bring up a monitor-mode
-dongle and walk the stack end-to-end without attacking anything:
+---
 
-```bash
-python3 -m flippergotchi doctor                         # 1. is the stack ready?
-python3 -m flippergotchi scan                           # 2. passive: do I see APs?
-python3 -m flippergotchi --dry-run capture <bssid>      # 3. capture+validate (no deauth)
-python3 -m flippergotchi --dry-run battle <name> --authorized   # 4. shows the exact
-                                                        #    hashcat cmd it WOULD run
-```
+## AI backends
 
-`capture` prints whether the resulting file holds a PMKID / complete 4-way; the
-dry-run `battle` validates the capture and prints `would run: hashcat -m 22000 …`
-without executing it. Drop `--dry-run` (with proper authorization) to go live.
+Set `ai_backend` in config (or leave the default):
 
-## Porting to real hardware (when the Flipper One arrives)
+- **`canned`** — phrase pools, no dependencies. The default; always available.
+  Pools are widened (6–8 lines each) and the pet now speaks at **every** payoff
+  (catch, quest-clear, badge, crack, shiny, sickness, starvation).
+- **`cpu`** — a small GGUF (e.g. Qwen2.5-1.5B-Instruct) via `llama-cpp-python`.
+  Runs today on the RK3576 A72 cores. Set `ai_model_path`. **This is the
+  launch-day path** (install `pip install ".[ai-cpu]"`).
+- **`npu`** — Rockchip **RKLLM** runtime on the 6 TOPS NPU. Still a **stub**
+  pending the mainline RK3576 NPU driver
+  ([tracking issue #55](https://github.com/flipperdevices/flipperone-linux-build-scripts/issues/55));
+  `build_backend()` falls back automatically, so nothing breaks before then.
+
+The whole point of the abstraction: **ship on `canned`/`cpu` now, flip to `npu`
+later with no redesign.**
+
+---
+
+## Hardware reality (Flipper One)
+
+A read-only implementation review ([`docs/flipper-one-implementation.md`](docs/flipper-one-implementation.md))
+checked the project's assumptions against Flipper's published specs. Most of the
+core bets held up; two need correcting, and they're reflected above.
+
+| Assumption | Reality | Verdict |
+|---|---|---|
+| 256×144, 6-bit grayscale LCD | Exactly correct | ✅ |
+| Wi-Fi = MT7921 monitor mode | MediaTek MT7921AUN, mainline mt76/nl80211 | ✅ |
+| BLE via BlueZ | Bluetooth 5.2, standard BlueZ | ✅ |
+| UI = author HTML/CSS, render on device WebKit | **FlipCTL is real**: HTML/JS/CSS on headless **WebKit-on-DRM** | ✅ the UI bet was right |
+| NPU 6 TOPS, RKLLM stubbed pending driver | Correct; NPU driver not mainlined yet | ✅ de-risked |
+| Ship as a "FlipCTL plugin" | FlipCTL plugins are D-pad menu wrappers around CLI tools; the immutable OS ships apps as **Flatpak/AppImage** | ⚠️ delivery model, not renderer |
+| GPS via `gpsd` as a core mechanic | **No onboard GPS and no IMU** in any published spec | ⚠️ needs an external source |
+
+- **The UI bet was right.** FlipCTL renders HTML/JS/CSS on headless WebKit on DRM
+  at exactly our target — so authoring HTML at 256×144 grayscale is correct. What
+  changes is *delivery*: a full-bleed animated game is most likely a **sandboxed
+  full-screen WebKit app packaged as Flatpak/AppImage**, not a FlipCTL "plugin"
+  (FlipCTL is the renderer/HMI framework). See
+  [`docs/ui-render-through.md`](docs/ui-render-through.md) and the runnable
+  `tools/shoot.py` WebKit render harness.
+- **Movement needs an external source.** With no onboard GNSS or IMU, the walking
+  economy can't come from the device alone. `pet/gps.py`'s `gpsd` reader is fully
+  implemented (and sanity-clamps fixes: mode ≥ 2, accuracy-gated, teleport-drop,
+  speed cap) — it just needs an **external USB/UART GPS** or an **M.2 GNSS
+  module**. A Wi-Fi/BLE-scan activity heuristic and play-based progression are
+  proposed as the accessory-free baseline. See
+  [`docs/movement-mechanic.md`](docs/movement-mechanic.md). (The old "IMU
+  pedometer" idea is dropped — there's no IMU.)
+
+### Deploy & package
+
+- **Service:** run unattended via the shipped systemd unit
+  (`packaging/flippergotchi.service`) with `Restart=on-failure`,
+  `AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW`, `StateDirectory=`, and clean
+  SIGTERM saves. A **config search path** (`-c` → `$FLIPPERGOTCHI_CONFIG` →
+  `./flippergotchi.toml` → `~/.config/…` → `/etc/…`) means no `-c` flag is needed.
+  See [`docs/deployment.md`](docs/deployment.md).
+- **Install extras:** `ai-cpu` (CPU LLM), `ble` (bleak/BlueZ peer discovery),
+  `wifi` (scapy 802.11 parsing); the core is stdlib-only. `aarch64` wheels and CI
+  are covered in [`docs/packaging.md`](docs/packaging.md).
+
+### Porting to real hardware (when it arrives)
+
+The game logic in `pet/` and `agent.py` does **not** change between sim and
+hardware — that's the design. Every hardware path is tagged
+`NEEDS ON-HARDWARE VALIDATION` and degrades to sim/None rather than crashing:
 
 1. **Capture:** install `hcxdumptool`/`hcxpcapngtool`/`hashcat`, set
-   `simulate = false`, run `doctor` until it's green, add your AP to
-   agree to the on-screen warning, and point `interface` at the MT7921 monitor iface.
-   `make_backend()` then picks the native stack automatically (or set
-   `capture_backend = "bettercap"` to drive a running bettercap REST session).
-   On a live backend the encounter loop **actually runs** the deauth + handshake
-   capture (`backend.capture_handshake`, bounded by `capture_timeout`) and the
-   real radio result decides catch vs. no-handshake — the capture file is kept on
-   the monster for later cracking/upload. In `--simulate` this is skipped and the
-   outcome stays a synthetic roll, so nothing changes without hardware.
-2. **Walking:** attach an **external** USB/UART GPS (the Flipper One has no
-   onboard GNSS or IMU — [tech specs](https://docs.flipper.net/one/general/tech-specs)),
-   run `gpsd`, and set `gps_mode = "gpsd"`. `GpsReader._gpsd_step()` is already
-   implemented and sanity-clamps fixes (mode≥2 only, accuracy-gated, teleport
-   drop, speed cap) before they feed the walk economy; it just needs on-device
-   validation. Alternative movement sources are discussed in
-   [`docs/movement-mechanic.md`](docs/movement-mechanic.md).
-3. **Face:** wrap `view/flipctl.py`'s markup in a real FlipCTL plugin and map the
-   D-pad / soft-buttons (feed, pause, sleep, stats) to actions.
+   `simulate = false`, run `doctor` until green, agree to the on-screen warning,
+   and point `interface` at the MT7921 monitor iface. `make_backend()` picks the
+   native stack (or set `capture_backend = "bettercap"`).
+2. **Walking:** attach an external GPS, run `gpsd`, set `gps_mode = "gpsd"` — or
+   pick another movement source per `docs/movement-mechanic.md`.
+3. **UI/input:** settle the delivery model (Flatpak/AppImage full-screen WebKit
+   app, pending SDK confirmation) and wire the D-pad/soft-buttons.
 4. **AI:** convert a sub-3B model to `.rkllm`, finish `ai/rkllm_npu.py`, set
    `ai_backend = "npu"`.
 
-The game logic in `pet/` and `agent.py` does **not** change between sim and
-hardware — that's the design. Every hardware path is marked
-`NEEDS ON-HARDWARE VALIDATION` and degrades to sim/None rather than crashing.
+---
 
-## Roadmap ideas
+## Docs (deep dives)
 
-- Growth curve re-tuned + mid-game evolutions: two new stages (`adult` L14,
-  `prime` L20) fill the old L8→L25 plateau; `level_exp` 1.6→1.4 brings legend
-  to ~4-6 weeks. **FINAL-ART TODO:** paint `prime` / `<variant>-prime` sprites
-  (they currently borrow the alpha art placeholder).
-- Post-L40 **paragon** prestige (non-destructive markers) + normal-mode **soft
-  stakes** (non-lethal sickness for sustained neglect) ~~— stalls XP/foraging,
-  tanks happiness, recovers on feeding~~ ✅ mechanics done (`pet/mechanics.py`).
-- ~~LLM "analyst" mode~~ ✅ done (`game/analysis.py` + `AIService.analyze`).
-- ~~APs as catchable monsters; BLE as mini-monsters; hashcat/cloud battles~~ ✅
-  scaffolded (`game/`).
-- ~~Type/element advantages; daily quests; manual capture mode~~ ✅ done.
-- ~~Native capture stack (monitor-mode, scan, hcxdumptool/scapy capture, backend
-  abstraction)~~ ✅ done (`core/wifi/`).
-- ~~Handshake/PMKID validation + `hcxpcapngtool`→hashcat conversion~~ ✅ done
-  (`core/handshake.py`, `game/cracking.py`).
-- ~~Authorization scope guard + audit log + `doctor` preflight~~ ✅ done
-  (`core/authz.py`, `game/doctor.py`).
-- ~~Progression: achievements, scrap economy + shop, gear sets~~ ✅ done.
-- ~~PvP moves + status effects~~ ✅ done (`game/moves.py`, `game/duel.py`).
-- ~~Cloud crack: real wpa-sec/onlinehashcrack upload + result retrieval~~ ✅ done
-  (`game/cracking.py` `CloudCracker`, `cloud submit` / `cloud results`).
-- Real-hardware paths are **implemented but unvalidated** (need a device):
-  - `core/wifi/*` native capture · `core/bettercap.py` live REST client
-  - `pet/gps.py` gpsd reader (requires an **external** GPS — no onboard GNSS) ·
-    `core/bluetooth.py` BLE scan via optional `bleak`
-  - still TODO: FlipCTL device plugin, RKLLM NPU backend.
-- ~~Step counter via the device IMU (true pedometer) alongside GPS distance~~ —
-  **not possible on the Flipper One: it has no IMU/accelerometer**
-  ([tech specs](https://docs.flipper.net/one/general/tech-specs)). Any pedometer
-  would need an external sensor; see [`docs/movement-mechanic.md`](docs/movement-mechanic.md)
-  for movement-source options.
-- Reinforcement-learning channel hopper (classic Pwnagotchi A2C) as an optional
-  capture optimizer — CPU, independent of the LLM.
-- Trade/share your bestiary; co-op "raids" on tough APs over BLE.
+| Doc | What it covers |
+|---|---|
+| [`docs/flipper-one-implementation.md`](docs/flipper-one-implementation.md) | Full hardware reality check + implementation review/roadmap |
+| [`docs/gameplay-review.md`](docs/gameplay-review.md) | The five-lens "fun but functional" design review that drove this pass |
+| [`docs/playtest-notes.md`](docs/playtest-notes.md) | Empirical tuning: care timing, combat odds, evolution curve |
+| [`docs/movement-mechanic.md`](docs/movement-mechanic.md) | Movement-source options (no GPS/IMU) + recommendation |
+| [`docs/ui-render-through.md`](docs/ui-render-through.md) | WebKit render harness + Flatpak-vs-plugin delivery decision |
+| [`docs/deployment.md`](docs/deployment.md) | systemd service, config search path, state dir, clean shutdown |
+| [`docs/packaging.md`](docs/packaging.md) | Extras, aarch64 `llama-cpp-python` wheels, sdist/wheel, CI |
+| [`docs/device/README.md`](docs/device/README.md) | How the device-accurate previews are made + fidelity caveats |
+
+---
+
+## Roadmap / status
+
+**Done and in the loop:** species-dex collection + Reefmaster capstone · retuned
+evolution curve (weekly-ish, legend in weeks) + paragon prestige · normal-mode
+soft-stakes sickness · hardcore death runway + epitaph · combat wired to
+gear/element/set-bonuses with fair-fight auto-duels, resolver-accurate odds and an
+upset floor · widened AI voice at every payoff · retuned economy with real sinks ·
+friendly BLE reskin (with the tracker safety alert kept) · onboarding · end-to-end
+safety enforcement (consent/scope/dry-run/audit/sanitize) · native capture stack,
+handshake/PMKID validation, hashcat + cloud crack, `doctor` preflight · systemd
+deploy + config search path + aarch64 packaging · device-accurate render previews.
+
+**Implemented but unvalidated (need a device):**
+- `core/wifi/*` native capture · `core/bettercap.py` live REST client
+- `pet/gps.py` gpsd reader (requires an **external** GPS/GNSS)
+- `core/bluetooth.py` BLE scan via optional `bleak`
+
+**Still open (blocked on a decision or on hardware):**
+- Device UI/input layer + app-delivery model (Flatpak/AppImage vs FlipCTL) — see
+  `docs/ui-render-through.md`
+- Accessory-free movement source (scan-based activity heuristic) — see
+  `docs/movement-mechanic.md`
+- RKLLM NPU backend (blocked on the mainline driver, issue #55)
+- **Final hand-drawn `prime` sprites** to replace the derived placeholders
+- Nice-to-haves: RL channel hopper as an optional capture optimizer; trade/share
+  your dex; co-op "raids" over BLE
+
+---
 
 ## License
 
 [MIT](LICENSE) © 2026 haroldboom. Built with AI assistance (see the note at the
-top). Use the WiFi/Bluetooth capabilities only on networks and devices you own
-or are authorized to test.
+top). Use the WiFi/Bluetooth capabilities only on networks and devices you own or
+are authorized to test.
 
 ## Trademarks & affiliation
 
 Flippergotchi is an **independent, unofficial fan project**. The character art is
-original art; the shark species are original designs *inspired by* real sharks and classic '90s shark-toon
-characters but use generic descriptive names and original artwork — those
-characters are trademarks of their respective owners and aren't used here. It is
-also **not affiliated with, endorsed by, or sponsored by Flipper Devices Inc.** "Flipper",
-"Flipper One", and the Flipper dolphin are trademarks of Flipper Devices Inc.,
-used here only **nominatively** to indicate the target hardware. **No official
-Flipper Devices artwork, renders, logos, or insignia are included in this
-repository** — the device mock-up is original art. Flipper Devices' brand policy
-requires written authorization to use their marks/assets, so if you fork or
-redistribute this, keep it clearly unofficial. The MIT license covers this
-project's own code and art only.
+original art; the shark species are original designs *inspired by* real sharks and
+classic '90s shark-toon characters but use generic descriptive names and original
+artwork — those characters are trademarks of their respective owners and aren't
+used here. It is also **not affiliated with, endorsed by, or sponsored by Flipper
+Devices Inc.** "Flipper", "Flipper One", and the Flipper dolphin are trademarks of
+Flipper Devices Inc., used here only **nominatively** to indicate the target
+hardware. **No official Flipper Devices artwork, renders, logos, or insignia are
+included in this repository** — the device mock-up is original art. Flipper
+Devices' brand policy requires written authorization to use their marks/assets, so
+if you fork or redistribute this, keep it clearly unofficial. The MIT license
+covers this project's own code and art only.
+</content>
+</invoke>

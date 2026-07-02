@@ -24,7 +24,7 @@ xp_per_meter = 0.15
 xp_per_snack = 2.0
 energy_per_meter = 0.02
 base_xp = 120.0
-level_exp = 1.6
+level_exp = 1.4          # legend reachable in weeks, not a year (retuned)
 # foraging: walking is how the pet finds FOOD (and, rarely, gear)
 forage_food = 12.0          # hunger restored per foraged snack
 forage_food_per_m = 0.06    # snack chance per metre walked (capped)
