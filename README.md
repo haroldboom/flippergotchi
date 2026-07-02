@@ -83,10 +83,12 @@ reproducible with **`make previews`**.
 |:---:|:---:|:---:|:---:|
 | ![capture 0](docs/device/capture_0.floyd.png) | ![capture 1](docs/device/capture_1.floyd.png) | ![capture 2](docs/device/capture_2.floyd.png) | ![capture 3](docs/device/capture_3.floyd.png) |
 
-### Colour showcase
+### Full-resolution showcase
 
-The layouts above are the same ones in these fuller-resolution colour renders
-(the source art is colour; the device desaturates it). The full loop: **scan for
+The layouts above are the same ones in these fuller-resolution renders. They're
+**grayscale** like the device panel (the source sprites are colour and get
+desaturated for the screen); the `docs/device/` set above adds the 6-bit +
+dithering the panel actually shows. The full loop: **scan for
 APs → target one → net its handshake → it lands in your dex** (the sprite swaps
 with the action):
 
