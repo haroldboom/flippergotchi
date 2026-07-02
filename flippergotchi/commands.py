@@ -24,6 +24,7 @@ from .game.monsters import label
 from .game.quests import QuestLog
 from .game.shop import Wallet
 from .pet import mechanics
+from .sanitize import clean
 from .view import animations
 from .view import screens
 from .gamestate import GameState
@@ -762,7 +763,7 @@ def cmd_scan(cfg, rounds: int = 8) -> None:
                      reverse=True):
         print(f"  {str(ap.get('bssid','')):<18} {str(ap.get('encryption','')):<5} "
               f"{str(ap.get('band','')):<6} {int(ap.get('signal',0) or 0):>4} "
-              f"{int(ap.get('clients',0) or 0):>3}  {ap.get('ssid','')}")
+              f"{int(ap.get('clients',0) or 0):>3}  {clean(ap.get('ssid',''), 32)}")
 
 
 def cmd_capture(cfg, target: str | None, authorized: bool = False) -> None:

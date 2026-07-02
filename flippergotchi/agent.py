@@ -498,11 +498,20 @@ class Agent:
         if getattr(self.ble, "mode", "sim") != "sim":
             if not getattr(self.cfg, "ble_enum", True):
                 return
-            if not self._consented():   # connecting is active -> needs consent
+            # Active GATT connect is gated PER TARGET, exactly like deauth/crack
+            # (config.py says so): consent AND (manual pick | in authorized
+            # scope), so one dismissed warning can't fan out into connecting to
+            # every device in range. The deny is audited too.
+            name = getattr(m, "name", "")
+            if not self._consented() or not (
+                    getattr(self.cfg, "manual", False)
+                    or in_scope(m.id, name, self.cfg)):
+                self._authz.audit("ble_enum", m.id, name, False,
+                                  "no consent, or device out of authorized scope")
                 return
-            # Active GATT connect on a real adapter -- audit it like deauth/crack.
-            self._authz.audit("ble_enum", m.id, getattr(m, "name", ""), True,
-                              "active GATT enumerate (consented)")
+            self._authz.audit("ble_enum", m.id, name, True,
+                              "consent + manual pick" if getattr(self.cfg, "manual", False)
+                              else "consent + in authorized scope")
         try:
             result = self.ble.enumerate(m.id)
         except Exception as e:  # noqa: BLE001
@@ -529,7 +538,8 @@ class Agent:
         if not monsters.is_valid_id(addr):
             return
         first = addr not in self._peers
-        self._peers[addr] = {"name": ev.get("name", "?"), "addr": addr,
+        # a peer's advertised name is attacker-controlled -- sanitize on ingest
+        self._peers[addr] = {"name": clean(ev.get("name", "?"), 32), "addr": addr,
                              "level": ev.get("level", 1),
                              "handshakes": ev.get("handshakes", 0),
                              "gear_power": ev.get("gear_power", 0),

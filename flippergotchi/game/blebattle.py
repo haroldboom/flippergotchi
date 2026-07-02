@@ -71,6 +71,15 @@ def battle_ble(monster, cfg) -> dict:
     loot = _LOOT.get(getattr(monster, "species", ""), "a fistful of static")
     steps = [("LISTEN", "caught its roaming chirps + trail")]
 
+    # --dry-run must NEVER transmit -- exercise the courtship narration but skip
+    # the real crackle/GATT-write hops (mirrors the WiFi native/bettercap paths
+    # and LocalCracker._crack_dry). Without this, `battle <ble> --dry-run` would
+    # actually connect + write_gatt_char on real hardware.
+    if bool(getattr(cfg, "dry_run", False)) and not bool(getattr(cfg, "simulate", False)):
+        steps.append(("DRY-RUN", "would befriend it here -- no signal sent"))
+        return {"result": "dry-run", "via": "dry-run", "key": "", "mode": pairing,
+                "note": "dry-run: no active BLE performed", "loot": None, "steps": steps}
+
     if pairing in ("just_works", "pin"):
         if pairing == "pin":
             steps.append(("GREET", "coaxed a fresh hello"))

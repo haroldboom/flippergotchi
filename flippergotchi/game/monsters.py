@@ -5,6 +5,7 @@ import hashlib
 from dataclasses import asdict, dataclass, field
 
 from .analysis import assess
+from ..sanitize import clean
 
 # A given AP/device is consistently shiny (or not) forever: we hash its STABLE
 # id (bssid / address), never the clock. ~1 in SHINY_ODDS rolls shiny.
@@ -188,7 +189,10 @@ def from_ap(ev: dict) -> Monster:
         species = _WIFI_VENDOR_SPECIES.get(vendor, _UNKNOWN_WIFI_SPECIES)
         rarity = ""
     return Monster(
-        id=a.bssid, kind="wifi", name=a.ssid,
+        # SSID is attacker-controlled -- sanitize at ingestion so no downstream
+        # log/CLI consumer can be hit with ANSI/control-char injection (the HTML
+        # views html.escape separately). BSSID (id) is a MAC, format-constrained.
+        id=a.bssid, kind="wifi", name=clean(a.ssid, 32),
         species=species,
         element=_ELEMENT.get(band, "Spark"),
         level=max(1, round(defense / 8) + ev.get("clients", 0)),
@@ -225,7 +229,7 @@ def from_ble(ev: dict) -> Monster:
 
     return Monster(
         id=addr, kind="ble",
-        name=ev.get("name") or "(unnamed)",
+        name=clean(ev.get("name"), 32) or "(unnamed)",   # BLE name is attacker-controlled
         species=_BLE_SPECIES.get(cls, "Pixie"),
         element=_BLE_ELEMENT.get(vendor, "Aether"),
         level=level, hp=hp, defense=defense, signal=rssi,
