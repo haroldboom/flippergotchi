@@ -1,5 +1,6 @@
-"""BLE battling: multi-technique attack sequence, KNOB downgrade path,
-class-specific loot, pairing-security difficulty, and the frame render."""
+"""Befriending BLE signal-sprites: multi-step courtship sequence, the bashful
+"ease its guard" path, class-specific keepsake loot, temperament (pairing
+security) difficulty, and the frame render."""
 from __future__ import annotations
 
 from flippergotchi.config import Config
@@ -26,44 +27,44 @@ def test_pairing_security_by_class():
 
 # -- the technique sequence + outcomes -------------------------------------
 def test_just_works_cracks_with_steps_and_loot(monkeypatch):
-    _roll(monkeypatch, 0.0)                    # crack lands
+    _roll(monkeypatch, 0.0)                    # befriend lands
     m = _ble("tracker")
     r = blebattle.battle_ble(m, Config(simulate=True))
     assert r["result"] == "cracked" and m.defeated and m.key
     labels = [s[0] for s in r["steps"]]
-    assert "SNIFF" in labels and "BRUTE TK" in labels and "OWNED" in labels
-    assert r["loot"] == "location history"     # tracker intel
+    assert "LISTEN" in labels and "HUM" in labels and "FRIEND" in labels
+    assert r["loot"] == "a wandering spark"    # tracker keepsake
 
 
-def test_pin_forces_a_repair_step(monkeypatch):
+def test_pin_forces_a_greet_step(monkeypatch):
     _roll(monkeypatch, 0.0)
     r = blebattle.battle_ble(_ble("wearable"), Config(simulate=True))
-    assert "RE-PAIR" in [s[0] for s in r["steps"]]
+    assert "GREET" in [s[0] for s in r["steps"]]
 
 
-def test_secure_immune_when_knob_fails_and_not_connectable(monkeypatch):
-    _roll(monkeypatch, 0.9)                    # KNOB downgrade fails
+def test_secure_bashful_when_ease_fails_and_not_connectable(monkeypatch):
+    _roll(monkeypatch, 0.9)                    # can't ease its guard
     m = _ble("phone", connectable=False)
     r = blebattle.battle_ble(m, Config(simulate=True))
     assert r["result"] == "immune" and not m.defeated
-    assert "IMMUNE" in [s[0] for s in r["steps"]]
+    assert "BASHFUL" in [s[0] for s in r["steps"]]
 
 
-def test_secure_knob_downgrade_cracks(monkeypatch):
-    _roll(monkeypatch, 0.0)                    # KNOB lands -> crack
+def test_secure_ease_guard_befriends(monkeypatch):
+    _roll(monkeypatch, 0.0)                    # ease lands -> befriend
     m = _ble("phone", connectable=False)
     r = blebattle.battle_ble(m, Config(simulate=True))
     assert r["result"] == "cracked" and m.defeated
-    assert "DOWNGRADE" in [s[0] for s in r["steps"]]
+    assert "EASE" in [s[0] for s in r["steps"]]
     assert "knob" in r["via"]
 
 
-def test_secure_connectable_control_when_knob_fails(monkeypatch):
-    _roll(monkeypatch, 0.5)                    # KNOB fails (0.5>=0.35), control lands (0.5<0.7)
-    m = _ble("phone", connectable=True)        # secure pairing, but connectable
+def test_secure_connectable_boop_when_ease_fails(monkeypatch):
+    _roll(monkeypatch, 0.5)                    # ease fails (0.5>=0.35), boop lands (0.5<0.7)
+    m = _ble("phone", connectable=True)        # bashful, but connectable
     r = blebattle.battle_ble(m, Config(simulate=True))
     assert r["result"] == "cracked" and r["via"] == "gatt-write"
-    assert "GATT WRITE" in [s[0] for s in r["steps"]]
+    assert "BOOP" in [s[0] for s in r["steps"]]
 
 
 # -- helpers ----------------------------------------------------------------
@@ -76,13 +77,13 @@ def test_control_move_per_species():
     tracker = monsters.from_ble({"addr": "AA:BB:CC:00:00:01",
                                  "device_class": "tracker"})
     label, uuid, _ = blebattle.control_move(tracker)
-    assert "ring" in label.lower() and uuid
+    assert "jingle" in label.lower() and uuid
 
 
 def test_loot_per_species():
     from flippergotchi.game.blebattle import _LOOT
-    assert _LOOT["Echobub"] == "audio intercept"
-    assert _LOOT["Vitalix"] == "health records"
+    assert _LOOT["Echobub"] == "a looping echo"
+    assert _LOOT["Vitalix"] == "a steady pulse-mote"
 
 
 # -- render -----------------------------------------------------------------
@@ -96,5 +97,5 @@ def test_render_sequence(tmp_path, monkeypatch):
                         "pairing": "just_works"}, res)
     assert len(paths) == len(res["steps"])
     last = open(paths[-1]).read()
-    assert "OWNED" in last and "JUST WORKS" in last and "grayscale(1)" in last
-    assert "BLE BATTLE" in last
+    assert "FRIEND" in last and "OPEN" in last and "grayscale(1)" in last
+    assert "SIGNAL SPRITE" in last

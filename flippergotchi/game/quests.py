@@ -24,9 +24,15 @@ METRICS = ["distance_m", "catches", "cracks", "duel_wins", "snacks",
 
 # persisted-file schema version for QuestLog (v2 adds the weekly + bonus blocks).
 # v3 adds lifetime/streak tracking (lifetime_done, streak, last_clear_day).
-CURRENT_SCHEMA = 3
+# v4 adds the rotating weekly challenge + claim-once streak milestone rewards.
+CURRENT_SCHEMA = 4
 # one-time scrap for clearing every daily in a day (the "finish the set" nudge).
 DAILY_CLEAR_BONUS = 45
+# escalating streak milestones: extra scrap paid THROUGH claim_daily_bonus the
+# day the streak first reaches each tier. Claim-ONCE for the pet's whole life
+# (persisted in streak_claimed) so re-building a broken streak never re-pays --
+# the long-tail prestige for streaks lives in the badge titles, not scrap.
+STREAK_REWARDS = {7: 100, 14: 200, 30: 400, 100: 1000}
 
 
 @dataclass
@@ -77,6 +83,33 @@ _WEEKLY_TEMPLATES = [
     ("w_tame", "Tame 12 Bluetooth devices", "tames", 12, {"scrap": 100, "food": 3}),
 ]
 
+# ROTATING WEEKLY CHALLENGE pool: one higher-stakes goal per week, chosen
+# round-robin by week number (deterministic, no RNG) so it visibly rotates.
+# Targets sit well above the ordinary weeklies; the prize is a cosmetic TITLE
+# (claim-once via grant_quest_reward's dedupe) plus only modest scrap, so the
+# challenge is a prestige chase rather than another scrap faucet.
+_CHALLENGE_TEMPLATES = [
+    ("chal_marathon", "CHALLENGE: Walk 40 km this week", "distance_m", 40000,
+     {"scrap": 150, "title": "the Tireless"}),
+    ("chal_swarm", "CHALLENGE: Catch 60 monsters this week", "catches", 60,
+     {"scrap": 150, "title": "the Swarmcaller"}),
+    ("chal_heist", "CHALLENGE: Crack 15 networks this week", "cracks", 15,
+     {"scrap": 180, "title": "the Vaultbreaker"}),
+    ("chal_menagerie", "CHALLENGE: Tame 25 Bluetooth devices this week",
+     "tames", 25, {"scrap": 150, "title": "the Signal Tamer"}),
+]
+
+
+def _week_index(week: str) -> int:
+    """Deterministic rotation index for a week label like '2026-W26'. Falls
+    back to a stable char-sum for unexpected formats, so rotation never
+    crashes on odd input -- it just still rotates."""
+    try:
+        y, w = week.split("-W")
+        return int(y) * 53 + int(w)
+    except Exception:
+        return sum(ord(c) for c in week)
+
 
 @dataclass
 class ChainStep:
@@ -106,6 +139,26 @@ _CHAINS = [
         ChainStep("Tame 5 Bluetooth devices", "tames", 5, {"scrap": 50}),
         ChainStep("Win 3 duels", "duel_wins", 3, {"scrap": 90}),
         ChainStep("Walk 10 km", "distance_m", 10000, {"scrap": 140, "gear": True}),
+    ]),
+    # -- month-scale chains: the long tail the day-1 chains lack. Step targets
+    # are per-step (progress resets between steps), so each chain is weeks of
+    # play; the finales pay a TITLE (prestige) rather than a big scrap pile.
+    ("the_long_haul", "Old Salt", "The Long Haul", [
+        ChainStep("Walk 25 km", "distance_m", 25000, {"scrap": 80}),
+        ChainStep("Catch 75 monsters", "catches", 75, {"scrap": 100}),
+        ChainStep("Crack 20 networks", "cracks", 20, {"scrap": 120}),
+        ChainStep("Walk another 75 km", "distance_m", 75000,
+                  {"scrap": 150, "gear": True}),
+        ChainStep("Catch 150 more monsters", "catches", 150,
+                  {"scrap": 200, "title": "the Long Hauler"}),
+    ]),
+    ("deep_signal", "Nullbyte", "Deep Signal", [
+        ChainStep("Tame 25 Bluetooth devices", "tames", 25, {"scrap": 80}),
+        ChainStep("Win 10 duels", "duel_wins", 10, {"scrap": 100}),
+        ChainStep("Crack 3 WEP/WPA1 legendaries", "legendary_kills", 3,
+                  {"scrap": 120}),
+        ChainStep("Tame 60 more devices", "tames", 60,
+                  {"scrap": 180, "gear": True, "title": "the Deep Signal"}),
     ]),
 ]
 _CHAIN_BY_ID = {cid: (giver, title, steps) for cid, giver, title, steps in _CHAINS}
@@ -169,6 +222,10 @@ def migrate(raw: dict) -> dict:
         raw.setdefault("lifetime_done", 0)
         raw.setdefault("streak", 0)
         raw.setdefault("last_clear_day", "")
+    if v < 4:
+        raw.setdefault("challenge", None)
+        raw.setdefault("challenge_week", "")
+        raw.setdefault("streak_claimed", [])
     raw["schema_version"] = CURRENT_SCHEMA
     return raw
 
@@ -186,6 +243,9 @@ class QuestLog:
         self.streak: int = 0                   # consecutive all-dailies-clear days
         self.last_clear_day: str = ""
         self.chains: dict = {}                 # chain_id -> {step, progress, done}
+        self.challenge: Quest | None = None    # this week's rotating challenge
+        self.challenge_week: str = ""          # week the challenge was rolled for
+        self.streak_claimed: list = []         # streak tiers already paid (once ever)
         self._load()
 
     def _load(self) -> None:
@@ -205,11 +265,20 @@ class QuestLog:
             self.streak = int(raw.get("streak", 0))
             self.last_clear_day = raw.get("last_clear_day", "")
             self.chains = raw.get("chains", {}) if isinstance(raw.get("chains"), dict) else {}
+            ch = raw.get("challenge")
+            try:
+                self.challenge = Quest.from_dict(ch) if isinstance(ch, dict) else None
+            except Exception:
+                self.challenge = None
+            self.challenge_week = raw.get("challenge_week", "")
+            sc = raw.get("streak_claimed", [])
+            self.streak_claimed = [int(t) for t in sc] if isinstance(sc, list) else []
         except Exception:
             self.day, self.quests = "", []
             self.week, self.weeklies, self.bonus_day = "", [], ""
             self.lifetime_done, self.streak, self.last_clear_day = 0, 0, ""
             self.chains = {}
+            self.challenge, self.challenge_week, self.streak_claimed = None, "", []
 
     def save(self) -> None:
         d = os.path.dirname(self.path)
@@ -228,6 +297,9 @@ class QuestLog:
                 "streak": self.streak,
                 "last_clear_day": self.last_clear_day,
                 "chains": self.chains,
+                "challenge": self.challenge.to_dict() if self.challenge else None,
+                "challenge_week": self.challenge_week,
+                "streak_claimed": self.streak_claimed,
             }, f, indent=2)
             f.flush()
             os.fsync(f.fileno())
@@ -254,13 +326,23 @@ class QuestLog:
         return self.quests
 
     def roll_weekly(self, week: str, n: int = 2, rng=random) -> list:
-        """Ensure this week's weekly quests exist (rerolled when `week` changes)."""
+        """Ensure this week's weekly quests exist (rerolled when `week` changes).
+        Also rotates in this week's CHALLENGE -- same call site, so the existing
+        weekly roll in the agent/CLI is all the wiring the challenge needs."""
         if self.week != week:
             n = max(0, min(n, len(_WEEKLY_TEMPLATES)))
             self.weeklies = [_template_quest(t)
                              for t in _weighted_distinct(_WEEKLY_TEMPLATES, n, rng)]
             self.week = week
+        if self.challenge_week != week and _CHALLENGE_TEMPLATES:
+            tpl = _CHALLENGE_TEMPLATES[_week_index(week) % len(_CHALLENGE_TEMPLATES)]
+            self.challenge = _template_quest(tpl)
+            self.challenge_week = week
         return self.weeklies
+
+    def active_challenge(self):
+        """This week's rotating challenge Quest (or None before the first roll)."""
+        return self.challenge
 
     def record(self, metric: str, amount: float, rng=random) -> list:
         """Bump matching active, not-yet-done dailies AND weeklies. Returns every
@@ -268,7 +350,10 @@ class QuestLog:
         a caller granting one reward per returned quest never double-pays (a
         single event can legitimately finish a daily and a weekly = two rewards)."""
         newly: list = []
-        for q in list(self.quests) + list(self.weeklies):
+        pool = list(self.quests) + list(self.weeklies)
+        if self.challenge is not None:
+            pool.append(self.challenge)      # the weekly challenge is a quest too
+        for q in pool:
             if q.done or q.metric != metric:
                 continue
             q.progress += amount
@@ -324,13 +409,29 @@ class QuestLog:
 
     def claim_daily_bonus(self, day: str) -> int:
         """Return DAILY_CLEAR_BONUS the first time every daily is cleared on
-        `day`, else 0. Stamps bonus_day so it pays at most once per day."""
+        `day`, else 0. Stamps bonus_day so it pays at most once per day.
+
+        When the freshly-bumped streak crosses a STREAK_REWARDS milestone the
+        milestone scrap is folded into the returned bonus, so it flows through
+        every existing claim call site unchanged. Each tier pays once EVER
+        (tracked in streak_claimed) -- escalation, not a repeatable faucet."""
         if self.all_dailies_done() and self.bonus_day != day:
             self.bonus_day = day
             self.streak += 1                  # another consecutive clear
             self.last_clear_day = day
-            return DAILY_CLEAR_BONUS
+            return DAILY_CLEAR_BONUS + self._claim_streak_rewards()
         return 0
+
+    def _claim_streak_rewards(self) -> int:
+        """Scrap for any STREAK_REWARDS tier the streak has reached that was
+        never paid before. `>=` (not `==`) so a save whose streak jumped past a
+        tier still collects it on the next clear."""
+        bonus = 0
+        for tier in sorted(STREAK_REWARDS):
+            if self.streak >= tier and tier not in self.streak_claimed:
+                self.streak_claimed.append(tier)
+                bonus += STREAK_REWARDS[tier]
+        return bonus
 
     def active(self) -> list:
         return list(self.quests)
@@ -380,4 +481,13 @@ def grant_quest_reward(quest, state, inv, cfg, wallet=None) -> str:
     if r.get("gear") and inv is not None:
         it = inv.add(equipment.roll_item(boost=state.level // 2))
         msgs.append(f"gear: {it.name}")
+    title = r.get("title")
+    if title and hasattr(state, "titles"):
+        # mirrors achievements.grant_reward: claim-once (a re-earned weekly
+        # challenge never duplicates), auto-equip only the first-ever title.
+        if title not in state.titles:
+            state.titles.append(title)
+            if not getattr(state, "active_title", ""):
+                state.active_title = title
+            msgs.append(f"title: {title}")
     return ", ".join(msgs) or "no reward"

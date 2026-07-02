@@ -47,6 +47,12 @@ class PetState:
     # (reset to egg) instead of flooring at 1 HP. Default False = the safe model.
     hardcore: bool = False
 
+    # --- v2.1: endgame/retention (all default-safe for old saves) ---
+    # paragon: post-L40 prestige marker. Persisted here; INCREMENTED by the
+    # evolution/mechanics layer (which reads it via getattr), never by this
+    # module -- 0 means the pet has not crossed into paragon play yet.
+    paragon: int = 0
+
     # On-disk schema version. Kept LAST so old saves lacking it still load and
     # positional/keyword construction in tests stays valid. Bumped by the
     # migrator in persistence.py when the shape of this dataclass changes.

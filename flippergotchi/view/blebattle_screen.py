@@ -1,9 +1,10 @@
-"""BLE battle render, 256x144 (grayscale device panel).
+"""BLE signal-sprite render, 256x144 (grayscale panel).
 
-Renders the BLE attack as a short frame sequence -- one frame per technique
-(SNIFF -> RE-PAIR -> BRUTE TK -> ... -> OWNED / CONTROL / IMMUNE) -- from the
-``steps`` log a ``game.blebattle.battle_ble`` result carries. The pairing
-security is shown as a badge; the final frame banners the outcome.
+Renders the little courtship as a short frame sequence -- one frame per step
+(LISTEN -> GREET -> HUM -> ... -> FRIEND / BOOP / BASHFUL) -- from the
+``steps`` log a ``game.blebattle.battle_ble`` result carries. The sprite's
+temperament (its pairing security) is shown as a badge; the final frame banners
+the outcome.
 """
 from __future__ import annotations
 
@@ -17,11 +18,11 @@ from . import sink
 _SPRITES = os.path.join(os.path.dirname(__file__), "sprites")
 _cache: dict = {}
 
-_PAIRING_LABEL = {"just_works": "JUST WORKS", "pin": "6-DIGIT PIN",
-                  "secure": "LE SECURE"}
+# sprite temperament (pairing security) -> friendly badge label
+_PAIRING_LABEL = {"just_works": "OPEN", "pin": "COY", "secure": "BASHFUL"}
 # terminal step labels -> (banner, colour)
-_OUTCOME = {"OWNED": ("OWNED!", "#7CFC00"), "IMMUNE": ("IMMUNE", "#7ddfff"),
-            "FAILED": ("RESISTED", "#ff6a5a")}
+_OUTCOME = {"FRIEND": ("FRIEND!", "#7CFC00"), "BASHFUL": ("BASHFUL", "#7ddfff"),
+            "SKITTISH": ("SKITTISH", "#ff6a5a")}
 
 
 def _fallback_b64() -> str:
@@ -50,11 +51,11 @@ def _fx_b64(name: str) -> str:
 
 
 def _beam_html(frac: float, owned: bool) -> str:
-    """The directional-antenna signal cone: nested right-opening arcs firing from
-    the antenna tip toward the device, intensifying with attack progress, plus a
-    target pulse on the device. ``owned`` -> full-strength lock-on."""
-    # 3 arcs rising up-right from the antenna tip toward the device; more light up
-    # as the attack progresses. (left, top, diameter)
+    """The friendly signal cone: nested right-opening arcs humming out from the
+    antenna tip toward the sprite, warming as the courtship progresses, plus a
+    gentle pulse on the sprite. ``owned`` -> full-strength, it's warmed right up."""
+    # 3 arcs rising up-right from the antenna tip toward the sprite; more light up
+    # as the courtship warms. (left, top, diameter)
     waves = ""
     specs = [(88, 60, 15), (116, 52, 22), (146, 44, 32)]
     for i, (lx, ty, d) in enumerate(specs):
@@ -81,14 +82,14 @@ _CSS = """
     filter:drop-shadow(0 2px 0 #0008);}
   .shark{position:absolute;left:-8px;bottom:18px;height:66px;z-index:2;
     filter:drop-shadow(0 2px 0 #0009);}
-  /* compact directional antenna pistol, held at the shark's hand, aimed up-right */
+  /* compact directional antenna wand, held at the shark's hand, aimed up-right */
   .gun{position:absolute;left:44px;bottom:28px;height:23px;z-index:3;
     transform:rotate(-26deg);transform-origin:left center;
     filter:drop-shadow(0 1px 0 #0009);}
   /* signal-cone arcs: a right-opening ) made by showing only a ring's right half */
   .wave{position:absolute;border:3px solid #7ddfff;border-radius:50%;z-index:2;
     clip-path:inset(0 0 0 52%);box-shadow:0 0 6px #7ddfff;}
-  /* target lock-on reticle centred on the device, in front of it */
+  /* gentle glow pulse centred on the sprite, in front of it */
   .pulse{position:absolute;right:48px;top:44px;z-index:4;border-radius:50%;
     transform:translate(50%,-50%);border:2px solid #aef2ff;
     box-shadow:0 0 0 3px #7ddfff33,0 0 10px #7ddfff;}
@@ -118,8 +119,8 @@ _DOC = ("<!doctype html><html><head><meta charset='utf-8'><style>__CSS__"
         "<img class='mon' src='data:image/png;base64,{sprite}'/>"
         "<img class='shark' src='data:image/png;base64,{shark}'/>"
         "<img class='gun' src='data:image/png;base64,{antenna}'/>"
-        "<div class='card'><div class='t'>BLE BATTLE</div>"
-        "<div class='p'>pairing: <span class='pill'>{pairing}</span></div></div>"
+        "<div class='card'><div class='t'>SIGNAL SPRITE</div>"
+        "<div class='p'>mood: <span class='pill'>{pairing}</span></div></div>"
         "{step}{banner}"
         "<div class='box'><span class='say'>{line}</span></div>"
         "</div></body></html>")
@@ -135,7 +136,7 @@ def _frame(sprite_b64, shark_b64, pairing, label, detail, frac, banner):
     owned = False
     if banner is not None:
         text, col = banner
-        owned = text.startswith("OWNED")
+        owned = text.startswith("FRIEND")
         bn = f"<div class='banner' style='color:{col}'>{_html.escape(text)}</div>"
     beam = _beam_html(frac, owned)
     body = _DOC.format(sprite=sprite_b64, shark=shark_b64,
@@ -146,8 +147,8 @@ def _frame(sprite_b64, shark_b64, pairing, label, detail, frac, banner):
 
 
 def sequence_html(monster: dict, result: dict, player: str = "adult") -> list:
-    """Build one HTML frame per technique step as a list of strings (pure; no
-    I/O). ``player`` is the shark sprite stem doing the hacking."""
+    """Build one HTML frame per courtship step as a list of strings (pure; no
+    I/O). ``player`` is the shark sprite stem doing the befriending."""
     species = str(monster.get("species", "Monster"))
     pairing = _PAIRING_LABEL.get(str(monster.get("pairing", "")), "?")
     sprite = monster_art.sprite_b64(species) or _fallback_b64()
@@ -161,8 +162,8 @@ def sequence_html(monster: dict, result: dict, player: str = "adult") -> list:
 
 def render_sequence(out_dir: str, monster: dict, result: dict,
                     player: str = "adult") -> list:
-    """Write one HTML frame per technique step; return the frame paths. ``player``
-    is the shark sprite stem doing the hacking."""
+    """Write one HTML frame per courtship step; return the frame paths. ``player``
+    is the shark sprite stem doing the befriending."""
     out_dir = os.path.expanduser(out_dir)
     frames = sequence_html(monster, result, player)
     return [sink.write(os.path.join(out_dir, f"blebattle_{i}.html"), html)

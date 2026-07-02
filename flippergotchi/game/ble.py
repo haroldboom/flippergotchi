@@ -1,13 +1,16 @@
-"""BLE mini-monster mechanics: GATT "tame" rewards + unwanted-tracker detection.
+"""BLE signal-sprite mechanics: "befriend" (tame) rewards + unwanted-tracker
+safety detection.
 
 Two-tier collection mirrors the WiFi capture->crack split:
   * scanning an advertisement = a *sighting* (lightly collected), handled in
     ``monsters.from_ble``;
-  * an active GATT enumerate = a *tame* (the real catch) -> ``tame_reward``.
+  * an active GATT enumerate = a *befriend* (the real catch) -> ``tame_reward``.
 
-``TrackerLog`` is the anti-stalking heuristic: a tracker (AirTag/Tile) we keep
-seeing across a spread of time is flagged as possibly following you -- a real
-safety signal, and in-game a rare "stalker" encounter.
+``TrackerLog`` is the anti-stalking heuristic and a genuine safety feature: if a
+real tracker (an AirTag/Tile-style device) keeps showing up around *you* across a
+spread of time, we warn *you* it may be following you. That's a protective alert
+about a stalker device, and in-game a rare "stalker" encounter -- never about
+exploiting anyone else.
 """
 from __future__ import annotations
 
@@ -15,7 +18,9 @@ import json
 import os
 import time
 
-# services that make a tame more rewarding (a meatier device = better loot)
+# Internal reward matcher (NOT surfaced to the player): the more a sprite's
+# advertisement offers up, the chattier/richer it is, so the bigger the keepsake.
+# These are raw GATT service-name substrings matched against real adverts.
 _JUICY = ("device_information", "heart_rate", "audio_sink", "glucose",
           "human_interface_device", "find_my", "tile", "battery_service")
 

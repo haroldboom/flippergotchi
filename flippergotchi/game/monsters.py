@@ -105,9 +105,10 @@ _BLE_ELEMENT = {"Apple": "Aether", "Google": "Spark", "Samsung": "Tide",
 # device-class -> rarity tier (trackers are the prized/uneasy find)
 _BLE_RARITY = {"tracker": "rare", "medical": "uncommon", "input": "uncommon",
                "smarthome": "uncommon"}
-# device-class -> BLE pairing security = the monster's "defense" against a
-# battle. just_works/PIN use LE Legacy Pairing (crackable with crackle, the
-# BLE aircrack); secure = LE Secure Connections (ECDH) -> an immune boss.
+# device-class -> BLE pairing security = the signal-sprite's temperament (how
+# shy it is, i.e. its "defense" when you try to befriend it). just_works/PIN use
+# LE Legacy Pairing (an open/coy sprite you can hum along to); secure = LE Secure
+# Connections (ECDH) -> a bashful sprite that mostly stays out of reach.
 _BLE_PAIRING = {
     "tracker": "just_works", "beacon": "just_works", "audio": "just_works",
     "unknown": "just_works",

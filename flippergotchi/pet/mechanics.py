@@ -3,13 +3,35 @@ from __future__ import annotations
 from .state import PetState
 
 # Evolution ladder: (min_level, stage_name). Higher level => later stage.
+# `adult` and `prime` fill the old L8->L25 dead zone so an evolution lands roughly
+# weekly through month 1 (paired with the gentler cfg.level_exp curve).
+#   adult (L14): REAL art already ships (adult.png + <variant>-adult.png).
+#   prime (L20): FINAL-ART TODO -- no sprite yet; view/flipctl.py maps it onto the
+#                nearest existing stage sprite (alpha) as a placeholder so nothing
+#                breaks. Paint dedicated `prime` / `<variant>-prime` sprites later.
 STAGES = [
     (1, "egg"),
     (2, "hatchling"),
     (8, "juvenile"),
+    (14, "adult"),
+    (20, "prime"),
     (25, "alpha"),
     (40, "legend"),
 ]
+
+# --- post-L40 paragon (non-destructive prestige) ---------------------------
+# Levelling never stops and is never reset. Past level `paragon_start_level`,
+# each `paragon_every` levels banks one paragon marker on `state.paragon`
+# (read/incremented via getattr; the serialised field is added by another agent).
+PARAGON_START_LEVEL = 40
+PARAGON_EVERY = 10
+
+# --- soft stakes: non-lethal sickness (NORMAL mode) ------------------------
+# Module defaults mirror config.py; cfg overrides win (getattr with these).
+SICK_HUNGER_THRESHOLD = 85.0
+SICK_ONSET_HOURS = 6.0
+SICK_RECOVER_HUNGER = 45.0
+SICK_HAPPINESS_CAP = 20.0
 
 
 def clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:
@@ -26,6 +48,102 @@ def stage_for_level(level: int) -> str:
         if level >= lvl:
             name = s
     return name
+
+
+# --- paragon (post-L40 prestige) -------------------------------------------
+def paragon_for_level(level: int, cfg=None) -> int:
+    """How many paragon markers a pet at ``level`` is entitled to (0 below the
+    start level). Pure function -- no state mutation, no level reset."""
+    start = int(getattr(cfg, "paragon_start_level", PARAGON_START_LEVEL))
+    every = int(getattr(cfg, "paragon_every", PARAGON_EVERY))
+    if every <= 0:
+        every = PARAGON_EVERY
+    return max(0, (int(level) - start) // every)
+
+
+def paragon_tier(state: PetState, cfg=None) -> int:
+    """The pet's current paragon marker count (``state.paragon``, default 0).
+    Titles / HUD can read this to render a prestige badge past L40."""
+    return int(getattr(state, "paragon", 0) or 0)
+
+
+def update_paragon(state: PetState, cfg=None) -> int:
+    """Non-destructively sync ``state.paragon`` up to what the level entitles it
+    to. NEVER resets or lowers level (or the marker). Returns the new tier.
+
+    Called from the XP path on every level-up; also safe to call standalone."""
+    want = paragon_for_level(state.level, cfg)
+    if want > paragon_tier(state, cfg):
+        state.paragon = want
+    return paragon_tier(state, cfg)
+
+
+# --- soft-stakes sickness helpers ------------------------------------------
+def _sick_cfg(cfg, name: str, default: float) -> float:
+    try:
+        return float(getattr(cfg, name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def is_sick(state: PetState) -> bool:
+    """NORMAL-mode soft stakes: True once sustained neglect has made the pet sick
+    (sulking). While sick the pet stalls XP, refuses to forage and its happiness
+    is capped -- but health is NEVER touched, so a normal-mode pet cannot die.
+
+    Always False in hardcore (that mode keeps its unchanged starvation-death
+    model instead). Reads the non-persisted ``_sick`` flag set by ``tick``."""
+    if bool(getattr(state, "hardcore", False)):
+        return False
+    return bool(getattr(state, "_sick", False))
+
+
+def can_forage(state: PetState) -> bool:
+    """Forage eligibility: a sick pet won't forage. The integrator should gate
+    forage attempts on this (``if mechanics.can_forage(state): ...``)."""
+    return not is_sick(state)
+
+
+def _maybe_recover_sick(state: PetState, cfg) -> bool:
+    """Feeding/care recovers sickness once hunger is back at/under the recover
+    line. Returns True if the pet just recovered."""
+    if not bool(getattr(state, "_sick", False)):
+        return False
+    rec = _sick_cfg(cfg, "sick_recover_hunger", SICK_RECOVER_HUNGER)
+    if state.hunger <= rec:
+        state._sick = False
+        state._neglect_h = 0.0
+        return True
+    return False
+
+
+def _update_sickness(state: PetState, cfg, hours: float) -> None:
+    """Advance the neglect->sick->recover state machine. NORMAL mode only; in
+    hardcore this is a no-op (sickness disabled, flags cleared)."""
+    if bool(getattr(state, "hardcore", False)):
+        state._sick = False
+        state._neglect_h = 0.0
+        return
+    onset = _sick_cfg(cfg, "sick_onset_hours", SICK_ONSET_HOURS)
+    thr = _sick_cfg(cfg, "sick_hunger_threshold", SICK_HUNGER_THRESHOLD)
+    rec = _sick_cfg(cfg, "sick_recover_hunger", SICK_RECOVER_HUNGER)
+    cap = _sick_cfg(cfg, "sick_happiness_cap", SICK_HAPPINESS_CAP)
+    neglect = float(getattr(state, "_neglect_h", 0.0))
+    if state.hunger >= thr:
+        neglect += hours                     # neglect accrues while starving
+    elif state.hunger <= rec:
+        neglect = 0.0                        # genuinely cared for -> debt cleared
+    else:
+        neglect = max(0.0, neglect - hours)  # in between: slowly recovers
+    state._neglect_h = neglect
+    if getattr(state, "_sick", False):
+        if state.hunger <= rec:              # recover only when properly fed
+            state._sick = False
+            state._neglect_h = 0.0
+    elif neglect >= onset:
+        state._sick = True
+    if getattr(state, "_sick", False):
+        state.happiness = clamp(min(state.happiness, cap))
 
 
 # --- satiety (well-fed buff) + starvation tuning ---------------------------
@@ -118,6 +236,8 @@ def maybe_sleep(state: PetState, cfg) -> bool:
 def mood(state: PetState) -> str:
     if state.asleep:
         return "sleeping"
+    if is_sick(state):
+        return "sick"
     if state.health < 30:
         return "sick"
     if state.hunger > 75:
@@ -167,6 +287,9 @@ def tick(state: PetState, dt: float, cfg) -> None:
     else:
         state._faint_ticks = 0
 
+    # soft stakes: advance the non-lethal sickness state machine (normal mode)
+    _update_sickness(state, cfg, hours)
+
     state.stage = stage_for_level(state.level)
 
 
@@ -176,8 +299,14 @@ def grant_xp(state: PetState, amount: float, cfg) -> list:
 
 
 def _gain_xp(state: PetState, amount: float, cfg) -> list:
-    """Add xp, rolling over level-ups. Returns a list of progress events."""
+    """Add xp, rolling over level-ups. Returns a list of progress events.
+
+    Soft stakes: a sick pet stalls -- it earns NO xp until cared for (this gates
+    every xp source: walk/collect/snack/quest rewards flow through here)."""
+    if is_sick(state):
+        return []
     events = []
+    before_paragon = paragon_tier(state, cfg)
     state.xp += amount
     while state.xp >= xp_to_next(state.level, cfg):
         state.xp -= xp_to_next(state.level, cfg)
@@ -188,6 +317,10 @@ def _gain_xp(state: PetState, amount: float, cfg) -> list:
             state.stage = new_stage
             evt["evolved_to"] = new_stage
         events.append(evt)
+    # non-destructive prestige: bank paragon markers gained past L40 (no reset)
+    after_paragon = update_paragon(state, cfg)
+    if after_paragon > before_paragon:
+        events.append({"type": "paragon", "tier": after_paragon})
     return events
 
 
@@ -216,6 +349,9 @@ def snack(state: PetState, cfg, kind=None) -> list:
     # eating banks a well-fed buff (bigger meals -> more satiety)
     state.satiety = clamp(state.satiety + restore * SATIETY_PER_RESTORE)
     state.happiness = clamp(state.happiness + 3)
+    # feeding is care: it can lift sickness (before the xp grant, so the recovering
+    # meal itself resumes earning xp)
+    _maybe_recover_sick(state, cfg)
     return [{"type": "fed", "kind": label}] + _gain_xp(state, cfg.xp_per_snack, cfg)
 
 

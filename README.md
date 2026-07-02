@@ -65,7 +65,12 @@ handshake → it lands in your bestiary** (the sprite swaps with the action):
 
 ![action faces](docs/moods.png)
 
-**Evolutions** — egg → hatchling → juvenile → alpha → legend:
+**Evolutions** — egg → hatchling → juvenile → adult → prime → alpha → legend
+(an evolution roughly every week through month 1; legend is reachable in ~4-6
+weeks of committed play, not a year). `adult` reuses the shipped adult art;
+`prime` currently borrows the alpha sprite as a placeholder — **FINAL-ART TODO:
+dedicated `prime` / `<variant>-prime` sprites.** Past L40 the pet keeps levelling
+and banks a **paragon** marker every 10 levels (no reset):
 
 ![evolution stages](docs/evolutions.png)
 
@@ -474,6 +479,13 @@ hardware — that's the design. Every hardware path is marked
 
 ## Roadmap ideas
 
+- Growth curve re-tuned + mid-game evolutions: two new stages (`adult` L14,
+  `prime` L20) fill the old L8→L25 plateau; `level_exp` 1.6→1.4 brings legend
+  to ~4-6 weeks. **FINAL-ART TODO:** paint `prime` / `<variant>-prime` sprites
+  (they currently borrow the alpha art placeholder).
+- Post-L40 **paragon** prestige (non-destructive markers) + normal-mode **soft
+  stakes** (non-lethal sickness for sustained neglect) ~~— stalls XP/foraging,
+  tanks happiness, recovers on feeding~~ ✅ mechanics done (`pet/mechanics.py`).
 - ~~LLM "analyst" mode~~ ✅ done (`game/analysis.py` + `AIService.analyze`).
 - ~~APs as catchable monsters; BLE as mini-monsters; hashcat/cloud battles~~ ✅
   scaffolded (`game/`).

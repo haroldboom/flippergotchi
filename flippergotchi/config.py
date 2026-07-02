@@ -113,7 +113,23 @@ class Config:
     xp_per_snack: float = 0.5          # XP from eating a foraged snack (small: eating isn't a grind)
     energy_per_meter: float = 0.02
     base_xp: float = 120.0             # xp_to_next = base_xp * level**level_exp
-    level_exp: float = 1.6
+    # Gentler growth curve (was 1.6): with two new mid-game stages (adult L14,
+    # prime L20) an evolution now lands ~weekly through month 1 and a committed
+    # player reaches legend (L40, ~339k cumulative XP) in ~4-6 weeks, not ~1.3yr.
+    level_exp: float = 1.4
+    # --- post-L40 paragon (non-destructive prestige) ---
+    # Levelling continues past 40; every `paragon_every` levels past
+    # `paragon_start_level` grants one paragon marker. NO level reset.
+    paragon_start_level: int = 40
+    paragon_every: int = 10
+    # --- soft stakes: non-lethal "sick"/sulking neglect state (NORMAL mode) ---
+    # Sustained neglect makes the pet sick: XP gain stalls, foraging is refused
+    # and happiness is capped -- but health is never touched, so it CANNOT die.
+    # (Hardcore is unchanged: it uses starvation-death instead of sickness.)
+    sick_hunger_threshold: float = 85.0   # hunger at/above this counts as neglect
+    sick_onset_hours: float = 6.0         # cumulative neglect before falling sick
+    sick_recover_hunger: float = 45.0     # feed hunger to/below this to recover
+    sick_happiness_cap: float = 20.0      # happiness is capped here while sick
     # foraging: walking is how the pet finds FOOD (and, rarely, gear)
     forage_food: float = 12.0          # hunger restored per foraged snack (untyped)
     forage_food_per_m: float = 0.01    # snack chance per metre walked (capped) — periodic reward, not a firehose

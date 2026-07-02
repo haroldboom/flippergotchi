@@ -261,7 +261,7 @@ def test_migrate_v2_to_v3():
     from flippergotchi.game.quests import migrate, CURRENT_SCHEMA
     raw = migrate({"schema_version": 2, "day": "x", "quests": [],
                    "week": "", "weeklies": [], "bonus_day": ""})
-    assert raw["schema_version"] == CURRENT_SCHEMA == 3
+    assert raw["schema_version"] == CURRENT_SCHEMA >= 3   # v4 adds challenge/streak tiers
     assert raw["lifetime_done"] == 0 and raw["streak"] == 0
     assert raw["last_clear_day"] == ""
 

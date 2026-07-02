@@ -52,10 +52,24 @@ def _stat_value(stats: dict, metric: str) -> float:
 
     A couple of metrics are categorical milestones rather than counters:
       * ``stage_legend`` -> 1 when stats['stage'] is a legendary stage.
+      * ``dex_complete`` -> 1 when every catchable species has been caught
+        (species_caught >= species_total, and the total is known/non-zero).
+      * ``grandmaster``  -> 1 only when BOTH of the above hold: the hardest
+        aspirational gate in the game (legend form + a completed dex).
     Everything else is a numeric count (missing => 0)."""
     if metric == "stage_legend":
         stage = str(stats.get("stage", "")).lower()
         return 1.0 if stage in ("legend", "legendary") else 0.0
+    if metric == "dex_complete":
+        try:
+            total = float(stats.get("species_total", 0) or 0)
+            caught = float(stats.get("species_caught", 0) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+        return 1.0 if total > 0 and caught >= total else 0.0
+    if metric == "grandmaster":
+        return 1.0 if (_stat_value(stats, "stage_legend") >= 1.0
+                       and _stat_value(stats, "dex_complete") >= 1.0) else 0.0
     v = stats.get(metric, 0)
     try:
         return float(v)
@@ -78,6 +92,13 @@ CATALOG: list[Badge] = [
           "catches", 100, {"scrap": 600, "food": 5, "gear": True,
                            "title": "the Beastmaster"},
           "catch", "beastmaster", "gold"),
+    Badge("catch_250", "Beastmaster IV", "Catch 250 monsters",
+          "catches", 250, {"scrap": 800}, "catch", "beastmaster", "gold"),
+    Badge("catch_500", "Beastlord", "Catch 500 monsters",
+          "catches", 500, {"scrap": 1200, "gear": True, "title": "the Beastlord"},
+          "catch", "beastmaster", "gold"),
+    Badge("catch_1000", "Terror of the Airwaves", "Catch 1000 monsters",
+          "catches", 1000, {"scrap": 2000}, "catch", "beastmaster", "gold"),
     # -- cracks: the Safecracker ladder --
     Badge("crack_1", "Lockpicker", "Crack your first network",
           "cracks", 1, {"scrap": 80}, "crack", "safecracker", "bronze"),
@@ -86,33 +107,62 @@ CATALOG: list[Badge] = [
     Badge("crack_50", "Cipherbane", "Crack 50 networks",
           "cracks", 50, {"scrap": 600, "gear": True},
           "crack", "safecracker", "gold"),
+    Badge("crack_100", "Nullcipher", "Crack 100 networks",
+          "cracks", 100, {"scrap": 900, "title": "the Nullcipher"},
+          "crack", "safecracker", "gold"),
+    Badge("crack_250", "Breaker of Wards", "Crack 250 networks",
+          "cracks", 250, {"scrap": 1500, "gear": True},
+          "crack", "safecracker", "gold"),
     Badge("legend_3", "Mythbreaker", "Crack 3 WEP/WPA1 legendaries",
           "legendary_kills", 3, {"scrap": 350}, "crack", "legendary", "gold"),
+    Badge("legend_10", "Mythslayer", "Crack 10 WEP/WPA1 legendaries",
+          "legendary_kills", 10, {"scrap": 700, "title": "the Mythslayer"},
+          "crack", "legendary", "gold"),
     # -- duels: the Gladiator ladder --
     Badge("duel_win_5", "Brawler", "Win 5 duels",
           "duel_wins", 5, {"scrap": 120}, "duel", "gladiator", "bronze"),
     Badge("duel_win_25", "Gladiator", "Win 25 duels",
           "duel_wins", 25, {"scrap": 400, "food": 3, "title": "the Gladiator"},
           "duel", "gladiator", "gold"),
+    Badge("duel_win_100", "Warlord", "Win 100 duels",
+          "duel_wins", 100, {"scrap": 800, "title": "the Warlord"},
+          "duel", "gladiator", "gold"),
     # -- walking: the Trailblazer ladder --
     Badge("walk_10k_m", "Trailblazer", "Walk 10 km total",
           "distance_m", 10000, {"scrap": 150}, "walk", "trailblazer", "bronze"),
     Badge("walk_50k_m", "Marathoner", "Walk 50 km total",
           "distance_m", 50000, {"scrap": 500, "food": 5}, "walk", "trailblazer", "gold"),
+    Badge("walk_100k_m", "Wayfarer", "Walk 100 km total",
+          "distance_m", 100000, {"scrap": 700}, "walk", "trailblazer", "gold"),
+    Badge("walk_250k_m", "Worldwalker", "Walk 250 km total",
+          "distance_m", 250000, {"scrap": 1200, "title": "the Worldwalker"},
+          "walk", "trailblazer", "gold"),
     # -- bluetooth: the Whisperer ladder (phase-3 `tames` metric) --
     Badge("tame_10", "Whisperer", "Tame 10 Bluetooth devices",
           "tames", 10, {"scrap": 150}, "bluetooth", "whisperer", "silver"),
     Badge("tame_50", "Ghost in the Machine", "Tame 50 Bluetooth devices",
           "tames", 50, {"scrap": 500, "gear": True}, "bluetooth", "whisperer", "gold"),
+    Badge("tame_100", "Signal Shepherd", "Tame 100 Bluetooth devices",
+          "tames", 100, {"scrap": 700}, "bluetooth", "whisperer", "gold"),
+    Badge("tame_200", "Signalbinder", "Tame 200 Bluetooth devices",
+          "tames", 200, {"scrap": 1200, "title": "the Signalbinder"},
+          "bluetooth", "whisperer", "gold"),
     # -- meta milestones --
     Badge("level_10", "Seasoned", "Reach level 10",
           "level", 10, {"scrap": 200}, "meta", "", "silver"),
+    Badge("level_25", "Alpha of the Reef", "Reach level 25",
+          "level", 25, {"scrap": 500}, "meta", "", "silver"),
+    Badge("level_40", "Deepwater Titan", "Reach level 40",
+          "level", 40, {"scrap": 1000}, "meta", "", "gold"),
     Badge("evolve_to_legend", "Ascended", "Evolve into a legendary form",
           "stage_legend", 1, {"scrap": 500, "food": 5, "title": "the Ascended"},
           "meta", "", "gold"),
+    Badge("paragon_1", "Beyond Legend", "Ascend to paragon rank",
+          "paragon", 1, {"scrap": 800, "title": "the Paragon"},
+          "meta", "", "gold", hidden=True),
     Badge("full_loadout", "Geared Up", "Equip all 5 gear slots at once",
           "equipped_slots", FULL_LOADOUT_SLOTS, {"scrap": 180}, "meta", "", "silver"),
-    # -- quests: the Questmaster ladder + streak (the cross-system capstone) --
+    # -- quests: the Questmaster ladder + streaks (the cross-system capstone) --
     Badge("quest_10", "Taskhand", "Complete 10 quests",
           "quests_done", 10, {"scrap": 120}, "quests", "questmaster", "bronze"),
     Badge("quest_50", "Questmaster", "Complete 50 quests",
@@ -120,11 +170,40 @@ CATALOG: list[Badge] = [
     Badge("quest_200", "The Relentless", "Complete 200 quests",
           "quests_done", 200, {"scrap": 700, "title": "the Relentless"},
           "quests", "questmaster", "gold"),
+    Badge("quest_500", "Oathkeeper", "Complete 500 quests",
+          "quests_done", 500, {"scrap": 1000}, "quests", "questmaster", "gold"),
+    Badge("quest_1000", "The Unstoppable", "Complete 1000 quests",
+          "quests_done", 1000, {"scrap": 1500, "title": "the Unstoppable"},
+          "quests", "questmaster", "gold"),
     Badge("streak_7", "Dedicated", "Clear every daily 7 days running",
           "streak", 7, {"scrap": 250, "food": 3}, "quests", "", "silver"),
-    # -- shiny: the rare cosmetic find (now reachable; ~1/256 per network) --
+    Badge("streak_14", "Devoted", "Clear every daily 14 days running",
+          "streak", 14, {"scrap": 350}, "quests", "", "silver"),
+    Badge("streak_30", "Unbroken", "Clear every daily 30 days running",
+          "streak", 30, {"scrap": 600, "title": "the Unbroken"},
+          "quests", "", "gold"),
+    Badge("streak_100", "Centurion", "Clear every daily 100 days running",
+          "streak", 100, {"scrap": 1500, "food": 5, "title": "the Centurion"},
+          "quests", "", "gold"),
+    # -- shiny: from one-off find to a collection ladder (~1/256 per network) --
     Badge("shiny_find", "Sparkle", "Find a shiny monster",
-          "shinies", 1, {"scrap": 300, "food": 3}, "meta", "", "gold"),
+          "shinies", 1, {"scrap": 300, "food": 3}, "meta", "sparkle", "gold"),
+    Badge("shiny_5", "Sparkle Hunter", "Catch 5 shiny monsters",
+          "shinies", 5, {"scrap": 400}, "meta", "sparkle", "silver"),
+    Badge("shiny_15", "Prism Baron", "Catch 15 shiny monsters",
+          "shinies", 15, {"scrap": 800}, "meta", "sparkle", "gold"),
+    Badge("shiny_50", "Iridescent", "Catch 50 shiny monsters",
+          "shinies", 50, {"scrap": 1500, "title": "the Iridescent"},
+          "meta", "sparkle", "gold"),
+    # -- collection capstones: the FINITE goals a creature-collector needs --
+    Badge("dex_master", "Master of the Reef", "Catch every species in the dex",
+          "dex_complete", 1, {"scrap": 1000, "gear": True,
+                              "title": "the Reefmaster"},
+          "meta", "collection", "gold"),
+    Badge("grandmaster", "Old One of the Deep",
+          "Reach legend form AND complete the species dex",
+          "grandmaster", 1, {"scrap": 2500, "title": "the Old One"},
+          "meta", "collection", "gold", hidden=True),
 ]
 
 _BY_ID = {b.id: b for b in CATALOG}
@@ -142,6 +221,17 @@ def build_stats(state, dex=None, inv=None, ledger=None, quests=None) -> dict:
     catches = sum(1 for x in dex.all() if getattr(x, "captured", False)) if dex else 0
     shinies = sum(1 for x in dex.all()
                   if getattr(x, "captured", False) and getattr(x, "shiny", False)) if dex else 0
+    # distinct species captured vs the finite species roster: the denominator of
+    # the dex_master capstone. species_total is read lazily (and defensively) so
+    # a stats build never breaks if the species table is unavailable.
+    species_caught = len({getattr(x, "species", "") for x in dex.all()
+                          if getattr(x, "captured", False)
+                          and getattr(x, "species", "")}) if dex else 0
+    try:
+        from . import monsters
+        species_total = monsters.species_count()
+    except Exception:
+        species_total = 0
     cracks = ledger.counts().get("win", 0) if ledger else 0
     return {
         "catches": catches,
@@ -154,6 +244,9 @@ def build_stats(state, dex=None, inv=None, ledger=None, quests=None) -> dict:
         "shinies": shinies,
         "quests_done": getattr(quests, "lifetime_done", 0) if quests else 0,
         "streak": getattr(quests, "streak", 0) if quests else 0,
+        "species_caught": species_caught,
+        "species_total": species_total,
+        "paragon": getattr(state, "paragon", 0),
     }
 
 
