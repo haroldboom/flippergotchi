@@ -7,6 +7,7 @@ from . import persistence
 from . import prefs as prefs_mod
 from .game import battle as battle_mod
 from .game import duel as duel_mod
+from .game import elements as elements_mod
 from .game import encounter as enc_mod
 from .game import equipment as equip_mod
 from .game import monsters
@@ -143,17 +144,20 @@ def cmd_duel(cfg, target: str | None) -> None:
         peer = next((p for p in gs.peers.values()
                      if p["name"].lower() == target.lower()
                      or p["addr"] == target), peer)
-        you = duel_mod.Fighter(name=state.name, level=state.level,
-                               handshakes=state.handshakes, health=state.health,
-                               happiness=state.happiness, gear=inv.gear_power(),
-                               element=getattr(state, "element", "Aether"),
-                               satiety=getattr(state, "satiety", 0.0))
-        them = duel_mod.Fighter(name=peer["name"], level=peer["level"],
-                                handshakes=peer["handshakes"],
-                                gear=peer.get("gear_power", 0),
-                                element=peer.get("element", "Aether"),
-                                addr=peer["addr"])
+        # Build both fighters through the shared seam so gear (pvp_power incl.
+        # set bonuses), stat totals and the player's element all feed the duel.
+        you = duel_mod.fighter_from_pet(state, inv,
+                                        element=getattr(state, "element", "Aether"))
+        them = duel_mod.fighter_from_peer(peer)
         print(f"== DIGI-DUEL ==  {you.name} vs {them.name}\n")
+        # Show the matchup BEFORE committing so choosing whom to fight is a real
+        # decision: element note (theirs) + rough odds from the power ratio.
+        note = elements_mod.matchup_note(you.element, them.element)
+        odds = int(round(duel_mod.win_chance(you, them) * 100))
+        print(f"  matchup: your {you.element} vs {them.element} -> {note} "
+              f"(~{odds}% to win)")
+        print(f"  their gear power ~{them.gear:.0f} | Lv{them.level} | "
+              f"{them.handshakes} handshakes at stake\n")
         res = duel_mod.duel(you, them, cfg)
         for line in res.log:
             print(f"  {line}")

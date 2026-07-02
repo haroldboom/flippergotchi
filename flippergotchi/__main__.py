@@ -27,6 +27,19 @@ def _choose_hardcore(flag: bool, cfg) -> bool:
         return False
 
 
+def _prompt_name(cfg) -> str:
+    """Name a brand-new pet. Tty-guarded: in --simulate or with no TTY it uses
+    the default ("Flippy") so automation/sim never blocks on input()."""
+    default = getattr(cfg, "name", "Flippy") or "Flippy"
+    if getattr(cfg, "simulate", False) or not sys.stdin.isatty():
+        return default
+    try:
+        ans = input(f"  Name your new pet [{default}] > ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return default
+    return ans or default
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(
         prog="flippergotchi",
@@ -170,11 +183,15 @@ def main() -> None:
     # a pet is "born" on --reset or the very first run (no save yet); that's the
     # only time the mode can be chosen, and it's then locked into the save.
     fresh = args.reset or not os.path.exists(os.path.expanduser(cfg.state_path))
+    cfg.fresh_pet = fresh   # let the Agent show the one-time hatch/onboarding
     if fresh:
         state = PetState()
         state.hardcore = _choose_hardcore(args.hardcore, cfg)
         if state.hardcore:
             print("** HARDCORE mode: keep it fed -- starvation is permanent. **")
+        # name the newborn (tty-guarded; --name still wins below)
+        if not args.name:
+            state.name = _prompt_name(cfg)
     else:
         state = persistence.load(cfg.state_path)
         if args.hardcore and not state.hardcore:

@@ -16,6 +16,7 @@ import random
 
 from .game import battle as battle_mod
 from .game import ble as ble_mod
+from .game import duel as duel_mod
 from .game import encounter, equipment, food, monsters
 from .game import quests as quests_mod
 from .game.larder import Larder
@@ -29,6 +30,7 @@ from .game.ledger import Ledger
 from .game.quests import QuestLog
 from .game.shop import Wallet
 from .pet import mechanics
+from .pet import epitaph as epitaph_mod
 from .pet.gps import GpsReader
 from .view import animations, flipctl, tui
 
@@ -76,6 +78,16 @@ class Agent:
         self._visible = []       # recently-seen SSIDs (for 'home' detection)
         self._was_home = False   # for the one-shot "you're home" battle prompt
         self._peers = prefs_mod.load(cfg.peers_path)  # addr -> peer Flippergotchi
+        self._last_duel_tick = -10**9   # throttle for auto-duels
+        # Onboarding: on a fresh pet (__main__ sets cfg.fresh_pet), show a hatch
+        # beat + tips and suppress the analyst jargon for the first few catches
+        # so the newborn loop reads clean.
+        self._onboarding = bool(getattr(cfg, "fresh_pet", False))
+        self._catch_count = 0
+        # Flow the config element into the pet ONCE at startup so the chosen
+        # element reaches the duel resolver (set_element validates + no-ops on
+        # a bad value, leaving any persisted element intact).
+        self.state.set_element(getattr(cfg, "element", "Aether"))
 
     def log(self, msg: str) -> None:
         print(f"· {msg}")
@@ -121,6 +133,7 @@ class Agent:
             reward = quests_mod.grant_quest_reward(q, self.state, self.inv,
                                                    self.cfg, self.wallet)
             self.log(f"[quest] DONE: {q.description} -> {reward}")
+            self.speak("quest_done", q.description)
             self._fx_set("excited")
         bonus = self.quests.claim_daily_bonus(time.strftime("%Y-%m-%d"))
         if bonus:
@@ -139,6 +152,7 @@ class Agent:
             for b in achievements.grant_reward(self.book, stats, self.state,
                                                self.cfg, self.wallet, self.inv):
                 self.log(f"[badge] ★ {b.name} -- {b.description}")
+                self.speak("badge", b.name)
                 self._fx_set("excited")
         except Exception as e:  # noqa: BLE001 - never break the tick loop
             self.log(f"achievement check failed: {e}")
@@ -194,9 +208,19 @@ class Agent:
             m = self.dex.get(m.id) or m
             ups = mechanics.collect(self.state, "handshake", self.cfg)  # catch it
             self._fx_set("excited")
-            self.log(f"[catch] caught {m.species} '{clean(ssid)}' Lv{m.level} "
-                     f"[{m.encryption}] -- {self.ai.analyze(ev)}")
+            self._catch_count += 1
+            # During onboarding, hush the hashcat/analyst jargon for the first
+            # few catches so the newborn loop stays legible.
+            quiet = getattr(self.cfg, "onboard_quiet_catches", 5)
+            head = f"[catch] caught {m.species} '{clean(ssid)}' Lv{m.level} " \
+                   f"[{m.encryption}]"
+            if self._onboarding and self._catch_count <= quiet:
+                self.log(head)
+            else:
+                self.log(f"{head} -- {self.ai.analyze(ev)}")
             self.speak("caught", ssid)
+            if getattr(m, "shiny", False):
+                self.speak("shiny", ssid)
             self._quest("catches", 1)
             self.wallet.earn(shop_mod.scrap_for_catch())
             self._achievements()
@@ -324,20 +348,27 @@ class Agent:
         the ledger and rewards a win like the `battle` command. Guarded."""
         try:
             if m.encryption == "open":
+                # Walking into an OPEN network is NOT a crack: pay a catch-tier
+                # reward and DROP the guaranteed loot roll (reserved for real
+                # WEP/WPA breaks). No crack quest/achievement credit either.
                 m.defeated, m.key = True, "(open)"
                 self.ledger.record(m, "cracked", "open", "")
-                self.log(f"[battle] walked into OPEN '{m.name}' -- no key needed")
-            else:
-                res = battle_mod.battle(
-                    m, self.cfg, handshake_path=getattr(m, "capture_path", "") or None)
-                self.ledger.record(m, res["result"], res.get("via", ""),
-                                   res.get("key", ""))
-                if res["result"] != "cracked":
-                    self.log(f"[battle] {m.encryption.upper()} '{m.name}': "
-                             f"{res['result']} ({res.get('via', '')})")
-                    return
-                self.log(f"[battle] cracked {m.encryption.upper()} '{m.name}' on "
-                         f"the fly -- key: {res['key']} (via {res.get('via', '')})")
+                self.wallet.earn(shop_mod.scrap_for_open())
+                self.log(f"[battle] walked into OPEN '{m.name}' -- no key needed "
+                         f"(+{shop_mod.scrap_for_open()} scrap)")
+                return
+            res = battle_mod.battle(
+                m, self.cfg, handshake_path=getattr(m, "capture_path", "") or None)
+            self.ledger.record(m, res["result"], res.get("via", ""),
+                               res.get("key", ""))
+            if res["result"] != "cracked":
+                self.log(f"[battle] {m.encryption.upper()} '{m.name}': "
+                         f"{res['result']} ({res.get('via', '')})")
+                self.speak("crack_fail", m.name)
+                return
+            self.log(f"[battle] cracked {m.encryption.upper()} '{m.name}' on "
+                     f"the fly -- key: {res['key']} (via {res.get('via', '')})")
+            self.speak("cracked", m.name)
             # reward on a win (legendary WEP/WPA1 give a little extra scrap)
             bonus = 40 if getattr(m, "rarity", "") == "legendary" else 0
             self.wallet.earn(shop_mod.scrap_for_crack() + bonus)
@@ -453,6 +484,10 @@ class Agent:
         is an active action). Guarded -- never breaks the tick loop."""
         if getattr(m, "defeated", False) or not ev.get("connectable", True):
             return
+        # Recon pays ONCE per device: a re-sighting of an already-interrogated
+        # monster must not re-connect or re-farm its scrap reward.
+        if getattr(m, "last_result", "") == "interrogated":
+            return
         if getattr(self.ble, "mode", "sim") != "sim":
             if not getattr(self.cfg, "ble_enum", True):
                 return
@@ -498,6 +533,38 @@ class Agent:
                      f"(Lv{p['level']}) -- duel it with `duel {p['name']}`")
             self._fx_set("excited")
 
+    def _maybe_duel(self) -> None:
+        """Occasionally auto-duel a known peer -- the seam that pulls foraged
+        gear + the duel engine into the pet's daily life. Throttled by a low
+        per-tick chance AND a cooldown (both tunable via cfg). Auto-equips
+        best-in-slot first, then auto_resolve settles the stake/loot/duel_wins;
+        we just narrate it and credit the duel quest metric. Never raises."""
+        if not self._peers:
+            return
+        cooldown = int(getattr(self.cfg, "auto_duel_cooldown", 12))
+        if self._tick_i - self._last_duel_tick < cooldown:
+            return
+        if random.random() >= float(getattr(self.cfg, "auto_duel_chance", 0.15)):
+            return
+        # only challenge a peer that still has handshakes to wager
+        candidates = [p for p in self._peers.values()
+                      if int(p.get("handshakes", 0) or 0) > 0]
+        if not candidates:
+            return
+        peer = random.choice(candidates)
+        self._last_duel_tick = self._tick_i
+        try:
+            self.inv.best_loadout(equip=True)   # auto-equip best-in-slot
+            outcome = duel_mod.auto_resolve(
+                self.state, peer, inv=self.inv, element=self.state.element,
+                cfg=self.cfg)
+            self.log(f"[duel] {outcome.summary}")
+            if outcome.you_won:
+                self._quest("duel_wins", 1)   # METRICS already has duel_wins
+            self._fx_set("excited")
+        except Exception as e:  # noqa: BLE001 - never break the tick loop
+            self.log(f"auto-duel failed: {e}")
+
     def _events(self, events: list) -> None:
         for ev in events:
             if ev.get("type") == "ap":
@@ -514,6 +581,7 @@ class Agent:
             self.quests.roll_weekly(time.strftime("%Y-W%W"))  # weekly horizon
             self._events(self.wifi.scan())
             self._spawn_ble()
+            self._maybe_duel()
             meters = self.gps.distance()
             if meters > 0:
                 self._progress(mechanics.walk(self.state, meters, self.cfg))
@@ -523,6 +591,7 @@ class Agent:
                 self._achievements()
         except Exception as e:  # noqa: BLE001 - never break the tick loop
             self.log(f"tick step failed: {e}")
+        mechanics.maybe_sleep(self.state, self.cfg)   # energy-driven sleep/wake
         mechanics.tick(self.state, dt * self.cfg.time_scale, self.cfg)
         self._starve_warn_check()
         if mechanics.is_dead(self.state):
@@ -561,6 +630,7 @@ class Agent:
         urgency = "ABOUT TO DIE" if stage == "faint" else "STARVING"
         self.log(f"[HARDCORE] {self.state.name} is {urgency} -- "
                  f"feed it or it dies!")
+        self.speak(stage)   # "starving"/"faint" -- reuses the throttle above
         self._fx_set("sick")
 
     def _hardcore_death(self) -> None:
@@ -571,6 +641,17 @@ class Agent:
         self.log(f"[HARDCORE] {old.name} starved to death at Lv{old.level} "
                  f"({old.stage}). Reborn as an egg -- keep it fed this time!")
         self._fx_set("sick")
+        self.speak("faint")
+        # Give the death weight: render a gravestone, then pause -- but ONLY when
+        # interactive (mirror _field_consent's tty guard) so a headless/sim run
+        # never hangs.
+        print(epitaph_mod.epitaph(
+            old, lifetime_catches=old.handshakes + old.pmkids))
+        if sys.stdin.isatty():
+            try:
+                input("  (press Enter to let it be reborn as an egg) ")
+            except (EOFError, KeyboardInterrupt):
+                pass
         self.state = mechanics.reborn(old)
         self._save()
 
@@ -642,6 +723,12 @@ class Agent:
             except (ValueError, OSError):
                 pass
 
+    def _hatch(self) -> None:
+        """One-time newborn beat + the two-line 'how to play' for a fresh pet."""
+        print(f"~~ *crack* ~~  {self.state.name} hatched from its egg! ~~")
+        print("  * WALK to forage food -- keep it fed or it gets cranky.")
+        print("  * CATCH the WiFi 'monsters' around you to grow and level up.")
+
     def run(self, ticks: int | None = None) -> None:
         # backends are uniform: start() is a no-op in sim and self-degrades on
         # hardware errors, so it never raises out here.
@@ -650,6 +737,8 @@ class Agent:
         except Exception as e:  # noqa: BLE001
             self.log(f"capture backend start failed ({e}); continuing passive/sim.")
         backend = type(self.wifi).__name__
+        if self._onboarding:
+            self._hatch()
         self.log(f"{self.state.name} waking up "
                  f"(stage={self.state.stage}, ai={self.ai.backend.name}, "
                  f"capture={backend})")
