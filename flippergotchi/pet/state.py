@@ -43,6 +43,7 @@ class PetState:
     # cosmetic skins bought from the shop (e.g. "skin_goldfin"); persisted so a
     # purchase survives a reload. Purely decorative -- never touches combat.
     skins: list = field(default_factory=list)
+    lures: int = 0                 # Monster Lures bought -- each shortens the re-encounter cooldown
     # hardcore: opt-in at creation, LOCKED for this pet's life. Starvation kills
     # (reset to egg) instead of flooring at 1 HP. Default False = the safe model.
     hardcore: bool = False

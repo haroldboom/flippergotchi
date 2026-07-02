@@ -125,7 +125,7 @@ CATALOG: list[ShopItem] = [
     ShopItem("repair_kit", "Repair Kit", 360,
              "Restore health", "health", 40.0),
     ShopItem("lure", "Monster Lure", 450,
-             "Consumable: boosts encounter rate (sets a lure flag)", "lure", 1.0),
+             "Permanent: each lure shortens the re-encounter cooldown (stacks)", "lure", 1.0),
     ShopItem("reroll_token", "Gear Reroll Token", 880,
              "Reroll an UNEQUIPPED item's rarity/stats", "reroll", 1.0),
     # --- endgame sink: a long-horizon scrap purpose (a session earns ~2000) ---

@@ -179,7 +179,9 @@ class Agent:
             return  # can't uniquely track this AP
         self._note_visible(ssid)
         last = self._cooldown.get(bssid)
-        if last is not None and self._tick_i - last < self.cfg.encounter_cooldown:
+        # Monster Lures (shop) shorten the re-encounter cooldown, down to a floor of 1.
+        cd = max(1, self.cfg.encounter_cooldown - int(getattr(self.state, "lures", 0)))
+        if last is not None and self._tick_i - last < cd:
             return
         self._cooldown[bssid] = self._tick_i
 

@@ -250,6 +250,10 @@ def cmd_quests(cfg) -> None:
         print(f"  WEEKLY QUESTS ({q.week})")
         for quest in q.active_weeklies():
             _show(quest)
+    ch = q.active_challenge()
+    if ch:
+        print(f"  WEEKLY CHALLENGE ({q.week})")
+        _show(ch)
     chains = q.active_chains()
     if chains:
         print("  STORY CHAINS")
@@ -281,6 +285,12 @@ def cmd_gear(cfg, target: str | None) -> None:
     # equipment screen: a row per slot (equipped item or empty) + the loot bag
     print(f"  EQUIPMENT   PvP gear power: {inv.gear_power()}  "
           f"(boosts duels only -- gear can't crack WiFi)")
+    sb = inv.set_bonus()
+    parts = ", ".join(f"+{v:g} {k.upper()}" for k, v in (sb or {}).items() if v)
+    if parts:
+        from .game import gearsets
+        desc = gearsets.describe(inv.equipped_items())
+        print(f"  set bonus: {parts}" + (f"   ({desc})" if desc else ""))
     for slot in equip_mod.SLOTS:
         iid = inv.equipped.get(slot)
         it = inv.items.get(iid) if iid else None
