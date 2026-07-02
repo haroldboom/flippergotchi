@@ -151,9 +151,11 @@ def cmd_duel(cfg, target: str | None) -> None:
         them = duel_mod.fighter_from_peer(peer)
         print(f"== DIGI-DUEL ==  {you.name} vs {them.name}\n")
         # Show the matchup BEFORE committing so choosing whom to fight is a real
-        # decision: element note (theirs) + rough odds from the power ratio.
+        # decision: element note (theirs) + odds simulated from the ACTUAL turn
+        # engine (gear stats + element multipliers included), not the old
+        # power-ratio guess that understated the favorite (R4).
         note = elements_mod.matchup_note(you.element, them.element)
-        odds = int(round(duel_mod.win_chance(you, them) * 100))
+        odds = int(round(duel_mod.estimate_win_pct(you, them, cfg=cfg) * 100))
         print(f"  matchup: your {you.element} vs {them.element} -> {note} "
               f"(~{odds}% to win)")
         print(f"  their gear power ~{them.gear:.0f} | Lv{them.level} | "

@@ -103,6 +103,34 @@ def win_chance(you: Fighter, them: Fighter) -> float:
     return max(0.08, min(0.92, p))   # upsets are always possible
 
 
+def estimate_win_pct(you: Fighter, them: Fighter, n: int = 201, cfg=None,
+                     seed: int = 0) -> float:
+    """Monte-Carlo estimate of your win probability from the ACTUAL resolver.
+
+    Runs ``n`` full :func:`_run_duel` fights on a LOCAL seeded RNG and returns
+    the fraction you won, so the pre-fight "~X% to win" display reflects what
+    the turn engine (gear ATK/DEF/LUCK, element multipliers, the clamped
+    HP-share roll with :data:`UPSET_FLOOR`) will actually do -- unlike
+    :func:`win_chance`, which is a bare power-ratio heuristic (kept for the
+    agent's cheap auto-duel gate).
+
+    Deterministic for a given ``(you, them, seed)`` and never touches the
+    global ``random`` state, so seeded tests/replays elsewhere are unaffected.
+    Fighters are not mutated (the engine fights on :class:`_Combatant` copies).
+    """
+    n = max(1, int(n))
+    rng = random.Random(seed)
+    wins = 0
+    for _ in range(n):
+        try:
+            res = _run_duel(you, them, cfg, rng)
+        except Exception:  # pragma: no cover - mirror duel()'s never-raise vow
+            res = duel(you, them, cfg, rng)
+        if res.you_won:
+            wins += 1
+    return wins / n
+
+
 def _stake(loser: Fighter, cfg=None) -> int:
     frac = getattr(cfg, "duel_stake_frac", DEFAULT_STAKE_FRAC) if cfg else DEFAULT_STAKE_FRAC
     n = int(loser.handshakes * frac)

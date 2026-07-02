@@ -64,10 +64,11 @@ def test_every_stage_maps_to_a_valid_sprite():
                     f"missing sprite {name!r} for {stage}/{variant}/{mood}"
 
 
-def test_prime_uses_alpha_placeholder_art():
-    # `prime` has no dedicated art yet -> resolves onto the alpha sprite family
-    assert flipctl._sprite_for("prime", "classic", "") == "alpha"
-    assert flipctl._sprite_for("prime", "goblin", "") == "goblin-alpha"
+def test_prime_uses_its_own_sprite_family():
+    # `prime` now has dedicated (alpha-derived placeholder) art -> resolves to
+    # its own sprite family, NOT the alpha one (see tests/test_prime_sprites.py)
+    assert flipctl._sprite_for("prime", "classic", "") == "prime"
+    assert flipctl._sprite_for("prime", "goblin", "") == "goblin-prime"
 
 
 # --- FIX 1b: retuned curve hits target cumulative XP, stays monotonic -------

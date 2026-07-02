@@ -47,16 +47,10 @@ def _exists(name: str) -> bool:
     return os.path.exists(os.path.join(_SPRITES, name + ".png"))
 
 
-# Placeholder art for evolution stages that don't yet have their own sprites.
-# Each new stage maps to the nearest EXISTING stage sprite (resolved per-variant
-# by _sprite_for/_exists) so rendering never breaks. FINAL-ART TODO: paint
-# dedicated `prime` / `<variant>-prime` sprites and drop the entry.
-_STAGE_SPRITE_ALIAS = {"prime": "alpha"}
-
-
 def _sprite_for(stage: str, variant: str, mood: str, dmg: int = 0) -> str:
-    # substitute placeholder art for stages without dedicated sprites (FINAL-ART TODO)
-    stage = _STAGE_SPRITE_ALIAS.get(stage, stage)
+    # Every stage (incl. `prime`, L20) now has its own sprite files. The prime
+    # set is PROGRAMMATICALLY DERIVED from alpha (tools/gen_prime_sprites.py)
+    # as distinct placeholder art pending final hand-drawn sprites.
     base = stage if variant in ("classic", "") else f"{variant}-{stage}"
     # a hand-painted DOOM-style damaged face overrides the mood face at low HP,
     # when the art exists for this sprite (else the caller uses the blood overlay)

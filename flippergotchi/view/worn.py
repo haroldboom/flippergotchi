@@ -58,8 +58,9 @@ _STAGE_ADJUST = {
     "hatchling": (16, 0.78),
     "juvenile": (2, 0.97),
     "adult": (0, 1.0),
-    # `prime` (L20) ships no art yet -> shares the alpha sprite (FINAL-ART TODO),
-    # so it uses the alpha gear-anchor nudge to match that placeholder body.
+    # `prime` (L20) art is derived from the alpha sprite with the same
+    # silhouette (tools/gen_prime_sprites.py; placeholder pending hand-drawn
+    # art), so it shares the alpha gear-anchor nudge.
     "prime": (3, 1.05),
     "alpha": (3, 1.05),
     "legend": (9, 1.04),
