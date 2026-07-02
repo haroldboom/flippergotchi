@@ -31,8 +31,7 @@ previews-deps:
 # + dithering via tools/shoot.py. See docs/device/README.md for the caveats.
 previews:
 	rm -rf $(TMP)
-	$(PY) -m flippergotchi --simulate --ticks $(TICKS) --interval 0 --time-scale 40 >/dev/null
-	for c in encounter feed achievements gear; do $(PY) -m flippergotchi --simulate $$c >/dev/null; done
+	$(PY) tools/gen_preview_html.py >/dev/null
 	$(PY) tools/shoot.py --browser $(BROWSER) --dither $(DITHER) --scale $(SCALE) \
 		-o $(SHOT_DIR) $(TMP)/*.html $(TMP)/capture/*.html
 	@test -s $(SHOT_DIR)/face.floyd.png || { echo "ERROR: no previews produced"; exit 1; }
