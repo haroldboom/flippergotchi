@@ -308,35 +308,27 @@ opening reads like a pet, not a pentest console.
 
 ## CLI
 
+The CLI is deliberately tiny. Flippergotchi runs as an **autonomous pet/scanner
+loop**, and every player action — view the dex, feed, battle, duel, shop, equip
+gear, wear a title — is a **button-driven action in the on-device UI**, not a
+typed subcommand. The command line exposes just two things:
+
 ```bash
-python3 -m flippergotchi --simulate        # run: walk, encounter, capture, collect
-python3 -m flippergotchi encounter         # demo one encounter (popup + animation)
-python3 -m flippergotchi dex               # species collection: caught X of 19
-python3 -m flippergotchi profile           # your pet's "life so far" summary
-python3 -m flippergotchi battle            # open the Battle Dojo (auto/manual menu)
-python3 -m flippergotchi battle Linksys    # MANUAL: crack one (after the warning)
-python3 -m flippergotchi battle --all      # AUTO: battle every fresh captured target
-python3 -m flippergotchi battle --all --dont-show-again   # ...and stop warning me
-python3 -m flippergotchi quests            # daily + weekly + monthly chains + streak
-python3 -m flippergotchi duel ByteSurf     # PvP duel (shows odds + element matchup)
-python3 -m flippergotchi gear              # inventory / equip loadout
-python3 -m flippergotchi doctor            # preflight: tools/iface/wordlist/scope
-python3 -m flippergotchi scan              # passive AP discovery (no active actions)
-python3 -m flippergotchi --dry-run capture AA:BB:..  # capture+validate, no deauth
-python3 -m flippergotchi --capture-timeout 45 capture AA:BB:..   # longer listen window
-python3 -m flippergotchi --dry-run battle MyAP --authorized   # crack path, no hashcat
-python3 -m flippergotchi cloud                    # cloud status + queued captures
-python3 -m flippergotchi cloud submit MyAP --authorized   # upload to wpa-sec
-python3 -m flippergotchi cloud results            # pull recovered keys into the dex
-python3 -m flippergotchi achievements      # tiered badge wall + progress + scrap
-python3 -m flippergotchi shop              # browse; `shop buy <id>` to spend scrap
-python3 -m flippergotchi shop buy ration --stash   # stash bought food in the larder
-python3 -m flippergotchi feed              # larder + hunger; `feed <id>` to hand-feed
-python3 -m flippergotchi title             # earned titles; `title <name>` to wear one
-python3 -m flippergotchi --reset --hardcore    # new pet, PERMADEATH on starvation
-python3 -m flippergotchi --simulate --manual   # choose [A]Capture/[B]Run yourself
-python3 -m flippergotchi --simulate --variant hammerhead   # pick your shark species
+python3 -m flippergotchi                # run the pet/scanner loop (the default)
+python3 -m flippergotchi --simulate     # ...with fake WiFi/GPS/BLE, no hardware
+python3 -m flippergotchi doctor         # hardware/tooling preflight diagnostic
 ```
+
+Run-time flags: `--plain` (log-only, no full-screen face), `--ticks N`,
+`--interval S`, `--time-scale N` (fast-forward decay in sim), `--manual`
+(choose [A]Capture / [B]Run per encounter), `--variant <species>`, `--reset`
+(start a new pet), `--hardcore` (permadeath on starvation), `--dry-run` (drive
+the real capture/crack paths but never transmit), `--capture-timeout S`.
+
+**In-game actions** (on the device, via button navigation — implemented in
+`flippergotchi/commands.py` as the UI action layer, and exercised by the test
+suite): dex · profile · Battle Dojo · duel · quests · gear · achievements ·
+shop · feed · title · scan · capture · cloud.
 
 - **One scrap economy**: cracking (120), duel wins (60), catching (8), OPEN
   networks (18, catch-tier — *not* a full crack), walking and quests all pay
@@ -401,12 +393,12 @@ code**, and covered by `tests/test_p0_safety.py`:
   one-time consent — dismissing the warning does *not* let the daemon crack
   anything it happens to catch.
 - **The autonomous loop is audited.** The agent's deauth, crack, and active BLE
-  actions are written to `~/.flippergotchi/audit.log` (JSONL), not just the
-  standalone CLI commands.
-- **SSIDs are sanitized.** Attacker-controlled SSIDs are stripped of control/ANSI
-  characters and length-capped before they reach any prompt, log line, or the
-  256×144 display (limiting terminal-injection and prompt-injection surface; the
-  default `canned` backend has no LLM at all).
+  actions are written to `~/.flippergotchi/audit.log` (JSONL).
+- **Untrusted names are sanitized at ingestion.** Attacker-controlled SSIDs, BLE
+  device names, and peer-Flippergotchi names are stripped of control/ANSI
+  characters and length-capped as they enter the game, so they can't inject into
+  any prompt, log line, or the 256×144 display (limiting terminal- and
+  prompt-injection surface; the default `canned` backend has no LLM at all).
 - **No weak default creds ship.** `bettercap_user` / `bettercap_pass` and cloud
   API keys default to empty — leaving them unset keeps live capture disabled
   rather than shipping guessable credentials.

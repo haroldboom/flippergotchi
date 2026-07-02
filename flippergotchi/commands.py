@@ -1,4 +1,12 @@
-"""`dex`, `battle`, `encounter` subcommands."""
+"""In-game ACTION LAYER: dex, battle, encounter, duel, gear, quests, shop,
+achievements, feed, title, profile, scan, capture, cloud.
+
+These are the player-initiated actions. They are NOT CLI subcommands -- the CLI
+only exposes `run` and `doctor` (see __main__.py); on the Flipper One these are
+reached by button navigation in the on-device UI. Each ``cmd_*`` is the
+implementation that UI (and the test suite) dispatches to; `cmd_doctor` is also
+still wired to the CLI as a hardware preflight.
+"""
 from __future__ import annotations
 
 import os
