@@ -53,6 +53,15 @@ class PetState:
     # module -- 0 means the pet has not crossed into paragon play yet.
     paragon: int = 0
 
+    # --- v2.2: soft-stakes / death-runway timers, PERSISTED so neglect can't be
+    # dodged by restarting the app and a dying hardcore pet keeps its death
+    # countdown across a reload. Set by pet.mechanics; default-safe for old
+    # saves. Underscore-named (internal bookkeeping, not player stats) but they
+    # ARE dataclass fields, so they round-trip through to_dict/from_dict.
+    _sick: bool = False            # NORMAL-mode sickness flag (sulking)
+    _neglect_h: float = 0.0        # accrued hours of neglect toward sickness
+    _faint_ticks: int = 0          # hardcore: ticks spent fainting (death runway)
+
     # On-disk schema version. Kept LAST so old saves lacking it still load and
     # positional/keyword construction in tests stays valid. Bumped by the
     # migrator in persistence.py when the shape of this dataclass changes.

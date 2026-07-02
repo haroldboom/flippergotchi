@@ -318,10 +318,13 @@ class AchievementBook:
         d = os.path.dirname(self.path)
         if d:
             os.makedirs(d, exist_ok=True)
-        tmp = self.path + ".tmp"
+        # pid-unique tmp + fsync, matching the other stores' durable-save pattern
+        tmp = f"{self.path}.tmp.{os.getpid()}"
         with open(tmp, "w") as f:
             json.dump({"schema_version": ACH_SCHEMA,
                        "unlocked": sorted(self._unlocked)}, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, self.path)
 
     def is_unlocked(self, badge_id: str) -> bool:

@@ -198,9 +198,14 @@ def test_hardcore_is_unaffected_by_sickness():
     cfg = Config()
     st = PetState(hunger=100.0, energy=0.0, health=100.0, hardcore=True)
     _drive(st, cfg, hours=12)
-    # sickness is disabled in hardcore (that mode keeps starvation-death)
+    # NORMAL-mode sickness is disabled in hardcore (it uses starvation-death)
     assert mechanics.is_sick(st) is False
-    assert mechanics.can_forage(st) is True
+    # ...but a STARVING hardcore pet still can't forage its way out of the death
+    # stage -- otherwise a perpetually-walking pet could never starve to death.
+    assert mechanics.starvation_stage(st) in ("starving", "faint")
+    assert mechanics.can_forage(st) is False
+    # a well-fed hardcore pet forages normally.
+    assert mechanics.can_forage(PetState(hunger=10.0, health=100.0, hardcore=True)) is True
 
 
 if __name__ == "__main__":

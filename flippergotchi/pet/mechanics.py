@@ -39,7 +39,9 @@ def clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:
 
 
 def xp_to_next(level: int, cfg) -> float:
-    return cfg.base_xp * (level ** cfg.level_exp)
+    # Floor at 1.0 so a misconfigured base_xp/level_exp (e.g. base_xp <= 0 from a
+    # bad config.toml) can never make the level-up loop in _gain_xp spin forever.
+    return max(1.0, cfg.base_xp * (level ** cfg.level_exp))
 
 
 def stage_for_level(level: int) -> str:
@@ -100,8 +102,18 @@ def is_sick(state: PetState) -> bool:
 
 def can_forage(state: PetState) -> bool:
     """Forage eligibility: a sick pet won't forage. The integrator should gate
-    forage attempts on this (``if mechanics.can_forage(state): ...``)."""
-    return not is_sick(state)
+    forage attempts on this (``if mechanics.can_forage(state): ...``).
+
+    Also blocks a HARDCORE pet that is starving/fainting: otherwise a
+    perpetually-walking pet keeps foraging + eating its way out of the death
+    stage, so the starvation-death runway can never actually end. Hand-feeding
+    (the `feed` verb / larder) still works to save it -- foraging just can't."""
+    if is_sick(state):
+        return False
+    if (bool(getattr(state, "hardcore", False))
+            and starvation_stage(state) in ("starving", "faint")):
+        return False
+    return True
 
 
 def _maybe_recover_sick(state: PetState, cfg) -> bool:

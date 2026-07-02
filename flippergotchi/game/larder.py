@@ -25,7 +25,16 @@ class Larder:
             with open(self.path) as f:
                 raw = json.load(f)
             items = raw.get("items", {}) if isinstance(raw, dict) else {}
-            self.items = {str(k): int(v) for k, v in items.items() if int(v) > 0}
+            # Tolerate a bad row without wiping the WHOLE larder (matches the
+            # per-row tolerant loads in Bestiary/Inventory/QuestLog).
+            self.items = {}
+            for k, v in items.items():
+                try:
+                    n = int(v)
+                except (TypeError, ValueError):
+                    continue
+                if n > 0:
+                    self.items[str(k)] = n
         except Exception:
             self.items = {}
 
