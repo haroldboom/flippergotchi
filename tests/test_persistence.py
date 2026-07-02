@@ -111,3 +111,57 @@ def test_migrate_does_not_mutate_input():
     src = {"name": "NoMutate"}
     migrate(src)
     assert src == {"name": "NoMutate"}
+
+
+def test_migrate_upgrades_v1_and_v0_dicts_to_loadable_state(tmp_path):
+    """A hand-crafted v1 dict AND a v0 dict (no schema_version) each migrate up
+    to CURRENT_SCHEMA and load into a usable PetState through the real
+    load() path."""
+    # v1 (explicit schema_version, pre-v2 fields absent)
+    v1 = {"schema_version": 1, "name": "V1Pet", "level": 3, "xp": 5.0}
+    upgraded = migrate(v1)
+    assert upgraded["schema_version"] == CURRENT_SCHEMA
+    st = PetState.from_dict(upgraded)
+    assert st.name == "V1Pet"
+    assert st.level == 3
+    # v2-era fields backfilled with safe defaults
+    assert st.hardcore is False
+    assert st.satiety == 0.0
+    assert st.active_title == ""
+
+    # v0 (NO schema_version key at all -> treated as 0) round-tripped via load()
+    v0 = {"name": "V0Pet", "level": 6, "hunger": 40.0}
+    p1 = str(tmp_path / "v1.json")
+    p0 = str(tmp_path / "v0.json")
+    with open(p1, "w") as f:
+        json.dump(v1, f)
+    with open(p0, "w") as f:
+        json.dump(v0, f)
+    loaded_v1 = persistence.load(p1)
+    loaded_v0 = persistence.load(p0)
+    assert loaded_v1.name == "V1Pet" and loaded_v1.schema_version == CURRENT_SCHEMA
+    assert loaded_v0.name == "V0Pet" and loaded_v0.level == 6
+    assert loaded_v0.schema_version == CURRENT_SCHEMA
+
+
+def test_future_schema_version_loads_without_crashing(tmp_path):
+    """A save stamped with a FUTURE/unknown schema_version (no migration step
+    for it) must still load into a valid PetState rather than raising."""
+    future = CURRENT_SCHEMA + 99
+    data = {"schema_version": future, "name": "FromTheFuture", "level": 11}
+
+    # migrate() alone: no step for this version, so it stops -- but still
+    # produces a well-formed, field-complete dict.
+    out = migrate(data)
+    for fld in PetState().to_dict():
+        assert fld in out
+    assert out["name"] == "FromTheFuture"
+
+    # and through the real load() path it yields a usable PetState.
+    path = str(tmp_path / "future.json")
+    with open(path, "w") as f:
+        json.dump(data, f)
+    loaded = persistence.load(path)
+    assert isinstance(loaded, PetState)
+    assert loaded.name == "FromTheFuture"
+    assert loaded.level == 11

@@ -7,26 +7,12 @@ screenshots+posterizes), so we assert on the markup it writes.
 """
 from __future__ import annotations
 
-import dataclasses
 import os
 
 from flippergotchi.agent import Agent
 from flippergotchi.config import Config
 from flippergotchi.pet.state import PetState
 from flippergotchi.view import flipctl
-
-
-def _cfg(tmp_path):
-    cfg = Config()
-    cfg.simulate = True
-    cfg.tui = False
-    cfg.scan_bluetooth = False
-    for f in dataclasses.fields(cfg):
-        v = getattr(cfg, f.name)
-        if isinstance(v, str) and (v.startswith("~/.flippergotchi")
-                                   or v.startswith("/tmp/")):
-            setattr(cfg, f.name, str(tmp_path / f.name))
-    return cfg
 
 
 def _render(tmp_path, state):
@@ -94,8 +80,8 @@ def test_active_title_html_escaped(tmp_path):
 
 # --- agent hardcore starvation warning -------------------------------------
 
-def test_agent_warns_hardcore_starvation(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_agent_warns_hardcore_starvation(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="Doomed", hardcore=True, hunger=95.0))
     logs = []
     agent.log = lambda m: logs.append(m)  # capture
@@ -104,8 +90,8 @@ def test_agent_warns_hardcore_starvation(tmp_path):
                for m in logs)
 
 
-def test_agent_starvation_warning_is_throttled(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_agent_starvation_warning_is_throttled(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="Doomed", hardcore=True, hunger=95.0))
     logs = []
     agent.log = lambda m: logs.append(m)
@@ -116,8 +102,8 @@ def test_agent_starvation_warning_is_throttled(tmp_path):
     assert 0 < len(logs) < 20
 
 
-def test_normal_pet_gets_no_hardcore_warning(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_normal_pet_gets_no_hardcore_warning(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="Safe", hardcore=False, hunger=100.0))
     logs = []
     agent.log = lambda m: logs.append(m)

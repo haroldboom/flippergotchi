@@ -11,7 +11,6 @@ All hermetic: no radio, no network, no hashcat.
 """
 from __future__ import annotations
 
-import dataclasses
 import json
 
 from flippergotchi.config import Config
@@ -21,19 +20,6 @@ from flippergotchi.core.bettercap import BettercapClient
 from flippergotchi.game import encounter as enc_mod
 from flippergotchi.pet.state import PetState
 from flippergotchi.sanitize import clean
-
-
-def _cfg(tmp_path):
-    cfg = Config()
-    cfg.simulate = True
-    cfg.tui = False
-    cfg.scan_bluetooth = False
-    for f in dataclasses.fields(cfg):
-        v = getattr(cfg, f.name)
-        if isinstance(v, str) and (v.startswith("~/.flippergotchi")
-                                   or v.startswith("/tmp/")):
-            setattr(cfg, f.name, str(tmp_path / f.name))
-    return cfg
 
 
 def _audit_lines(cfg, action=None):
@@ -64,30 +50,30 @@ def _deauth_sent(cfg, is_authorized):
     return any("wifi.deauth" in c for c in sent)
 
 
-def test_bettercap_deauth_sent_only_when_authorized(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_bettercap_deauth_sent_only_when_authorized(make_cfg):
+    cfg = make_cfg()
     assert _deauth_sent(cfg, lambda b, s: True) is True
 
 
-def test_bettercap_no_deauth_when_unauthorized(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_bettercap_no_deauth_when_unauthorized(make_cfg):
+    cfg = make_cfg()
     assert _deauth_sent(cfg, lambda b, s: False) is False
 
 
-def test_bettercap_no_deauth_without_gate(tmp_path):
+def test_bettercap_no_deauth_without_gate(make_cfg):
     """No is_authorized callable at all => fail closed (passive)."""
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     assert _deauth_sent(cfg, None) is False
 
 
-def test_bettercap_dry_run_suppresses_deauth_even_when_authorized(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_bettercap_dry_run_suppresses_deauth_even_when_authorized(make_cfg):
+    cfg = make_cfg()
     cfg.dry_run = True
     assert _deauth_sent(cfg, lambda b, s: True) is False
 
 
-def test_bettercap_gate_failing_closed_on_raise(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_bettercap_gate_failing_closed_on_raise(make_cfg):
+    cfg = make_cfg()
 
     def _boom(b, s):
         raise RuntimeError("broken gate")
@@ -107,8 +93,8 @@ def _wep_ev():
             "encryption": "wep", "band": "2.4GHz", "clients": 2, "signal": -50}
 
 
-def test_crack_skipped_when_out_of_scope(tmp_path, monkeypatch):
-    cfg = _cfg(tmp_path)            # home_networks empty -> out of scope
+def test_crack_skipped_when_out_of_scope(make_cfg, monkeypatch):
+    cfg = make_cfg()            # home_networks empty -> out of scope
     agent = Agent(cfg, PetState(name="T"))
     agent._prefs["hide_fieldcrack_warning"] = True  # consent granted
     _force_catch(monkeypatch)
@@ -122,8 +108,8 @@ def test_crack_skipped_when_out_of_scope(tmp_path, monkeypatch):
     assert denied and denied[-1]["allowed"] is False
 
 
-def test_crack_runs_and_audits_when_in_scope(tmp_path, monkeypatch):
-    cfg = _cfg(tmp_path)
+def test_crack_runs_and_audits_when_in_scope(make_cfg, monkeypatch):
+    cfg = make_cfg()
     cfg.home_networks = ["HomeNet"]                 # in scope
     agent = Agent(cfg, PetState(name="T"))
     agent._prefs["hide_fieldcrack_warning"] = True
@@ -138,8 +124,8 @@ def test_crack_runs_and_audits_when_in_scope(tmp_path, monkeypatch):
     assert allowed and allowed[-1]["allowed"] is True
 
 
-def test_capture_authorized_audits_deauth_decision(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_capture_authorized_audits_deauth_decision(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     agent._prefs["hide_fieldcrack_warning"] = True
 
@@ -164,8 +150,8 @@ def test_clean_strips_control_chars_and_caps_length():
     assert len(capped) == 11 and capped.endswith("…")
 
 
-def test_speak_sanitises_injected_ssid_via_llm_path(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_speak_sanitises_injected_ssid_via_llm_path(make_cfg):
+    cfg = make_cfg()
     svc = AIService(cfg)
 
     class _Echo:                       # pretend LLM: echoes the user prompt back

@@ -42,7 +42,7 @@ ble = ["bleak>=0.22"]
 # test suite. Pillow is required because the sprite tests (tests/test_prime_sprites.py)
 # open + validate the generated PNGs -- so it must install with the dev extra, not
 # only the host-only `tools` extra.
-dev = ["pytest", "Pillow"]
+dev = ["pytest", "pytest-randomly", "Pillow"]
 # host-only sprite tooling (tools/gen_sprite.py); NOT a device runtime dep.
 tools = ["numpy", "Pillow"]
 

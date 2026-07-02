@@ -3,26 +3,12 @@ narration, paragon narration, and the profile's paragon/species readout.
 All hermetic (tmp paths, sim mode)."""
 from __future__ import annotations
 
-import dataclasses
 
 from flippergotchi.config import Config
 from flippergotchi import commands
 from flippergotchi.agent import Agent
 from flippergotchi.pet import mechanics
 from flippergotchi.pet.state import PetState
-
-
-def _cfg(tmp_path):
-    cfg = Config()
-    cfg.simulate = True
-    cfg.tui = False
-    cfg.scan_bluetooth = False
-    for f in dataclasses.fields(cfg):
-        v = getattr(cfg, f.name)
-        if isinstance(v, str) and (v.startswith("~/.flippergotchi")
-                                   or v.startswith("/tmp/")):
-            setattr(cfg, f.name, str(tmp_path / f.name))
-    return cfg
 
 
 class _SpeakSpy:
@@ -53,8 +39,8 @@ def _make_sick(state):
 
 # -- soft stakes ------------------------------------------------------------
 
-def test_sick_pet_does_not_forage_but_recovers_on_feed(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_sick_pet_does_not_forage_but_recovers_on_feed(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     _make_sick(agent.state)
     assert mechanics.is_sick(agent.state)
@@ -74,8 +60,8 @@ def test_sick_pet_does_not_forage_but_recovers_on_feed(tmp_path):
     assert mechanics.can_forage(agent.state) is True
 
 
-def test_sick_transition_speaks_once(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_sick_transition_speaks_once(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     spy = _SpeakSpy().install(agent)
     _make_sick(agent.state)
@@ -92,8 +78,8 @@ def test_sick_transition_speaks_once(tmp_path):
     assert spy.keys.count("sick") <= onset + 1
 
 
-def test_normal_mode_never_dies_even_when_sick(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_normal_mode_never_dies_even_when_sick(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     _make_sick(agent.state)
     for _ in range(50):
@@ -103,8 +89,8 @@ def test_normal_mode_never_dies_even_when_sick(tmp_path):
 
 # -- paragon narration ------------------------------------------------------
 
-def test_paragon_event_is_narrated(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_paragon_event_is_narrated(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     spy = _SpeakSpy().install(agent)
     agent._progress([{"type": "paragon", "tier": 2}])
@@ -113,9 +99,9 @@ def test_paragon_event_is_narrated(tmp_path):
 
 # -- profile readout --------------------------------------------------------
 
-def test_profile_shows_paragon_and_species(tmp_path, capsys):
+def test_profile_shows_paragon_and_species(make_cfg, capsys):
     from flippergotchi import persistence
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     st = PetState(name="T")
     st.paragon = 3
     persistence.save(cfg.state_path, st)
@@ -126,9 +112,9 @@ def test_profile_shows_paragon_and_species(tmp_path, capsys):
     assert "species:" in out and "19" in out
 
 
-def test_profile_hides_paragon_when_zero(tmp_path, capsys):
+def test_profile_hides_paragon_when_zero(make_cfg, capsys):
     from flippergotchi import persistence
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     persistence.save(cfg.state_path, PetState(name="T"))
     commands.cmd_profile(cfg)
     out = capsys.readouterr().out

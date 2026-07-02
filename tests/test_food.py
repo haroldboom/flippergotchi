@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 import random
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -13,10 +12,6 @@ from flippergotchi.game import food
 from flippergotchi.game.larder import Larder
 from flippergotchi.pet import mechanics
 from flippergotchi.pet.state import PetState
-
-
-def _tmp(name):
-    return os.path.join(tempfile.mkdtemp(), name)
 
 
 def test_food_catalog():
@@ -31,8 +26,8 @@ def test_roll_forage_deterministic():
     assert a.id == b.id                       # same seed -> same pick
 
 
-def test_larder_add_take_cap():
-    lar = Larder(_tmp("l.json"), capacity=3)
+def test_larder_add_take_cap(tmp_file):
+    lar = Larder(tmp_file("l.json"), capacity=3)
     assert lar.add("chum", 2) == 2
     assert lar.add("kelp", 5) == 1            # only one space left -> capped
     assert lar.is_full()
@@ -42,8 +37,8 @@ def test_larder_add_take_cap():
     assert lar.total() == 2
 
 
-def test_larder_persists():
-    p = _tmp("l.json")
+def test_larder_persists(tmp_file):
+    p = tmp_file("l.json")
     lar = Larder(p, 10)
     lar.add("roe", 3)
     lar.save()

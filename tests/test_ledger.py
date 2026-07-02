@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,8 +19,8 @@ def _ap(bssid, ssid="Net", **kw):
     return monsters.from_ap(ev)
 
 
-def test_ledger_counts_categories():
-    led = Ledger(os.path.join(tempfile.mkdtemp(), "l.json"))
+def test_ledger_counts_categories(tmp_file):
+    led = Ledger(tmp_file("l.json"))
     m = _ap("AA:BB:CC:DD:EE:01")
     assert led.record(m, "cracked", "local", "pw") == "win"
     assert led.record(m, "failed") == "loss"
@@ -32,8 +31,8 @@ def test_ledger_counts_categories():
     assert (c["win"], c["loss"], c["escalate"]) == (1, 1, 1)
 
 
-def test_ledger_persists():
-    p = os.path.join(tempfile.mkdtemp(), "l.json")
+def test_ledger_persists(tmp_file):
+    p = tmp_file("l.json")
     led = Ledger(p)
     led.record(_ap("AA:BB:CC:DD:EE:02"), "cracked")
     led.record(_ap("AA:BB:CC:DD:EE:03"), "failed")
@@ -42,8 +41,8 @@ def test_ledger_persists():
     assert reloaded["win"] == 1 and reloaded["loss"] == 1
 
 
-def test_bestiary_dedupes_by_bssid_not_ssid():
-    dex = Bestiary(os.path.join(tempfile.mkdtemp(), "b.json"))
+def test_bestiary_dedupes_by_bssid_not_ssid(tmp_file):
+    dex = Bestiary(tmp_file("b.json"))
     # two DIFFERENT hidden networks (blank ssid) with distinct BSSIDs
     assert dex.add(_ap("AA:BB:CC:00:00:01", ssid="")) is True
     assert dex.add(_ap("AA:BB:CC:00:00:02", ssid="")) is True
@@ -52,8 +51,8 @@ def test_bestiary_dedupes_by_bssid_not_ssid():
     assert len(dex.all()) == 2
 
 
-def test_bestiary_rejects_placeholder_bssid():
-    dex = Bestiary(os.path.join(tempfile.mkdtemp(), "b.json"))
+def test_bestiary_rejects_placeholder_bssid(tmp_file):
+    dex = Bestiary(tmp_file("b.json"))
     assert dex.add(_ap("00:00:00:00:00:00")) is False
     assert len(dex.all()) == 0
 
@@ -64,8 +63,8 @@ def test_hidden_label_is_unique_per_bssid():
     assert a != b and "hidden" in a
 
 
-def test_prefs_roundtrip():
-    p = os.path.join(tempfile.mkdtemp(), "p.json")
+def test_prefs_roundtrip(tmp_file):
+    p = tmp_file("p.json")
     assert prefs_mod.load(p) == {}
     prefs_mod.save(p, {"hide_battle_warning": True})
     assert prefs_mod.load(p)["hide_battle_warning"] is True

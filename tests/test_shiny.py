@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -17,10 +16,6 @@ from flippergotchi.pet.state import PetState
 SHINY_BSSID = "AA:BB:CC:00:00:42"
 SHINY_BLE_ADDR = "DD:EE:FF:00:00:75"
 PLAIN_BSSID = "AA:BB:CC:11:22:33"
-
-
-def _tmp(name):
-    return os.path.join(tempfile.mkdtemp(), name)
 
 
 def _ap(bssid, ssid="SomeNet", enc="wpa2"):
@@ -67,8 +62,8 @@ def test_shiny_roll_is_rare():
 
 
 # -- bestiary merge ---------------------------------------------------------
-def test_bestiary_preserves_shiny_on_merge():
-    dex = Bestiary(_tmp("dex.json"))
+def test_bestiary_preserves_shiny_on_merge(tmp_file):
+    dex = Bestiary(tmp_file("dex.json"))
     m = monsters.from_ap(_ap(SHINY_BSSID))
     assert dex.add(m) is True
     # a later sighting of the same AP (re-add) must not clear the shiny flag
@@ -77,8 +72,8 @@ def test_bestiary_preserves_shiny_on_merge():
 
 
 # -- build_stats sourcing ---------------------------------------------------
-def test_build_stats_counts_captured_shinies():
-    dex = Bestiary(_tmp("dex.json"))
+def test_build_stats_counts_captured_shinies(tmp_file):
+    dex = Bestiary(tmp_file("dex.json"))
     shiny = monsters.from_ap(_ap(SHINY_BSSID))      # captured (handshake) + shiny
     plain = monsters.from_ap(_ap(PLAIN_BSSID))      # captured, not shiny
     dex.add(shiny)
@@ -87,8 +82,8 @@ def test_build_stats_counts_captured_shinies():
     assert stats["shinies"] == 1
 
 
-def test_build_stats_ignores_uncaptured_shiny():
-    dex = Bestiary(_tmp("dex.json"))
+def test_build_stats_ignores_uncaptured_shiny(tmp_file):
+    dex = Bestiary(tmp_file("dex.json"))
     m = monsters.from_ap(_ap(SHINY_BSSID))
     m.captured = False                              # only spotted, not captured
     dex.add(m)
@@ -105,8 +100,8 @@ def test_shiny_find_is_no_longer_hidden():
     assert ach.get("shiny_find").hidden is False
 
 
-def test_shiny_find_unlocks_when_shinies_at_least_one():
-    book = ach.AchievementBook(_tmp("a.json"))
+def test_shiny_find_unlocks_when_shinies_at_least_one(tmp_file):
+    book = ach.AchievementBook(tmp_file("a.json"))
     assert book.check({"shinies": 0}) == []
     newly = book.check({"shinies": 1})
     assert any(b.id == "shiny_find" for b in newly)

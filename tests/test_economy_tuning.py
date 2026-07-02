@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -17,12 +16,8 @@ from flippergotchi.game import shop as shop_mod
 from flippergotchi.pet.state import PetState
 
 
-def _tmp(name):
-    return os.path.join(tempfile.mkdtemp(), name)
-
-
-def _wallet(scrap):
-    w = shop_mod.Wallet(_tmp("w.json"))
+def _wallet(tmp_file, scrap):
+    w = shop_mod.Wallet(tmp_file("w.json"))
     w.earn(scrap)
     return w
 
@@ -55,8 +50,8 @@ def test_endgame_sink_item_exists_and_is_expensive():
     assert skin.effect == "cosmetic"
 
 
-def test_buy_cosmetic_unlocks_skin_and_charges():
-    w = _wallet(6000)
+def test_buy_cosmetic_unlocks_skin_and_charges(tmp_file):
+    w = _wallet(tmp_file, 6000)
     shop = shop_mod.Shop()
     st = PetState()
     ok, msg = shop.buy(w, "skin_goldfin", state=st)
@@ -65,8 +60,8 @@ def test_buy_cosmetic_unlocks_skin_and_charges():
     assert w.scrap == 6000 - 5000
 
 
-def test_buy_cosmetic_twice_refused_no_double_charge():
-    w = _wallet(11000)
+def test_buy_cosmetic_twice_refused_no_double_charge(tmp_file):
+    w = _wallet(tmp_file, 11000)
     shop = shop_mod.Shop()
     st = PetState()
     ok1, _ = shop.buy(w, "skin_goldfin", state=st)
@@ -76,8 +71,8 @@ def test_buy_cosmetic_twice_refused_no_double_charge():
     assert w.scrap == 6000  # not charged again
 
 
-def test_cosmetic_unaffordable_not_charged():
-    w = _wallet(1000)
+def test_cosmetic_unaffordable_not_charged(tmp_file):
+    w = _wallet(tmp_file, 1000)
     shop = shop_mod.Shop()
     st = PetState()
     ok, msg = shop.buy(w, "skin_goldfin", state=st)

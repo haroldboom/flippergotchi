@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -85,11 +84,11 @@ def test_pvp_firewall_satiety_only_duels_not_cracking():
         assert not (params & {"state", "hunger", "satiety", "hardcore"})
 
 
-def test_title_payout_from_gold_capstone():
+def test_title_payout_from_gold_capstone(tmp_file):
     from flippergotchi.game import achievements as ach
     from flippergotchi.game.shop import Wallet
-    book = ach.AchievementBook(os.path.join(tempfile.mkdtemp(), "a.json"))
-    w = Wallet(os.path.join(tempfile.mkdtemp(), "w.json"))
+    book = ach.AchievementBook(tmp_file("a.json"))
+    w = Wallet(tmp_file("w.json"))
     cfg = Config()
     st = PetState(stage="legend")             # unlocks evolve_to_legend (gold+title)
     ach.grant_reward(book, {"stage": "legend"}, st, cfg, w)

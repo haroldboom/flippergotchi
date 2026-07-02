@@ -9,12 +9,13 @@ from __future__ import annotations
 import json
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from flippergotchi import commands
 from flippergotchi.config import Config
 from flippergotchi.game import achievements as ach
+from flippergotchi.game import equipment as equip_mod
 from flippergotchi.game import monsters
 from flippergotchi.game.quests import (
     DAILY_CLEAR_BONUS, STREAK_REWARDS, QuestLog, grant_quest_reward, migrate,
@@ -23,12 +24,8 @@ from flippergotchi.game.shop import Wallet
 from flippergotchi.pet.state import PetState
 
 
-def _tmp(name):
-    return os.path.join(tempfile.mkdtemp(), name)
-
-
-def _book():
-    return ach.AchievementBook(_tmp("a.json"))
+def _book(tmp_file):
+    return ach.AchievementBook(tmp_file("a.json"))
 
 
 class _Mon:
@@ -45,7 +42,7 @@ class _Dex:
 
 
 # --- extended badge ladders ---------------------------------------------------
-def test_new_ladder_tiers_unlock_at_thresholds():
+def test_new_ladder_tiers_unlock_at_thresholds(tmp_file):
     cases = [
         ("catch_250", {"catches": 250}), ("catch_500", {"catches": 500}),
         ("catch_1000", {"catches": 1000}), ("crack_100", {"cracks": 100}),
@@ -60,7 +57,7 @@ def test_new_ladder_tiers_unlock_at_thresholds():
     for bid, stats in cases:
         badge = ach.get(bid)
         assert badge is not None, f"missing badge {bid}"
-        book = _book()
+        book = _book(tmp_file)
         # one below threshold: stays locked
         metric = badge.metric
         below = {metric: stats[metric] - 1}
@@ -88,19 +85,19 @@ def test_ladder_rewards_stay_modest_scrap():
 
 
 # --- shiny ladder --------------------------------------------------------------
-def test_shiny_ladder_unlocks():
+def test_shiny_ladder_unlocks(tmp_file):
     for bid, n in [("shiny_5", 5), ("shiny_15", 15), ("shiny_50", 50)]:
-        book = _book()
+        book = _book(tmp_file)
         assert all(b.id != bid for b in book.check({"shinies": n - 1}))
         assert any(b.id == bid for b in book.check({"shinies": n}))
 
 
-def test_shiny_ladder_from_dex_via_build_stats():
+def test_shiny_ladder_from_dex_via_build_stats(tmp_file):
     dex = _Dex([_Mon("Gnashgear", shiny=True) for _ in range(5)]
                + [_Mon("Kragnet", shiny=False)])
     stats = ach.build_stats(PetState(), dex=dex)
     assert stats["shinies"] == 5
-    assert any(b.id == "shiny_5" for b in _book().check(stats))
+    assert any(b.id == "shiny_5" for b in _book(tmp_file).check(stats))
 
 
 # --- species-completion capstone ------------------------------------------------
@@ -112,40 +109,40 @@ def test_build_stats_counts_distinct_species():
     assert stats["species_total"] == monsters.species_count()  # the finite N
 
 
-def test_dex_master_unlocks_only_on_full_dex():
+def test_dex_master_unlocks_only_on_full_dex(tmp_file):
     everything = [_Mon(s) for s in monsters.all_species()]
     partial = ach.build_stats(PetState(), dex=_Dex(everything[:-1]))
-    assert all(b.id != "dex_master" for b in _book().check(partial))
+    assert all(b.id != "dex_master" for b in _book(tmp_file).check(partial))
     full = ach.build_stats(PetState(), dex=_Dex(everything))
-    book = _book()
+    book = _book(tmp_file)
     assert any(b.id == "dex_master" for b in book.check(full))
 
 
-def test_dex_master_grants_gold_title():
+def test_dex_master_grants_gold_title(tmp_file):
     badge = ach.get("dex_master")
     assert badge.tier == "gold"
     st = PetState()
     stats = ach.build_stats(st, dex=_Dex([_Mon(s) for s in monsters.all_species()]))
-    ach.grant_reward(_book(), stats, st, Config(), Wallet(_tmp("w.json")))
+    ach.grant_reward(_book(tmp_file), stats, st, Config(), Wallet(tmp_file("w.json")))
     assert "the Reefmaster" in st.titles
 
 
-def test_grandmaster_needs_legend_and_full_dex():
+def test_grandmaster_needs_legend_and_full_dex(tmp_file):
     full = _Dex([_Mon(s) for s in monsters.all_species()])
     legend_only = ach.build_stats(PetState(stage="legend"), dex=_Dex([]))
-    assert all(b.id != "grandmaster" for b in _book().check(legend_only))
+    assert all(b.id != "grandmaster" for b in _book(tmp_file).check(legend_only))
     dex_only = ach.build_stats(PetState(stage="adult"), dex=full)
-    assert all(b.id != "grandmaster" for b in _book().check(dex_only))
+    assert all(b.id != "grandmaster" for b in _book(tmp_file).check(dex_only))
     both = ach.build_stats(PetState(stage="legend"), dex=full)
-    assert any(b.id == "grandmaster" for b in _book().check(both))
+    assert any(b.id == "grandmaster" for b in _book(tmp_file).check(both))
     assert ach.get("grandmaster").hidden                      # aspirational secret
 
 
-def test_paragon_badge_reads_state_field():
+def test_paragon_badge_reads_state_field(tmp_file):
     stats = ach.build_stats(PetState(paragon=1))
     assert stats["paragon"] == 1
-    assert any(b.id == "paragon_1" for b in _book().check(stats))
-    assert all(b.id != "paragon_1" for b in _book().check(
+    assert any(b.id == "paragon_1" for b in _book(tmp_file).check(stats))
+    assert all(b.id != "paragon_1" for b in _book(tmp_file).check(
         ach.build_stats(PetState())))                        # default 0 stays locked
 
 
@@ -157,8 +154,8 @@ def _clear_day(q, day):
     return q.claim_daily_bonus(day)
 
 
-def test_streak_rewards_escalate_at_milestones():
-    q = QuestLog(_tmp("q.json"))
+def test_streak_rewards_escalate_at_milestones(tmp_file):
+    q = QuestLog(tmp_file("q.json"))
     for i in range(1, 7):
         assert _clear_day(q, f"2026-06-{i:02d}") == DAILY_CLEAR_BONUS
     # day 7: the first milestone pays on top of the ordinary bonus
@@ -169,8 +166,8 @@ def test_streak_rewards_escalate_at_milestones():
     assert _clear_day(q, "2026-06-14") == DAILY_CLEAR_BONUS + STREAK_REWARDS[14]
 
 
-def test_streak_rewards_claim_once_ever():
-    q = QuestLog(_tmp("q.json"))
+def test_streak_rewards_claim_once_ever(tmp_file):
+    q = QuestLog(tmp_file("q.json"))
     q.streak = 6
     q.last_clear_day = "2026-06-06"
     assert _clear_day(q, "2026-06-07") == DAILY_CLEAR_BONUS + STREAK_REWARDS[7]
@@ -188,8 +185,8 @@ def test_streak_reward_tiers_are_7_14_30_100_and_escalate():
     assert values == sorted(values) and values[0] < values[-1]   # escalating
 
 
-def test_streak_claimed_persists():
-    p = _tmp("q.json")
+def test_streak_claimed_persists(tmp_file):
+    p = tmp_file("q.json")
     q = QuestLog(p)
     q.streak = 6
     _clear_day(q, "2026-06-07")
@@ -197,9 +194,9 @@ def test_streak_claimed_persists():
     assert QuestLog(p).streak_claimed == [7]
 
 
-def test_streak_jump_still_collects_missed_tiers():
+def test_streak_jump_still_collects_missed_tiers(tmp_file):
     # defensive >=: a save whose streak leapt past a tier collects it next clear
-    q = QuestLog(_tmp("q.json"))
+    q = QuestLog(tmp_file("q.json"))
     q.streak = 20
     q.last_clear_day = "2026-06-20"
     bonus = _clear_day(q, "2026-06-21")
@@ -207,8 +204,8 @@ def test_streak_jump_still_collects_missed_tiers():
 
 
 # --- rotating weekly challenge ---------------------------------------------------
-def test_weekly_challenge_rolls_and_rotates():
-    q = QuestLog(_tmp("q.json"))
+def test_weekly_challenge_rolls_and_rotates(tmp_file):
+    q = QuestLog(tmp_file("q.json"))
     assert q.active_challenge() is None                       # nothing before a roll
     q.roll_weekly("2026-W26")
     first = q.active_challenge()
@@ -219,15 +216,15 @@ def test_weekly_challenge_rolls_and_rotates():
     assert q.active_challenge().id != first.id
 
 
-def test_weekly_challenge_is_deterministic_per_week():
-    a, b = QuestLog(_tmp("q.json")), QuestLog(_tmp("q.json"))
+def test_weekly_challenge_is_deterministic_per_week(tmp_file):
+    a, b = QuestLog(tmp_file("q.json")), QuestLog(tmp_file("q.json"))
     a.roll_weekly("2026-W30")
     b.roll_weekly("2026-W30")
     assert a.active_challenge().id == b.active_challenge().id
 
 
-def test_weekly_challenge_records_progress_and_completes():
-    q = QuestLog(_tmp("q.json"))
+def test_weekly_challenge_records_progress_and_completes(tmp_file):
+    q = QuestLog(tmp_file("q.json"))
     q.roll_weekly("2026-W26")
     ch = q.active_challenge()
     done = q.record(ch.metric, ch.target)
@@ -242,8 +239,8 @@ def test_weekly_challenge_pays_title_not_big_scrap():
         assert reward.get("scrap", 0) <= 200, f"{tid} scrap too high"
 
 
-def test_weekly_challenge_persists():
-    p = _tmp("q.json")
+def test_weekly_challenge_persists(tmp_file):
+    p = tmp_file("q.json")
     q = QuestLog(p)
     q.roll_weekly("2026-W26")
     q.record(q.active_challenge().metric, 1)
@@ -254,15 +251,15 @@ def test_weekly_challenge_persists():
     assert r.active_challenge().progress == 1
 
 
-def test_quest_reward_title_applied_once():
+def test_quest_reward_title_applied_once(tmp_file):
     st = PetState()
     cfg = Config()
-    q = QuestLog(_tmp("q.json"))
+    q = QuestLog(tmp_file("q.json"))
     q.roll_weekly("2026-W26")
     ch = q.active_challenge()
     done = q.record(ch.metric, ch.target)
     chal_done = next(x for x in done if x.id == ch.id)        # chains fire too
-    w = Wallet(_tmp("w.json"))
+    w = Wallet(tmp_file("w.json"))
     msg = grant_quest_reward(chal_done, st, None, cfg, w)
     title = ch.reward["title"]
     assert title in st.titles and "title:" in msg
@@ -272,29 +269,29 @@ def test_quest_reward_title_applied_once():
 
 
 # --- long chains ------------------------------------------------------------------
-def test_month_scale_chains_exist_and_advance():
+def test_month_scale_chains_exist_and_advance(tmp_file):
     from flippergotchi.game.quests import _CHAIN_BY_ID
     assert "the_long_haul" in _CHAIN_BY_ID and "deep_signal" in _CHAIN_BY_ID
     giver, title, steps = _CHAIN_BY_ID["the_long_haul"]
     assert len(steps) >= 4                                    # genuinely long
     assert any(s.reward.get("title") for s in steps)          # finale pays prestige
-    q = QuestLog(_tmp("q.json"))
+    q = QuestLog(tmp_file("q.json"))
     done = q.record("distance_m", 25000)                      # step 1 of the long haul
     assert any(x.id == "the_long_haul:0" for x in done)
     assert q.chains["the_long_haul"]["step"] == 1
 
 
-def test_chain_finale_title_flows_through_reward_path():
+def test_chain_finale_title_flows_through_reward_path(tmp_file):
     from flippergotchi.game.quests import _CHAIN_BY_ID
     _, _, steps = _CHAIN_BY_ID["deep_signal"]
-    q = QuestLog(_tmp("q.json"))
+    q = QuestLog(tmp_file("q.json"))
     st = PetState()
     q.record("tames", 25)
     q.record("duel_wins", 10)
     q.record("legendary_kills", 3)
     done = q.record("tames", 60)
     final = next(x for x in done if x.id == "deep_signal:3")
-    grant_quest_reward(final, st, None, Config(), Wallet(_tmp("w.json")))
+    grant_quest_reward(final, st, None, Config(), Wallet(tmp_file("w.json")))
     assert "the Deep Signal" in st.titles
     assert q.chains["deep_signal"]["done"] is True
 
@@ -310,8 +307,8 @@ def test_migrate_v3_to_v4_adds_challenge_and_streak_blocks():
     assert raw["streak_claimed"] == []
 
 
-def test_old_v3_questlog_file_still_loads():
-    p = _tmp("q.json")
+def test_old_v3_questlog_file_still_loads(tmp_file):
+    p = tmp_file("q.json")
     with open(p, "w") as f:
         json.dump({"schema_version": 3, "day": "2026-06-16",
                    "quests": [{"id": "walk_2k", "description": "Walk 2 km",
@@ -336,11 +333,45 @@ def test_state_paragon_field_persists_and_defaults():
     assert PetState.from_dict(legacy).paragon == 0
 
 
-def test_book_progress_reflects_bigger_catalog():
+def test_book_progress_reflects_bigger_catalog(tmp_file):
     # sanity: the catalogue really grew into a long tail (was 21 badges)
-    book = _book()
+    book = _book(tmp_file)
     unlocked, total = book.progress()
     assert unlocked == 0 and total >= 35
+
+
+def test_cmd_quests_prints_weekly_challenge_line(make_cfg, capsys):
+    """cmd_quests rolls in this week's rotating challenge and prints the
+    WEEKLY CHALLENGE line whenever a challenge is active."""
+    cfg = make_cfg()
+    commands.cmd_quests(cfg)
+    out = capsys.readouterr().out
+    assert "WEEKLY CHALLENGE" in out
+    # the active challenge quest text is one of the rotating templates
+    assert "CHALLENGE:" in out
+
+
+def test_cmd_gear_prints_set_bonus_line_when_set_equipped(make_cfg, capsys):
+    """cmd_gear prints a 'set bonus' line when a completed gear set is equipped
+    (two pieces of one set clears the 2-pc tier)."""
+    cfg = make_cfg()
+    inv = equip_mod.Inventory(cfg.inventory_path)
+    # two Reef Raider pieces in distinct slots -> 2-piece set tier is met
+    a = equip_mod.Item(id="reef-weapon", name="Reef Cutlass", slot="weapon",
+                       rarity="rare", power=11, bonus_stat="atk", bonus_val=3,
+                       set="Reef Raider")
+    b = equip_mod.Item(id="reef-fin", name="Reef Fin", slot="fin",
+                       rarity="rare", power=11, bonus_stat="atk", bonus_val=3,
+                       set="Reef Raider")
+    inv.add(a)
+    inv.add(b)
+    inv.equip(a.id)
+    inv.equip(b.id)
+    inv.save()
+
+    commands.cmd_gear(cfg, None)
+    out = capsys.readouterr().out
+    assert "set bonus:" in out
 
 
 if __name__ == "__main__":

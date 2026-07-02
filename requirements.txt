@@ -15,6 +15,7 @@
 #   bleak>=0.22                # live BLE scanning + Flippergotchi peer discovery (BlueZ on Linux)
 #   scapy>=2.5.0               # native WiFi capture path
 #   pytest                     # to run the test suite
+#   pytest-randomly            # randomized test order in CI (catches order-dependence)
 #
 # Host/tools only -- NOT needed on the device runtime:
 #   numpy, Pillow              # tools/gen_sprite.py (regenerate mascot sprites via Gemini)

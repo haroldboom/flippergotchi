@@ -7,7 +7,6 @@ from __future__ import annotations
 import os
 import random
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -19,8 +18,8 @@ from flippergotchi.pet.state import PetState
 N = 400  # Monte Carlo sample per win-rate comparison
 
 
-def _inv() -> eq.Inventory:
-    return eq.Inventory(os.path.join(tempfile.mkdtemp(), "inv.json"))
+def _inv(tmp_file) -> eq.Inventory:
+    return eq.Inventory(tmp_file("inv.json"))
 
 
 def _full_kit(inv: eq.Inventory, set_tag: str = "", power: int = 18) -> None:
@@ -42,8 +41,8 @@ def _winrate(you: duel_mod.Fighter, them: duel_mod.Fighter, seed: int = 11) -> f
 # 1. gear stats + pvp_power are actually read by the resolver
 # ---------------------------------------------------------------------------
 
-def test_fighter_from_pet_uses_pvp_power_and_stat_totals():
-    inv = _inv()
+def test_fighter_from_pet_uses_pvp_power_and_stat_totals(tmp_file):
+    inv = _inv(tmp_file)
     _full_kit(inv, set_tag="Apex Predator")
     state = PetState(name="Flippy", level=8, handshakes=10, element="Tide")
     f = duel_mod.fighter_from_pet(state, inv)
@@ -58,9 +57,9 @@ def test_fighter_from_pet_uses_pvp_power_and_stat_totals():
     assert f.element == "Tide"
 
 
-def test_gear_stats_change_duel_outcomes():
+def test_gear_stats_change_duel_outcomes(tmp_file):
     """A fully geared fighter beats its ungeared twin way more than half the time."""
-    inv = _inv()
+    inv = _inv(tmp_file)
     _full_kit(inv, set_tag="Apex Predator")
     state = PetState(name="Geared", level=8, handshakes=10)
     geared = duel_mod.fighter_from_pet(state, inv)
@@ -100,8 +99,8 @@ def test_gear_edge_is_a_gradient_not_a_cliff():
 # 2. completing a gear set matters (same items, only the set tag differs)
 # ---------------------------------------------------------------------------
 
-def test_completed_set_wins_more_than_untagged_same_gear():
-    set_inv, plain_inv = _inv(), _inv()
+def test_completed_set_wins_more_than_untagged_same_gear(tmp_file):
+    set_inv, plain_inv = _inv(tmp_file), _inv(tmp_file)
     _full_kit(set_inv, set_tag="Apex Predator")
     _full_kit(plain_inv, set_tag="")   # identical pieces, no set
 
@@ -109,7 +108,7 @@ def test_completed_set_wins_more_than_untagged_same_gear():
     with_set = duel_mod.fighter_from_pet(st, set_inv)
     without = duel_mod.fighter_from_pet(st, plain_inv)
     # same rival for both
-    rival_inv = _inv()
+    rival_inv = _inv(tmp_file)
     _full_kit(rival_inv, set_tag="")
     rival = duel_mod.fighter_from_pet(PetState(name="rival", level=8, handshakes=10),
                                       rival_inv)
@@ -220,8 +219,8 @@ def test_normalize_accepts_bands_and_rejects_junk():
 # 5. best_loadout: auto-equip best-in-slot, set-aware
 # ---------------------------------------------------------------------------
 
-def test_best_loadout_picks_strongest_per_slot():
-    inv = _inv()
+def test_best_loadout_picks_strongest_per_slot(tmp_file):
+    inv = _inv(tmp_file)
     inv.add(eq.Item("h1", "Scuffed Helm", "helmet", "common", 3, "def", 3))
     inv.add(eq.Item("h2", "Mythic Helm", "helmet", "legendary", 28, "def", 28))
     inv.add(eq.Item("w1", "Tuned Shiv", "weapon", "rare", 11, "atk", 11))
@@ -231,8 +230,8 @@ def test_best_loadout_picks_strongest_per_slot():
     assert inv.gear_power() == 39
 
 
-def test_best_loadout_prefers_completing_a_set_when_it_scores_higher():
-    inv = _inv()
+def test_best_loadout_prefers_completing_a_set_when_it_scores_higher(tmp_file):
+    inv = _inv(tmp_file)
     # 5 matched Apex pieces at power 18...
     for i, slot in enumerate(eq.SLOTS):
         inv.add(eq.Item(f"s{i}", f"Apex {slot}", slot, "epic", 18,
@@ -245,8 +244,8 @@ def test_best_loadout_prefers_completing_a_set_when_it_scores_higher():
     assert inv.set_bonus()["power"] > 0
 
 
-def test_best_loadout_takes_offset_piece_when_set_bonus_is_worth_less():
-    inv = _inv()
+def test_best_loadout_takes_offset_piece_when_set_bonus_is_worth_less(tmp_file):
+    inv = _inv(tmp_file)
     # only 2 set pieces (weak 2-pc tier) vs a vastly stronger off-set weapon
     inv.add(eq.Item("s1", "Static Shiv", "weapon", "common", 3, "atk", 3,
                     set="Static Coil"))
@@ -257,8 +256,8 @@ def test_best_loadout_takes_offset_piece_when_set_bonus_is_worth_less():
     assert lo["weapon"].id == "big"
 
 
-def test_best_loadout_empty_bag_is_a_noop():
-    inv = _inv()
+def test_best_loadout_empty_bag_is_a_noop(tmp_file):
+    inv = _inv(tmp_file)
     assert inv.best_loadout() == {}
     assert inv.equipped == {}
 
@@ -274,8 +273,8 @@ def _peer(**over) -> dict:
     return p
 
 
-def test_auto_resolve_win_settles_stake_loot_and_wins():
-    inv = _inv()
+def test_auto_resolve_win_settles_stake_loot_and_wins(tmp_file):
+    inv = _inv(tmp_file)
     _full_kit(inv, set_tag="Apex Predator")
     st = PetState(name="Flippy", level=15, handshakes=30, element="Spark")
     peer = _peer()   # Lv2 Gale peer: Spark advantage + huge gear = near-lock
@@ -291,15 +290,15 @@ def test_auto_resolve_win_settles_stake_loot_and_wins():
     assert len(out.result.log) > 3                  # narratable blow-by-blow
 
 
-def test_auto_resolve_loss_forfeits_gear():
-    inv = _inv()
+def test_auto_resolve_loss_forfeits_gear(tmp_file):
+    inv = _inv(tmp_file)
     it = inv.add(eq.Item("only", "Scuffed Monocle", "eyepiece", "common", 3,
                          "luck", 3))
     st = PetState(name="Flippy", level=1, handshakes=5, element="Tide")
     peer = _peer(level=40, handshakes=50, gear_power=35, element="Gale")
     # find a losing seed (losses are overwhelmingly likely; never assume seed 0)
     for seed in range(50):
-        inv2 = _inv()
+        inv2 = _inv(tmp_file)
         inv2.add(eq.Item("only", it.name, it.slot, it.rarity, it.power,
                          it.bonus_stat, it.bonus_val))
         st2 = PetState(name="Flippy", level=1, handshakes=5, element="Tide")

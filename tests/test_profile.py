@@ -5,13 +5,11 @@ prints the key lines and -- crucially -- mutates NOTHING (no rolls/grants/saves)
 """
 from __future__ import annotations
 
-import dataclasses
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flippergotchi.config import Config
 from flippergotchi import commands, persistence
 from flippergotchi.game.bestiary import Bestiary
 from flippergotchi.game import monsters
@@ -19,21 +17,8 @@ from flippergotchi.game.shop import Wallet
 from flippergotchi.pet.state import PetState
 
 
-def _cfg(tmp_path):
-    cfg = Config()
-    cfg.simulate = True
-    cfg.tui = False
-    cfg.scan_bluetooth = False
-    for f in dataclasses.fields(cfg):
-        v = getattr(cfg, f.name)
-        if isinstance(v, str) and (v.startswith("~/.flippergotchi")
-                                   or v.startswith("/tmp/")):
-            setattr(cfg, f.name, str(tmp_path / f.name))
-    return cfg
-
-
-def test_cmd_profile_prints_key_lines(tmp_path, capsys):
-    cfg = _cfg(tmp_path)
+def test_cmd_profile_prints_key_lines(make_cfg, capsys):
+    cfg = make_cfg()
     state = PetState(name="Sharkey", level=7)
     state.stage = "teen"
     persistence.save(cfg.state_path, state)
@@ -55,8 +40,8 @@ def test_cmd_profile_prints_key_lines(tmp_path, capsys):
     assert "species:" in out
 
 
-def test_cmd_profile_runs_with_empty_stores(tmp_path, capsys):
-    cfg = _cfg(tmp_path)
+def test_cmd_profile_runs_with_empty_stores(make_cfg, capsys):
+    cfg = make_cfg()
     persistence.save(cfg.state_path, PetState(name="T"))
     commands.cmd_profile(cfg)  # no other stores on disk -> must not raise
     out = capsys.readouterr().out
@@ -64,8 +49,8 @@ def test_cmd_profile_runs_with_empty_stores(tmp_path, capsys):
     assert "species: 0/" in out
 
 
-def test_cmd_profile_shows_hardcore_mode(tmp_path, capsys):
-    cfg = _cfg(tmp_path)
+def test_cmd_profile_shows_hardcore_mode(make_cfg, capsys):
+    cfg = make_cfg()
     state = PetState(name="T")
     state.hardcore = True
     persistence.save(cfg.state_path, state)
@@ -73,8 +58,8 @@ def test_cmd_profile_shows_hardcore_mode(tmp_path, capsys):
     assert "HARDCORE" in capsys.readouterr().out
 
 
-def test_cmd_profile_counts_shinies_and_bestiary(tmp_path, capsys):
-    cfg = _cfg(tmp_path)
+def test_cmd_profile_counts_shinies_and_bestiary(make_cfg, capsys):
+    cfg = make_cfg()
     persistence.save(cfg.state_path, PetState(name="T"))
     dex = Bestiary(cfg.bestiary_path)
     m = monsters.from_ap({"type": "ap", "bssid": "AA:BB:CC:00:11:22",
@@ -91,9 +76,9 @@ def test_cmd_profile_counts_shinies_and_bestiary(tmp_path, capsys):
     assert "species: 1/" in out
 
 
-def test_cmd_profile_is_read_only(tmp_path):
+def test_cmd_profile_is_read_only(make_cfg, tmp_path):
     """Viewing the profile must not create/roll/grant anything."""
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     persistence.save(cfg.state_path, PetState(name="T"))
     commands.cmd_profile(cfg)
     # the view loads stores read-only and never saves them, so no quest/wallet/

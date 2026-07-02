@@ -9,10 +9,10 @@ from flippergotchi import persistence
 from flippergotchi.config import Config
 from flippergotchi.game.achievements import AchievementBook
 from flippergotchi.game.bestiary import Bestiary
-from flippergotchi.game.equipment import Inventory
+from flippergotchi.game.equipment import Inventory, Item
 from flippergotchi.game.larder import Larder
 from flippergotchi.game.ledger import Ledger
-from flippergotchi.game.quests import QuestLog
+from flippergotchi.game.quests import QuestLog, _TEMPLATES
 from flippergotchi.game.shop import Wallet
 from flippergotchi.gamestate import GameState
 from flippergotchi.pet.state import PetState
@@ -135,3 +135,75 @@ def test_larder_uses_cfg_capacity(tmp_path):
     cfg.larder_capacity = 3
     gs = GameState(cfg)
     assert gs.larder.capacity == 3
+
+
+def test_all_ten_stores_round_trip_content(tmp_path):
+    """Mutate the CONTENT of every one of the ten stores, save, then reload a
+    FRESH GameState and assert each mutation survived -- not just that the
+    files exist."""
+    from flippergotchi.game import monsters
+
+    cfg = _cfg(tmp_path)
+    gs = GameState(cfg)
+
+    # dex: a caught monster
+    m = monsters.from_ap({"type": "ap", "bssid": "AA:BB:CC:00:11:22",
+                          "ssid": "RoundTripNet", "encryption": "open",
+                          "band": "2.4GHz", "clients": 1, "signal": -50})
+    m.captured = True
+    gs.dex.add(m)
+
+    # ledger: a battle outcome
+    gs.ledger.record(m, "cracked", via="dictionary")
+
+    # inv: a gear item (with a set tag so we exercise the full field set)
+    item = Item(id="itm-rt", name="Round Trip Shiv", slot="weapon",
+                rarity="rare", power=11, bonus_stat="atk", bonus_val=2.5,
+                set="reef")
+    gs.inv.add(item)
+
+    # quests: roll a day + advance a metric
+    gs.quests.roll("2026-06-16", n=len(_TEMPLATES))
+    tracked = gs.quests.active()[0].metric
+    gs.quests.record(tracked, 1)
+
+    # wallet: scrap balance
+    gs.wallet.earn(42)
+
+    # book: an unlocked badge
+    gs.book.check({"catches": 999})  # unlocks catch-count badges
+    unlocked_before = {b.id for b in gs.book.unlocked()}
+    assert unlocked_before, "test setup: expected at least one badge unlocked"
+
+    # larder: stashed food
+    gs.larder.add("berry", 3)
+
+    # state: pet content
+    gs.state.name = "RoundTripPet"
+    gs.state.level = 7
+    gs.state.lures = 2
+
+    # prefs + peers dicts
+    gs.prefs["battle_warning_ack"] = True
+    gs.peers["de:ad:be:ef"] = {"name": "Buddy", "level": 5}
+
+    gs.save()
+
+    # -- reload a completely fresh facade and verify every store's content ----
+    gs2 = GameState(cfg)
+    assert gs2.dex.get("RoundTripNet") is not None
+    assert gs2.dex.get("RoundTripNet").captured is True
+    assert gs2.ledger.counts()["win"] == 1
+    reloaded_item = gs2.inv.items["itm-rt"]
+    assert reloaded_item.name == "Round Trip Shiv"
+    assert reloaded_item.set == "reef"
+    assert reloaded_item.bonus_val == 2.5
+    assert any(q.metric == tracked and q.progress >= 1 for q in gs2.quests.active())
+    assert gs2.wallet.scrap == 42
+    assert {b.id for b in gs2.book.unlocked()} == unlocked_before
+    assert gs2.larder.items.get("berry") == 3
+    assert gs2.state.name == "RoundTripPet"
+    assert gs2.state.level == 7
+    assert gs2.state.lures == 2
+    assert gs2.prefs["battle_warning_ack"] is True
+    assert gs2.peers["de:ad:be:ef"] == {"name": "Buddy", "level": 5}

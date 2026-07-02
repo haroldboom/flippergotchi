@@ -3,19 +3,18 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flippergotchi.game.quests import QuestLog, _TEMPLATES
 
 
-def _log():
-    return QuestLog(os.path.join(tempfile.mkdtemp(), "q.json"))
+def _log(tmp_file):
+    return QuestLog(tmp_file("q.json"))
 
 
-def test_record_increments_progress():
-    q = _log()
+def test_record_increments_progress(tmp_file):
+    q = _log(tmp_file)
     q.roll("2026-06-16", n=len(_TEMPLATES))  # all templates -> every metric active
     target = next(x for x in q.active() if x.metric == "snacks")
     q.record("snacks", 1)
@@ -24,8 +23,8 @@ def test_record_increments_progress():
     assert q.record("nope", 99) == []
 
 
-def test_reaching_target_marks_done_and_returns_newly_completed():
-    q = _log()
+def test_reaching_target_marks_done_and_returns_newly_completed(tmp_file):
+    q = _log(tmp_file)
     q.roll("2026-06-16", n=len(_TEMPLATES))
     target = next(x for x in q.active() if x.metric == "snacks")
     newly = q.record("snacks", target.target)
@@ -40,8 +39,8 @@ def test_templates_have_rewards():
         assert isinstance(reward, dict) and reward
 
 
-def test_persistence_roundtrip():
-    p = os.path.join(tempfile.mkdtemp(), "q.json")
+def test_persistence_roundtrip(tmp_file):
+    p = tmp_file("q.json")
     q = QuestLog(p)
     q.roll("2026-06-16", n=3)
     metric = q.active()[0].metric
@@ -52,8 +51,8 @@ def test_persistence_roundtrip():
     assert reloaded.active()[0].progress == 1
 
 
-def test_roll_on_new_day_replaces_quests():
-    q = _log()
+def test_roll_on_new_day_replaces_quests(tmp_file):
+    q = _log(tmp_file)
     q.roll("2026-06-16", n=3)
     before = [x.id for x in q.active()]
     q.record(q.active()[0].metric, 1)
@@ -67,7 +66,7 @@ def test_roll_on_new_day_replaces_quests():
     assert q.day == "2026-06-17"
 
 
-def test_grant_quest_reward_applies():
+def test_grant_quest_reward_applies(tmp_file):
     from flippergotchi.config import Config
     from flippergotchi.game import equipment as eq
     from flippergotchi.game.quests import Quest, grant_quest_reward
@@ -75,7 +74,7 @@ def test_grant_quest_reward_applies():
 
     cfg = Config()
     st = PetState(handshakes=5, xp=0)
-    inv = eq.Inventory(os.path.join(tempfile.mkdtemp(), "inv.json"))
+    inv = eq.Inventory(tmp_file("inv.json"))
 
     grant_quest_reward(Quest("a", "x", "catches", 1, reward={"handshakes": 3}), st, inv, cfg)
     assert st.handshakes == 8
@@ -85,7 +84,7 @@ def test_grant_quest_reward_applies():
     assert len(inv.all()) == 1
 
 
-def test_grant_quest_reward_scrap_and_food():
+def test_grant_quest_reward_scrap_and_food(tmp_file):
     # the foundation fix: quests now pay scrap (into a passed wallet) + food
     from flippergotchi.config import Config
     from flippergotchi.game.quests import Quest, grant_quest_reward
@@ -94,7 +93,7 @@ def test_grant_quest_reward_scrap_and_food():
 
     cfg = Config()
     st = PetState(hunger=40.0)
-    w = Wallet(os.path.join(tempfile.mkdtemp(), "w.json"))
+    w = Wallet(tmp_file("w.json"))
     grant_quest_reward(Quest("a", "x", "catches", 1, reward={"scrap": 40}),
                        st, None, cfg, w)
     assert w.scrap == 40
@@ -104,7 +103,7 @@ def test_grant_quest_reward_scrap_and_food():
     assert st.hunger < h0            # food fed the pet
 
 
-def test_grant_quest_reward_scrap_without_wallet_persists():
+def test_grant_quest_reward_scrap_without_wallet_persists(tmp_file):
     # wallet=None -> scrap is credited to a freshly loaded+saved wallet at cfg path
     from flippergotchi.config import Config
     from flippergotchi.game.quests import Quest, grant_quest_reward
@@ -112,7 +111,7 @@ def test_grant_quest_reward_scrap_without_wallet_persists():
     from flippergotchi.pet.state import PetState
 
     cfg = Config()
-    cfg.wallet_path = os.path.join(tempfile.mkdtemp(), "w.json")
+    cfg.wallet_path = tmp_file("w.json")
     grant_quest_reward(Quest("a", "x", "catches", 1, reward={"scrap": 30}),
                        PetState(), None, cfg)
     assert Wallet(cfg.wallet_path).scrap == 30
@@ -131,17 +130,17 @@ def test_every_metric_has_a_template():
     assert set(METRICS) <= have, f"metrics with no template: {set(METRICS) - have}"
 
 
-def test_roll_distinct_metrics():
+def test_roll_distinct_metrics(tmp_file):
     import random
-    q = _log()
+    q = _log(tmp_file)
     q.roll("2026-06-16", n=3, rng=random.Random(5))
     metrics = [x.metric for x in q.active()]
     assert len(metrics) == len(set(metrics))      # never two quests on one metric
 
 
-def test_weekly_rolls_and_rerolls():
+def test_weekly_rolls_and_rerolls(tmp_file):
     import random
-    q = _log()
+    q = _log(tmp_file)
     q.roll_weekly("2026-W10", n=2, rng=random.Random(1))
     first = [x.id for x in q.active_weeklies()]
     assert len(first) == 2
@@ -151,18 +150,18 @@ def test_weekly_rolls_and_rerolls():
     assert all(x.progress == 0 for x in q.active_weeklies())
 
 
-def test_record_bumps_daily_and_weekly():
+def test_record_bumps_daily_and_weekly(tmp_file):
     from flippergotchi.game.quests import Quest
-    q = _log()
+    q = _log(tmp_file)
     q.quests = [Quest("d", "daily catch", "catches", 1)]
     q.weeklies = [Quest("w", "weekly catch", "catches", 1)]
     done = q.record("catches", 1)
     assert {x.id for x in done} == {"d", "w"}     # one event finishes both = 2 rewards
 
 
-def test_all_dailies_bonus_once_per_day():
+def test_all_dailies_bonus_once_per_day(tmp_file):
     from flippergotchi.game.quests import Quest, DAILY_CLEAR_BONUS
-    q = _log()
+    q = _log(tmp_file)
     q.day = "2026-06-16"
     q.quests = [Quest("a", "x", "catches", 1, progress=1, done=True)]
     assert q.all_dailies_done()
@@ -173,10 +172,10 @@ def test_all_dailies_bonus_once_per_day():
     assert q.claim_daily_bonus("2026-06-16") == 0
 
 
-def test_migrate_v1_to_v2():
+def test_migrate_v1_to_v2(tmp_file):
     import json
     from flippergotchi.game.quests import QuestLog, CURRENT_SCHEMA
-    p = os.path.join(tempfile.mkdtemp(), "q.json")
+    p = tmp_file("q.json")
     with open(p, "w") as f:                                # legacy v1: daily-only
         json.dump({"day": "2026-06-16", "quests": [
             {"id": "walk_2k", "description": "Walk 2 km", "metric": "distance_m",
@@ -191,17 +190,17 @@ def test_migrate_v1_to_v2():
     assert raw["schema_version"] == CURRENT_SCHEMA and "weeklies" in raw
 
 
-def test_lifetime_done_increments():
+def test_lifetime_done_increments(tmp_file):
     from flippergotchi.game.quests import Quest
-    q = _log()
+    q = _log(tmp_file)
     q.quests = [Quest("a", "x", "catches", 1)]
     assert q.lifetime_done == 0
     q.record("catches", 1)
     assert q.lifetime_done == 1                # feeds the quests_done capstone
 
 
-def test_streak_increments_then_resets_on_missed_day():
-    q = _log()
+def test_streak_increments_then_resets_on_missed_day(tmp_file):
+    q = _log(tmp_file)
     q.roll("2026-06-16", n=2)
     for x in q.quests:
         x.done = True
@@ -217,10 +216,10 @@ def test_streak_increments_then_resets_on_missed_day():
     assert q.streak == 0
 
 
-def test_chain_advances_step_by_step_and_completes():
+def test_chain_advances_step_by_step_and_completes(tmp_file):
     from flippergotchi.game.quests import _CHAINS
     cid, giver, title, steps = _CHAINS[0]      # first_steps: walk1k -> catch3 -> crack1
-    q = _log()
+    q = _log(tmp_file)
     done = q.record("distance_m", 1000)         # step 1
     assert any(x.id == f"{cid}:0" for x in done)
     assert q.chains[cid]["step"] == 1
@@ -232,25 +231,25 @@ def test_chain_advances_step_by_step_and_completes():
         all(not x.id.startswith(cid) for x in q.record("cracks", 1))
 
 
-def test_chain_step_carries_reward():
+def test_chain_step_carries_reward(tmp_file):
     from flippergotchi.game.quests import _CHAINS
     cid = _CHAINS[0][0]
-    q = _log()
+    q = _log(tmp_file)
     done = q.record("distance_m", 1000)
     step_q = next(x for x in done if x.id == f"{cid}:0")
     assert step_q.reward.get("scrap", 0) > 0    # caller grants it like any quest
 
 
-def test_chain_progress_persists():
+def test_chain_progress_persists(tmp_file):
     from flippergotchi.game.quests import QuestLog
-    q = _log()
+    q = _log(tmp_file)
     q.record("distance_m", 500)                 # partial first step
     q.save()
     assert QuestLog(q.path).chains["first_steps"]["progress"] == 500
 
 
-def test_active_chains_lists_current_step():
-    q = _log()
+def test_active_chains_lists_current_step(tmp_file):
+    q = _log(tmp_file)
     chains = q.active_chains()
     assert chains                               # all chains start active
     giver, title, desc, prog, target, idx, total = chains[0]

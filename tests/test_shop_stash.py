@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -18,12 +17,8 @@ from flippergotchi.game.larder import Larder
 from flippergotchi.pet.state import PetState
 
 
-def _tmp(name):
-    return os.path.join(tempfile.mkdtemp(), name)
-
-
-def _wallet(scrap):
-    w = shop_mod.Wallet(_tmp("w.json"))
+def _wallet(tmp_file, scrap):
+    w = shop_mod.Wallet(tmp_file("w.json"))
     w.earn(scrap)
     return w
 
@@ -45,11 +40,11 @@ def test_food_kind_for_nonfeed_is_none():
 
 
 # --- stash deposits into the larder, hunger unchanged ------------------------
-def test_stash_adds_to_larder_and_leaves_hunger():
-    w = _wallet(200)
+def test_stash_adds_to_larder_and_leaves_hunger(tmp_file):
+    w = _wallet(tmp_file, 200)
     shop = shop_mod.Shop()
     st = PetState(hunger=80.0)
-    larder = Larder(_tmp("l.json"), capacity=20)
+    larder = Larder(tmp_file("l.json"), capacity=20)
     ok, msg = shop.buy(w, "ration", state=st, stash=True, larder=larder)
     assert ok, msg
     assert st.hunger == 80.0                 # hunger untouched
@@ -57,11 +52,11 @@ def test_stash_adds_to_larder_and_leaves_hunger():
     assert w.scrap == 200 - shop_mod._BY_ID["ration"].cost
 
 
-def test_stash_feast_deposits_its_food_kind():
-    w = _wallet(300)
+def test_stash_feast_deposits_its_food_kind(tmp_file):
+    w = _wallet(tmp_file, 300)
     shop = shop_mod.Shop()
     st = PetState(hunger=50.0)
-    larder = Larder(_tmp("l.json"), capacity=20)
+    larder = Larder(tmp_file("l.json"), capacity=20)
     ok, _ = shop.buy(w, "feast", state=st, stash=True, larder=larder)
     assert ok
     assert larder.counts().get("cell") == 1
@@ -69,11 +64,11 @@ def test_stash_feast_deposits_its_food_kind():
 
 
 # --- without stash: hunger drops as before -----------------------------------
-def test_no_stash_feeds_as_before():
-    w = _wallet(200)
+def test_no_stash_feeds_as_before(tmp_file):
+    w = _wallet(tmp_file, 200)
     shop = shop_mod.Shop()
     st = PetState(hunger=80.0)
-    larder = Larder(_tmp("l.json"), capacity=20)
+    larder = Larder(tmp_file("l.json"), capacity=20)
     ration = shop_mod._BY_ID["ration"]
     ok, _ = shop.buy(w, "ration", state=st, larder=larder)
     assert ok
@@ -82,11 +77,11 @@ def test_no_stash_feeds_as_before():
 
 
 # --- capacity is respected ---------------------------------------------------
-def test_stash_respects_larder_capacity():
-    w = _wallet(1000)
+def test_stash_respects_larder_capacity(tmp_file):
+    w = _wallet(tmp_file, 1000)
     shop = shop_mod.Shop()
     st = PetState(hunger=80.0)
-    larder = Larder(_tmp("l.json"), capacity=1)
+    larder = Larder(tmp_file("l.json"), capacity=1)
     ok1, _ = shop.buy(w, "ration", state=st, stash=True, larder=larder)
     assert ok1 and larder.total() == 1
     spent = w.scrap
@@ -99,8 +94,8 @@ def test_stash_respects_larder_capacity():
     assert st.hunger == 80.0
 
 
-def test_stash_without_larder_refused_no_charge():
-    w = _wallet(200)
+def test_stash_without_larder_refused_no_charge(tmp_file):
+    w = _wallet(tmp_file, 200)
     shop = shop_mod.Shop()
     st = PetState(hunger=80.0)
     ok, msg = shop.buy(w, "ration", state=st, stash=True, larder=None)
@@ -109,10 +104,10 @@ def test_stash_without_larder_refused_no_charge():
     assert st.hunger == 80.0
 
 
-def test_stash_nonfeed_item_refused():
-    w = _wallet(500)
+def test_stash_nonfeed_item_refused(tmp_file):
+    w = _wallet(tmp_file, 500)
     shop = shop_mod.Shop()
-    larder = Larder(_tmp("l.json"), capacity=20)
+    larder = Larder(tmp_file("l.json"), capacity=20)
     ok, msg = shop.buy(w, "energy_snack", stash=True, larder=larder)
     assert not ok
     assert larder.total() == 0

@@ -9,7 +9,6 @@ All hermetic: tmp paths only, never the real ~/.flippergotchi.
 """
 from __future__ import annotations
 
-import dataclasses
 import os
 import signal
 import threading
@@ -23,34 +22,20 @@ from flippergotchi.agent import Agent
 from flippergotchi.pet.state import PetState
 
 
-def _cfg(tmp_path):
-    """A sim Config with every persistence/render path redirected under tmp."""
-    cfg = Config()
-    cfg.simulate = True
-    cfg.tui = False
-    cfg.scan_bluetooth = False
-    cfg.tick_interval = 0.01
-    for f in dataclasses.fields(cfg):
-        v = getattr(cfg, f.name)
-        if isinstance(v, str) and (v.startswith("~/.flippergotchi") or v.startswith("/tmp/")):
-            setattr(cfg, f.name, str(tmp_path / f.name))
-    return cfg
-
-
 # --------------------------------------------------------------------------- #
 # 1. Graceful shutdown on SIGTERM
 # --------------------------------------------------------------------------- #
 
-def test_shutdown_handler_raises_keyboardinterrupt(tmp_path):
-    agent = Agent(_cfg(tmp_path), PetState(name="T"))
+def test_shutdown_handler_raises_keyboardinterrupt(make_cfg):
+    agent = Agent(make_cfg(tick_interval=0.01), PetState(name="T"))
     with pytest.raises(KeyboardInterrupt):
         agent._raise_shutdown(signal.SIGTERM, None)
 
 
-def test_install_signal_handlers_off_main_thread_is_safe(tmp_path):
+def test_install_signal_handlers_off_main_thread_is_safe(make_cfg):
     """signal.signal() raises ValueError off the main thread; the guard must
     swallow it so tests / embedded use don't break -- nothing gets installed."""
-    agent = Agent(_cfg(tmp_path), PetState(name="T"))
+    agent = Agent(make_cfg(tick_interval=0.01), PetState(name="T"))
     out = {}
 
     def worker():
@@ -62,10 +47,10 @@ def test_install_signal_handlers_off_main_thread_is_safe(tmp_path):
     assert out["saved"] == {}   # ValueError caught -> no handlers installed
 
 
-def test_sigterm_triggers_single_clean_save(tmp_path):
+def test_sigterm_triggers_single_clean_save(make_cfg, tmp_path):
     """A SIGTERM during the run loop exits through finally: self._save(), and
     _save() runs exactly once for the shutdown (no lost state)."""
-    agent = Agent(_cfg(tmp_path), PetState(name="T"))
+    agent = Agent(make_cfg(tick_interval=0.01), PetState(name="T"))
     calls = []
     orig_save = agent._save
 

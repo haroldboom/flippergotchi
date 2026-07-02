@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 import random
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -64,12 +63,12 @@ def test_stake_is_bounded_and_transfers():
         assert st.handshakes == before - res.stake
 
 
-def _inv():
-    return eq.Inventory(os.path.join(tempfile.mkdtemp(), "inv.json"))
+def _inv(tmp_file):
+    return eq.Inventory(tmp_file("inv.json"))
 
 
-def test_equip_and_gear_power():
-    inv = _inv()
+def test_equip_and_gear_power(tmp_file):
+    inv = _inv(tmp_file)
     a = inv.add(eq.Item("i1", "Tuned Helm", "helmet", "rare", 11))
     inv.add(eq.Item("i2", "Scuffed Crest", "fin", "common", 3))
     assert inv.gear_power() == 0          # nothing equipped yet
@@ -77,24 +76,24 @@ def test_equip_and_gear_power():
     assert inv.gear_power() == 11 and inv.is_equipped("i1")
 
 
-def test_pick_forfeit_prefers_weakest_unequipped():
-    inv = _inv()
+def test_pick_forfeit_prefers_weakest_unequipped(tmp_file):
+    inv = _inv(tmp_file)
     inv.add(eq.Item("strong", "Mythic Cutlass", "weapon", "legendary", 28))
     weak = inv.add(eq.Item("weak", "Scuffed Monocle", "eyepiece", "common", 3))
     inv.equip("strong")
     assert inv.pick_forfeit().id == weak.id
 
 
-def test_remove_unequips():
-    inv = _inv()
+def test_remove_unequips(tmp_file):
+    inv = _inv(tmp_file)
     inv.add(eq.Item("i1", "Tuned Amulet", "amulet", "rare", 11))
     inv.equip("i1")
     inv.remove("i1")
     assert "i1" not in inv.items and inv.gear_power() == 0
 
 
-def test_inventory_persists():
-    p = os.path.join(tempfile.mkdtemp(), "inv.json")
+def test_inventory_persists(tmp_file):
+    p = tmp_file("inv.json")
     inv = eq.Inventory(p)
     inv.add(eq.Item("i1", "Sturdy Helm", "helmet", "uncommon", 6))
     inv.equip("i1")

@@ -13,7 +13,6 @@ All hermetic: tmp paths + sim mode, no real radio/clock dependence.
 """
 from __future__ import annotations
 
-import dataclasses
 import json
 import random
 
@@ -23,19 +22,6 @@ from flippergotchi.agent import Agent
 from flippergotchi.config import Config
 from flippergotchi.pet.state import PetState
 from flippergotchi.pet import mechanics
-
-
-def _cfg(tmp_path):
-    cfg = Config()
-    cfg.simulate = True
-    cfg.tui = False
-    cfg.scan_bluetooth = False
-    for f in dataclasses.fields(cfg):
-        v = getattr(cfg, f.name)
-        if isinstance(v, str) and (v.startswith("~/.flippergotchi")
-                                   or v.startswith("/tmp/")):
-            setattr(cfg, f.name, str(tmp_path / f.name))
-    return cfg
 
 
 BSSID = "AA:BB:CC:DD:EE:01"
@@ -66,13 +52,13 @@ def test_bestiary_reencounter_merges_and_returns_canonical(tmp_path):
     assert again.capture_path == "/tmp/hs.pcap"
 
 
-def test_agent_encounter_persists_crack_on_reencounter(tmp_path, monkeypatch):
+def test_agent_encounter_persists_crack_on_reencounter(make_cfg, monkeypatch):
     import flippergotchi.game.encounter as enc
     monkeypatch.setattr(enc, "auto_choice", lambda m, rng=None: "capture")
     monkeypatch.setattr(enc.Encounter, "choose",
                         lambda self, action, rng=None: self.resolve_capture(True))
 
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="P"))
     ev = {"type": "ap", "bssid": BSSID, "ssid": "OpenNet",
           "encryption": "open", "band": "2.4GHz"}
@@ -88,10 +74,43 @@ def test_agent_encounter_persists_crack_on_reencounter(tmp_path, monkeypatch):
     assert agent.dex.get(BSSID).defeated
 
 
+def test_lures_shorten_reencounter_cooldown(make_cfg, monkeypatch):
+    """Owning Monster Lures shortens the effective re-encounter cooldown: a
+    pet WITH lures re-encounters an AP sooner than one without."""
+    import flippergotchi.game.encounter as enc
+    # make the choice cheap + deterministic (just flee -- we only care that the
+    # cooldown gate lets the encounter through, which bumps networks_seen).
+    monkeypatch.setattr(enc, "auto_choice", lambda m, rng=None: "run")
+
+    cfg = make_cfg()
+    cfg.encounter_cooldown = 5
+    ev = {"type": "ap", "bssid": BSSID, "ssid": "OpenNet",
+          "encryption": "open", "band": "2.4GHz"}
+
+    plain = Agent(cfg, PetState(name="Plain", lures=0))     # cd = 5
+    lured = Agent(cfg, PetState(name="Lured", lures=3))     # cd = max(1, 5-3) = 2
+
+    # first sighting at tick 0 arms the cooldown for both
+    plain._encounter(ev)
+    lured._encounter(ev)
+    assert plain.state.networks_seen == 1
+    assert lured.state.networks_seen == 1
+
+    # advance to a tick INSIDE the plain cooldown (5) but OUTSIDE the lured one (2)
+    plain._tick_i = 3
+    lured._tick_i = 3
+    plain._encounter(ev)
+    lured._encounter(ev)
+
+    # the lured pet got a second encounter; the plain one is still on cooldown
+    assert lured.state.networks_seen == 2
+    assert plain.state.networks_seen == 1
+
+
 # --- per-target deauth gate (HIGH, safety) ---------------------------------
 
-def test_capture_gate_is_per_target_not_global(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_capture_gate_is_per_target_not_global(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="P"))
 
     # no consent -> never active, regardless of target
@@ -114,8 +133,8 @@ def test_capture_gate_is_per_target_not_global(tmp_path):
 
 # --- tick() crash-guard + main-loop coverage (HIGH) ------------------------
 
-def test_tick_end_to_end_runs_and_decays(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_tick_end_to_end_runs_and_decays(make_cfg):
+    cfg = make_cfg()
     cfg.time_scale = 100000.0            # exaggerate decay so it's measurable
     agent = Agent(cfg, PetState(name="Loop", hunger=10.0))
     start_hunger = agent.state.hunger
@@ -126,8 +145,8 @@ def test_tick_end_to_end_runs_and_decays(tmp_path):
     agent._save()                                # the periodic save path works
 
 
-def test_tick_survives_a_raising_scan(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_tick_survives_a_raising_scan(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="Hardy"))
 
     def boom():
@@ -141,8 +160,8 @@ def test_tick_survives_a_raising_scan(tmp_path):
     assert any("tick step failed" in m for m in logs)
 
 
-def test_hardcore_death_reborn_egg(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_hardcore_death_reborn_egg(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="Doomed", hardcore=True,
                                 hunger=100.0, health=0.0, level=12))
     # Death now has runway: at 0 HP the pet survives a fixed number of faint
@@ -161,7 +180,7 @@ def test_hardcore_death_reborn_egg(tmp_path):
     assert on_disk.stage == "egg" and on_disk.hardcore is True
 
 
-def test_evolution_event_is_emitted(tmp_path):
+def test_evolution_event_is_emitted():
     cfg = Config()
     state = PetState(name="Evo", level=1, stage="egg")
     evts = mechanics.grant_xp(state, cfg.base_xp + 1, cfg)   # cross level 1->2
@@ -185,8 +204,8 @@ class _FakeScanner:
                 "characteristics": 4}
 
 
-def test_spawn_ble_collects_tames_and_alerts(tmp_path, monkeypatch):
-    cfg = _cfg(tmp_path)
+def test_spawn_ble_collects_tames_and_alerts(make_cfg, monkeypatch):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="BT"))
     tracker_ev = {"type": "ble", "addr": "11:22:33:44:55:66",
                   "device_class": "tracker", "name": "AirThing",
@@ -205,8 +224,8 @@ def test_spawn_ble_collects_tames_and_alerts(tmp_path, monkeypatch):
     assert any("interrogated" in m for m in logs)             # GATT tame ran
 
 
-def test_note_peer_registers_a_duel_target(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_note_peer_registers_a_duel_target(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="Me"))
     agent._note_peer({"type": "peer", "addr": "AA:11:BB:22:CC:33",
                       "name": "Rival", "level": 5, "handshakes": 12})
@@ -214,9 +233,9 @@ def test_note_peer_registers_a_duel_target(tmp_path):
     assert agent._peers["AA:11:BB:22:CC:33"]["name"] == "Rival"
 
 
-def test_forage_is_economy_only_never_cracks(tmp_path):
+def test_forage_is_economy_only_never_cracks(make_cfg):
     import random as _r
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     # hunger below the auto-eat line -> food is STASHED, so the larder grows
     agent = Agent(cfg, PetState(name="W", hunger=30.0, health=80.0, satiety=100.0))
     _r.seed(7)
@@ -231,9 +250,9 @@ def test_forage_is_economy_only_never_cracks(tmp_path):
     assert all(not m.defeated for m in agent.dex.all())
 
 
-def test_home_check_prompts_once(tmp_path):
+def test_home_check_prompts_once(make_cfg):
     from flippergotchi.game import monsters
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     cfg.home_networks = ["MyHome"]
     agent = Agent(cfg, PetState(name="Me"))
     # a captured, not-yet-battled WiFi monster makes the "ready to battle" prompt fire
@@ -348,9 +367,9 @@ def test_daily_fullclear_scrap_in_band():
 
 # --- duel-farm guard (MEDIUM) ----------------------------------------------
 
-def test_duel_refuses_depleted_peer(tmp_path, capsys):
+def test_duel_refuses_depleted_peer(make_cfg, capsys):
     from flippergotchi import commands, prefs
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     prefs.save(cfg.peers_path, {"P1": {"name": "Broke", "addr": "P1",
                                        "level": 3, "handshakes": 0}})
     commands.cmd_duel(cfg, "Broke")
@@ -358,10 +377,10 @@ def test_duel_refuses_depleted_peer(tmp_path, capsys):
     assert "no handshakes left" in out
 
 
-def test_duel_win_drains_peer_pool(tmp_path, monkeypatch):
+def test_duel_win_drains_peer_pool(make_cfg, monkeypatch):
     from flippergotchi import commands, prefs
     from flippergotchi.game import duel as duel_mod
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     prefs.save(cfg.peers_path, {"P1": {"name": "Rival", "addr": "P1",
                                        "level": 3, "handshakes": 30,
                                        "gear_power": 0, "element": "Aether"}})

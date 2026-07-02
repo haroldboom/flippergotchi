@@ -5,12 +5,10 @@ and once-only BLE recon. All hermetic (tmp paths, sim mode), no hardware.
 """
 from __future__ import annotations
 
-import dataclasses
 import random
 
 import pytest
 
-from flippergotchi.config import Config
 from flippergotchi import persistence
 from flippergotchi.agent import Agent
 from flippergotchi.game import monsters
@@ -26,20 +24,6 @@ def _preserve_rng():
     state = random.getstate()
     yield
     random.setstate(state)
-
-
-def _cfg(tmp_path):
-    """A Config with every persistence path redirected under tmp_path."""
-    cfg = Config()
-    cfg.simulate = True
-    cfg.tui = False
-    cfg.scan_bluetooth = False
-    for f in dataclasses.fields(cfg):
-        v = getattr(cfg, f.name)
-        if isinstance(v, str) and (v.startswith("~/.flippergotchi")
-                                   or v.startswith("/tmp/")):
-            setattr(cfg, f.name, str(tmp_path / f.name))
-    return cfg
 
 
 def _spy_speak(agent):
@@ -67,8 +51,8 @@ def _wep_ev():
 
 # --- task 1: OPEN pays 18 & no loot; WEP still pays 120 + loot --------------
 
-def test_open_field_battle_pays_18_no_loot(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_open_field_battle_pays_18_no_loot(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     m = monsters.from_ap(_open_ev())
     before, before_items = agent.wallet.scrap, len(agent.inv.items)
@@ -78,8 +62,8 @@ def test_open_field_battle_pays_18_no_loot(tmp_path):
     assert len(agent.inv.items) == before_items
 
 
-def test_wep_pays_120_and_loot(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_wep_pays_120_and_loot(make_cfg):
+    cfg = make_cfg()
     cfg.manual = True                     # manual pick satisfies crack scope-gate
     agent = Agent(cfg, PetState(name="T"))
     agent._prefs["hide_fieldcrack_warning"] = True   # field-crack consent granted
@@ -98,8 +82,8 @@ def test_wep_pays_120_and_loot(tmp_path):
 
 # --- task 2: the pet gets a voice at payoffs -------------------------------
 
-def test_speak_fires_on_crack(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_speak_fires_on_crack(make_cfg):
+    cfg = make_cfg()
     cfg.manual = True
     agent = Agent(cfg, PetState(name="T"))
     agent._prefs["hide_fieldcrack_warning"] = True
@@ -111,8 +95,8 @@ def test_speak_fires_on_crack(tmp_path):
     assert "cracked" in calls
 
 
-def test_speak_fires_on_quest(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_speak_fires_on_quest(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     calls = _spy_speak(agent)
     # roll today's quests, then drive an ACTIVE metric to completion
@@ -122,8 +106,8 @@ def test_speak_fires_on_quest(tmp_path):
     assert "quest_done" in calls
 
 
-def test_speak_fires_on_badge(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_speak_fires_on_badge(make_cfg):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     calls = _spy_speak(agent)
     random.seed(3)                 # deterministic capture (not an escape)
@@ -132,8 +116,8 @@ def test_speak_fires_on_badge(tmp_path):
     assert "badge" in calls
 
 
-def test_speak_fires_on_shiny(tmp_path, monkeypatch):
-    cfg = _cfg(tmp_path)
+def test_speak_fires_on_shiny(make_cfg, monkeypatch):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     calls = _spy_speak(agent)
     # force a deterministic catch -- the shiny line only fires on a successful
@@ -161,8 +145,8 @@ def test_speak_fires_on_shiny(tmp_path, monkeypatch):
 
 # --- task 3: auto-duel triggers and applies its outcome --------------------
 
-def test_auto_duel_triggers_and_applies(tmp_path, capsys):
-    cfg = _cfg(tmp_path)
+def test_auto_duel_triggers_and_applies(make_cfg, capsys):
+    cfg = make_cfg()
     cfg.auto_duel_chance = 1.0
     cfg.auto_duel_cooldown = 0
     cfg.auto_duel_min_odds = 0.0   # disable the fair-match gate for this wiring test
@@ -183,12 +167,12 @@ def test_auto_duel_triggers_and_applies(tmp_path, capsys):
     assert peer_after < peer_before
 
 
-def test_auto_duel_skips_unfair_matchup(tmp_path, capsys):
+def test_auto_duel_skips_unfair_matchup(make_cfg, capsys):
     # the fair-match gate (default band [0.2, 0.85]) must SKIP a hopeless
     # mismatch: a Lv30 pet vs a Lv2 peer is a near-certain win (out of band), so
     # no auto-duel should fire. (Regression guard: without the gate the pet would
     # auto-stomp trivial peers.)
-    cfg = _cfg(tmp_path)
+    cfg = make_cfg()
     cfg.auto_duel_chance = 1.0
     cfg.auto_duel_cooldown = 0
     state = PetState(name="T", level=30, handshakes=20)
@@ -204,8 +188,8 @@ def test_auto_duel_skips_unfair_matchup(tmp_path, capsys):
 
 # --- task 5: maybe_sleep runs every tick -----------------------------------
 
-def test_tick_calls_maybe_sleep(tmp_path, monkeypatch):
-    cfg = _cfg(tmp_path)
+def test_tick_calls_maybe_sleep(make_cfg, monkeypatch):
+    cfg = make_cfg()
     agent = Agent(cfg, PetState(name="T"))
     seen = []
     real = mechanics.maybe_sleep
@@ -217,8 +201,8 @@ def test_tick_calls_maybe_sleep(tmp_path, monkeypatch):
 
 # --- task 6: hardcore death renders an epitaph and never blocks off-tty -----
 
-def test_hardcore_death_renders_epitaph_no_block(tmp_path, capsys):
-    cfg = _cfg(tmp_path)
+def test_hardcore_death_renders_epitaph_no_block(make_cfg, capsys):
+    cfg = make_cfg()
     state = PetState(name="Sharky", hardcore=True, level=9, handshakes=12)
     agent = Agent(cfg, state)
     agent._hardcore_death()   # pytest stdin is not a tty -> must not block
@@ -230,8 +214,8 @@ def test_hardcore_death_renders_epitaph_no_block(tmp_path, capsys):
 
 # --- task 7: element flows from config -------------------------------------
 
-def test_element_flows_from_config(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_element_flows_from_config(make_cfg):
+    cfg = make_cfg()
     cfg.element = "Spark"
     agent = Agent(cfg, PetState(name="T"))
     assert agent.state.element == "Spark"
@@ -239,8 +223,8 @@ def test_element_flows_from_config(tmp_path):
 
 # --- task 9: skins persist across a reload ---------------------------------
 
-def test_skins_persist(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_skins_persist(make_cfg):
+    cfg = make_cfg()
     state = PetState(name="T")
     state.skins = ["skin_goldfin"]
     persistence.save(cfg.state_path, state)
@@ -250,8 +234,8 @@ def test_skins_persist(tmp_path):
 
 # --- task 10: BLE recon reward pays only once ------------------------------
 
-def test_ble_recon_pays_once(tmp_path):
-    cfg = _cfg(tmp_path)
+def test_ble_recon_pays_once(make_cfg):
+    cfg = make_cfg()
     cfg.scan_bluetooth = True
     agent = Agent(cfg, PetState(name="T"))
     ev = {"type": "ble", "addr": "C0:FF:EE:00:00:01", "name": "Fitbit",

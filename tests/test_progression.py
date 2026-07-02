@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 import random
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -19,13 +18,9 @@ from flippergotchi.game import shop as shop_mod
 from flippergotchi.pet.state import PetState
 
 
-def _tmp(name):
-    return os.path.join(tempfile.mkdtemp(), name)
-
-
 # --- achievements ------------------------------------------------------------
-def test_achievement_unlocks_on_threshold_crossing():
-    book = ach.AchievementBook(_tmp("a.json"))
+def test_achievement_unlocks_on_threshold_crossing(tmp_file):
+    book = ach.AchievementBook(tmp_file("a.json"))
     assert book.check({"catches": 0}) == []
     newly = book.check({"catches": 1})
     ids = {b.id for b in newly}
@@ -33,36 +28,36 @@ def test_achievement_unlocks_on_threshold_crossing():
     assert book.is_unlocked("first_catch")
 
 
-def test_achievement_not_regranted():
-    book = ach.AchievementBook(_tmp("a.json"))
+def test_achievement_not_regranted(tmp_file):
+    book = ach.AchievementBook(tmp_file("a.json"))
     book.check({"catches": 10})          # first_catch + catch_10
     again = book.check({"catches": 60})  # only NEW ones (catch_50) this time
     assert {b.id for b in again} == {"catch_50"}
     assert book.check({"catches": 60}) == []   # nothing new at the same level
 
 
-def test_achievement_rewards_returned():
-    book = ach.AchievementBook(_tmp("a.json"))
+def test_achievement_rewards_returned(tmp_file):
+    book = ach.AchievementBook(tmp_file("a.json"))
     newly = book.check({"catches": 1})
     badge = next(b for b in newly if b.id == "first_catch")
     assert badge.reward.get("scrap", 0) > 0
 
 
-def test_achievement_categorical_and_loadout_metrics():
-    book = ach.AchievementBook(_tmp("a.json"))
+def test_achievement_categorical_and_loadout_metrics(tmp_file):
+    book = ach.AchievementBook(tmp_file("a.json"))
     out = book.check({"stage": "legend", "equipped_slots": 5})
     ids = {b.id for b in out}
     assert "evolve_to_legend" in ids and "full_loadout" in ids
     # a non-legend stage never trips the legend badge
-    book2 = ach.AchievementBook(_tmp("a2.json"))
+    book2 = ach.AchievementBook(tmp_file("a2.json"))
     assert all(b.id != "evolve_to_legend" for b in book2.check({"stage": "teen"}))
 
 
-def test_build_stats_sources_cracks_from_ledger():
+def test_build_stats_sources_cracks_from_ledger(tmp_file):
     # foundation fix: cracks come from the Ledger (the agent loop used to pass 0,
     # so crack badges could never unlock during normal play)
     from flippergotchi.game import ledger as ledger_mod
-    led = ledger_mod.Ledger(_tmp("l.json"))
+    led = ledger_mod.Ledger(tmp_file("l.json"))
     led.records.append({"result": "win"})
     led.records.append({"result": "win"})
     stats = ach.build_stats(PetState(level=3), dex=None, inv=None, ledger=led)
@@ -70,22 +65,22 @@ def test_build_stats_sources_cracks_from_ledger():
     assert stats["level"] == 3
 
 
-def test_quests_done_capstone_from_questlog():
+def test_quests_done_capstone_from_questlog(tmp_file):
     # the cross-system tie: quest activity (lifetime_done) unlocks achievements
     class FakeQ:
         lifetime_done = 10
         streak = 0
     stats = ach.build_stats(PetState(), quests=FakeQ())
     assert stats["quests_done"] == 10
-    book = ach.AchievementBook(_tmp("a.json"))
+    book = ach.AchievementBook(tmp_file("a.json"))
     assert any(b.id == "quest_10" for b in book.check(stats))
 
 
-def test_streak_badge_unlocks():
+def test_streak_badge_unlocks(tmp_file):
     class FakeQ:
         lifetime_done = 0
         streak = 7
-    book = ach.AchievementBook(_tmp("a.json"))
+    book = ach.AchievementBook(tmp_file("a.json"))
     stats = ach.build_stats(PetState(), quests=FakeQ())
     assert any(b.id == "streak_7" for b in book.check(stats))
 
@@ -104,10 +99,10 @@ def test_badge_tiers_and_new_metric_series():
     assert ach.get("legend_3").metric == "legendary_kills"
 
 
-def test_tame_and_legendary_badges_unlock():
-    book = ach.AchievementBook(_tmp("a.json"))
+def test_tame_and_legendary_badges_unlock(tmp_file):
+    book = ach.AchievementBook(tmp_file("a.json"))
     assert any(b.id == "tame_10" for b in book.check({"tames": 10}))
-    book2 = ach.AchievementBook(_tmp("a2.json"))
+    book2 = ach.AchievementBook(tmp_file("a2.json"))
     assert any(b.id == "legend_3" for b in book2.check({"legendary_kills": 3}))
 
 
@@ -115,25 +110,25 @@ def test_progress_readout():
     assert ach.progress(ach.get("catch_50"), {"catches": 12}) == (12, 50)
 
 
-def test_gold_capstone_mints_gear():
+def test_gold_capstone_mints_gear(tmp_file):
     from flippergotchi.config import Config
     from flippergotchi.game import equipment as eq
     from flippergotchi.game.shop import Wallet
-    book = ach.AchievementBook(_tmp("a.json"))
-    w = Wallet(_tmp("w.json"))
-    inv = eq.Inventory(_tmp("i.json"))
+    book = ach.AchievementBook(tmp_file("a.json"))
+    w = Wallet(tmp_file("w.json"))
+    inv = eq.Inventory(tmp_file("i.json"))
     cfg, st = Config(), PetState(level=20)
     newly = ach.grant_reward(book, {"cracks": 50}, st, cfg, w, inv)   # crack_50 = gold+gear
     assert any(b.id == "crack_50" for b in newly)
     assert len(inv.all()) >= 1                                 # a gear item was minted
 
 
-def test_grant_reward_pays_scrap_once():
+def test_grant_reward_pays_scrap_once(tmp_file):
     # the single reward path: pays a badge's scrap exactly once, never on re-check
     from flippergotchi.config import Config
     from flippergotchi.game.shop import Wallet
-    book = ach.AchievementBook(_tmp("a.json"))
-    w = Wallet(_tmp("w.json"))
+    book = ach.AchievementBook(tmp_file("a.json"))
+    w = Wallet(tmp_file("w.json"))
     cfg, st = Config(), PetState()
     newly = ach.grant_reward(book, {"catches": 1}, st, cfg, w)
     assert any(b.id == "first_catch" for b in newly)
@@ -143,8 +138,8 @@ def test_grant_reward_pays_scrap_once():
     assert w.scrap == 50                       # not paid twice on re-check
 
 
-def test_achievement_persistence_roundtrip():
-    p = _tmp("a.json")
+def test_achievement_persistence_roundtrip(tmp_file):
+    p = tmp_file("a.json")
     book = ach.AchievementBook(p)
     book.check({"cracks": 1})
     book.save()
@@ -153,8 +148,8 @@ def test_achievement_persistence_roundtrip():
     assert reloaded.check({"cracks": 1}) == []   # still not re-granted after reload
 
 
-def test_achievement_views():
-    book = ach.AchievementBook(_tmp("a.json"))
+def test_achievement_views(tmp_file):
+    book = ach.AchievementBook(tmp_file("a.json"))
     book.check({"catches": 1})
     assert any(b.id == "first_catch" for b in book.unlocked())
     assert all(b.id != "first_catch" for b in book.locked())
@@ -162,8 +157,8 @@ def test_achievement_views():
 
 
 # --- shop / wallet -----------------------------------------------------------
-def test_wallet_earn_and_persist():
-    p = _tmp("w.json")
+def test_wallet_earn_and_persist(tmp_file):
+    p = tmp_file("w.json")
     w = shop_mod.Wallet(p)
     w.earn(200)
     w.earn(-50)                  # negatives ignored
@@ -180,8 +175,8 @@ def test_earn_rule_helpers():
     assert shop_mod.scrap_for_walk(0) == 0
 
 
-def test_shop_buy_insufficient_funds():
-    w = shop_mod.Wallet(_tmp("w.json"))   # 0 scrap
+def test_shop_buy_insufficient_funds(tmp_file):
+    w = shop_mod.Wallet(tmp_file("w.json"))   # 0 scrap
     shop = shop_mod.Shop()
     st = PetState(hunger=80.0)
     ok, msg = shop.buy(w, "ration", state=st)
@@ -189,8 +184,8 @@ def test_shop_buy_insufficient_funds():
     assert st.hunger == 80.0 and w.scrap == 0     # nothing changed
 
 
-def test_shop_buy_feeds_and_charges():
-    w = shop_mod.Wallet(_tmp("w.json"))
+def test_shop_buy_feeds_and_charges(tmp_file):
+    w = shop_mod.Wallet(tmp_file("w.json"))
     w.earn(500)
     shop = shop_mod.Shop()
     st = PetState(hunger=80.0)
@@ -201,8 +196,8 @@ def test_shop_buy_feeds_and_charges():
     assert w.scrap == 500 - ration.cost
 
 
-def test_shop_lure_sets_flag():
-    w = shop_mod.Wallet(_tmp("w.json"))
+def test_shop_lure_sets_flag(tmp_file):
+    w = shop_mod.Wallet(tmp_file("w.json"))
     w.earn(500)
     shop = shop_mod.Shop()
     st = PetState()
@@ -210,11 +205,11 @@ def test_shop_lure_sets_flag():
     assert ok and getattr(st, "lures", 0) == 1
 
 
-def test_shop_reroll_replaces_unequipped_item():
-    w = shop_mod.Wallet(_tmp("w.json"))
+def test_shop_reroll_replaces_unequipped_item(tmp_file):
+    w = shop_mod.Wallet(tmp_file("w.json"))
     w.earn(1000)
     shop = shop_mod.Shop()
-    inv = eq.Inventory(_tmp("inv.json"))
+    inv = eq.Inventory(tmp_file("inv.json"))
     keep = inv.add(eq.Item("keep", "Tuned Helm", "helmet", "rare", 11))
     inv.equip("keep")
     rr = inv.add(eq.Item("rr", "Scuffed Crest", "fin", "common", 3))
@@ -225,19 +220,19 @@ def test_shop_reroll_replaces_unequipped_item():
     assert inv.is_equipped("keep")                              # untouched
 
 
-def test_shop_reroll_no_eligible_item_does_not_charge():
-    w = shop_mod.Wallet(_tmp("w.json"))
+def test_shop_reroll_no_eligible_item_does_not_charge(tmp_file):
+    w = shop_mod.Wallet(tmp_file("w.json"))
     w.earn(1000)
     shop = shop_mod.Shop()
-    inv = eq.Inventory(_tmp("inv.json"))
+    inv = eq.Inventory(tmp_file("inv.json"))
     inv.add(eq.Item("only", "Tuned Helm", "helmet", "rare", 11))
     inv.equip("only")            # the only item is equipped -> not rerollable
     ok, msg = shop.buy(w, "reroll_token", inv=inv)
     assert ok is False and w.scrap == 1000
 
 
-def test_shop_unknown_item():
-    w = shop_mod.Wallet(_tmp("w.json"))
+def test_shop_unknown_item(tmp_file):
+    w = shop_mod.Wallet(tmp_file("w.json"))
     w.earn(1000)
     ok, msg = shop_mod.Shop().buy(w, "does_not_exist")
     assert ok is False and w.scrap == 1000
@@ -276,8 +271,8 @@ def test_set_bonus_ignores_unknown_tags():
     assert gearsets.set_bonus(items) == {"power": 0, "atk": 0, "def": 0, "luck": 0}
 
 
-def test_inventory_pvp_power_folds_set_bonus():
-    inv = eq.Inventory(_tmp("inv.json"))
+def test_inventory_pvp_power_folds_set_bonus(tmp_file):
+    inv = eq.Inventory(tmp_file("inv.json"))
     for i in range(2):
         it = inv.add(eq.Item(f"r{i}", "X", eq.SLOTS[i], "rare", 11, set="Reef Raider"))
         inv.equip(it.id)
