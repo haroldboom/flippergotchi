@@ -4,6 +4,16 @@
 UI/display, packaging/deploy, and hardware/SDK research), 2026-07-02. Recommendations
 only — no code was changed. Every hardware claim below is cited to a source.*
 
+> **Status update (since this review):** the P0 safety batch and most P1 items
+> are DONE — consent/dry-run enforced on all backends, SIGTERM graceful save,
+> `state_dir` resolution, the systemd unit, and aarch64 packaging (with the
+> `llama-cpp-python` wheel now pinned) all shipped; the version mismatch this
+> doc mentions is resolved (both `0.9.0`). What remains open is genuinely
+> hardware-gated (on-device UI/input layer, real NPU/RKLLM backend, on-hardware
+> RF validation) or a product decision (Flatpak-vs-plugin delivery, the movement
+> mechanic). This document is a point-in-time review — see the README roadmap
+> and `docs/playtest-notes.md` for current state.*
+
 ---
 
 ## TL;DR

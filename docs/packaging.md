@@ -5,9 +5,7 @@ building/installing Flippergotchi on it, which optional extras to install for
 each backend, the `llama-cpp-python` aarch64 wheel-vs-source story, and the
 systemd install pointer.
 
-> Version note: `pyproject.toml` currently declares `version = "0.9.0"` while
-> `flippergotchi/__init__.py` declares `0.0.1`. These disagree; the integrator
-> should reconcile them (this doc does not touch `__init__.py`).
+> Version: `pyproject.toml` and `flippergotchi/__init__.py` are both `0.9.0`.
 
 ## Core install is dependency-free
 

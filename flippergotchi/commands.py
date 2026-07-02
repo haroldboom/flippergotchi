@@ -17,7 +17,6 @@ from .game import quests as quests_mod
 from .game import shop as shop_mod
 from .game import food as food_mod
 from .game import achievements as ach_mod
-from .game.larder import Larder
 from .game.achievements import AchievementBook
 from .game.ledger import Ledger
 from .game.monsters import label

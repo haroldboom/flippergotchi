@@ -6,9 +6,10 @@ from .state import PetState
 # `adult` and `prime` fill the old L8->L25 dead zone so an evolution lands roughly
 # weekly through month 1 (paired with the gentler cfg.level_exp curve).
 #   adult (L14): REAL art already ships (adult.png + <variant>-adult.png).
-#   prime (L20): FINAL-ART TODO -- no sprite yet; view/flipctl.py maps it onto the
-#                nearest existing stage sprite (alpha) as a placeholder so nothing
-#                breaks. Paint dedicated `prime` / `<variant>-prime` sprites later.
+#   prime (L20): ships its own sprites (`prime*.png` / `<variant>-prime.png`),
+#                PROGRAMMATICALLY DERIVED from the alpha art via
+#                tools/gen_prime_sprites.py -- placeholders pending final
+#                hand-drawn sprites.
 STAGES = [
     (1, "egg"),
     (2, "hatchling"),
@@ -22,7 +23,7 @@ STAGES = [
 # --- post-L40 paragon (non-destructive prestige) ---------------------------
 # Levelling never stops and is never reset. Past level `paragon_start_level`,
 # each `paragon_every` levels banks one paragon marker on `state.paragon`
-# (read/incremented via getattr; the serialised field is added by another agent).
+# (read via getattr; `state.paragon` is a declared, persisted PetState field).
 PARAGON_START_LEVEL = 40
 PARAGON_EVERY = 10
 
@@ -94,7 +95,7 @@ def is_sick(state: PetState) -> bool:
     is capped -- but health is NEVER touched, so a normal-mode pet cannot die.
 
     Always False in hardcore (that mode keeps its unchanged starvation-death
-    model instead). Reads the non-persisted ``_sick`` flag set by ``tick``."""
+    model instead). Reads the persisted ``_sick`` flag maintained by ``tick``."""
     if bool(getattr(state, "hardcore", False)):
         return False
     return bool(getattr(state, "_sick", False))
@@ -171,9 +172,9 @@ _STARVE_DRAIN = {"": 0.0, "peckish": 0.0, "hungry": 6.0, "starving": 14.0, "fain
 # Once a hardcore pet bottoms out at 0 HP it does NOT die instantly. It must
 # spend this many *real* ticks in the faint stage first (a fixed count, so the
 # grace is independent of time_scale -- a demo cranking time_scale still gets
-# the same number of "ABOUT TO DIE" frames to react on). The counter lives on
-# the state instance as a non-persisted attribute (`_faint_ticks`) so no new
-# serialised field is added.
+# the same number of "ABOUT TO DIE" frames to react on). `_faint_ticks` is a
+# persisted PetState field, so a dying pet keeps its countdown across a reload
+# (it can't earn fresh grace by restarting).
 FAINT_DEATH_GRACE_TICKS = 3
 
 # --- sleep / energy restore -------------------------------------------------

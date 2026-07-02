@@ -65,12 +65,6 @@ def set_names() -> list[str]:
     return list(SETS)
 
 
-def describe_set(name: str) -> str:
-    """One-line theme blurb for a set, or '' if unknown."""
-    s = SETS.get(name)
-    return s["theme"] if s else ""
-
-
 def count_pieces(equipped_items) -> dict[str, int]:
     """How many equipped pieces belong to each set. Items with no/unknown set
     tag are ignored. `equipped_items` is any iterable of objects with a `.set`

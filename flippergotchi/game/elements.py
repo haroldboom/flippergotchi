@@ -67,14 +67,6 @@ def advantage_multiplier(attacker: str, defender: str) -> float:
     return NEUTRAL
 
 
-# Convenience alias used by the duel/move engine. Same semantics as
-# ``advantage_multiplier`` -- kept as a separate name so call sites can read
-# ``elements.advantage(att, def_)`` without coupling to the longer name.
-def advantage(attacker: str, defender: str) -> float:
-    """Alias for :func:`advantage_multiplier` (type-advantage multiplier)."""
-    return advantage_multiplier(attacker, defender)
-
-
 # Accepted spellings when an element arrives from config / user input / radio
 # metadata. Keys are lowercase; values are canonical ELEMENTS entries.
 _ALIASES = {

@@ -21,13 +21,13 @@ energy_per_hour = 18.0
 xp_per_handshake = 12.0     # XP for catching an AP-monster
 xp_per_pmkid = 7.0
 xp_per_meter = 0.15
-xp_per_snack = 2.0
+xp_per_snack = 0.5
 energy_per_meter = 0.02
 base_xp = 120.0
 level_exp = 1.4          # legend reachable in weeks, not a year (retuned)
 # foraging: walking is how the pet finds FOOD (and, rarely, gear)
 forage_food = 12.0          # hunger restored per foraged snack
-forage_food_per_m = 0.06    # snack chance per metre walked (capped)
+forage_food_per_m = 0.01    # snack chance per metre walked (periodic reward)
 forage_gear_per_m = 0.0016  # gear-find chance per metre walked (capped)
 
 # --- ai ---
@@ -67,6 +67,6 @@ encounter_cooldown = 5       # ticks before the same AP can re-appear
 
 # --- view / io ---
 tui = true
-character_variant = "classic"      # shark colour: classic | blue | tiger | gold | reef
+character_variant = "classic"      # shark species: classic | hammerhead | goblin | sawshark | whaleshark
 flipctl_html_out = "/tmp/flippergotchi/face.html"
 state_path = "~/.flippergotchi/state.json"

@@ -130,6 +130,16 @@ class Config:
     sick_onset_hours: float = 6.0         # cumulative neglect before falling sick
     sick_recover_hunger: float = 45.0     # feed hunger to/below this to recover
     sick_happiness_cap: float = 20.0      # happiness is capped here while sick
+    # sleep/energy: the pet naps when energy is low and wakes once rested
+    sleep_energy_low: float = 20.0        # nap when energy drops to/below this
+    wake_energy_high: float = 80.0        # wake once energy recovers to/above this
+    # auto-duels: the loop occasionally duels a detected peer (a payoff beat, not
+    # the heartbeat), only when the matchup is competitive (odds in [min,max]).
+    auto_duel_cooldown: int = 120         # min ticks between auto-duels
+    auto_duel_chance: float = 0.05        # per-tick chance once off cooldown
+    auto_duel_min_odds: float = 0.2       # skip a peer you'd almost surely lose to
+    auto_duel_max_odds: float = 0.85      # skip a peer you'd almost surely stomp
+    onboard_quiet_catches: int = 5        # suppress pentest jargon for the first N catches
     # foraging: walking is how the pet finds FOOD (and, rarely, gear)
     forage_food: float = 12.0          # hunger restored per foraged snack (untyped)
     forage_food_per_m: float = 0.01    # snack chance per metre walked (capped) — periodic reward, not a firehose
@@ -226,7 +236,6 @@ class Config:
     capture_frames_dir: str = "/tmp/flippergotchi/capture"  # net-gun anim frames
     battlemenu_html_out: str = "/tmp/flippergotchi/battlemenu.html"  # dojo menu
     battlelist_html_out: str = "/tmp/flippergotchi/battlelist.html"  # target list
-    blebattle_html_out: str = "/tmp/flippergotchi/blebattle.html"    # BLE outcome
     blebattle_frames_dir: str = "/tmp/flippergotchi/blebattle"       # BLE anim frames
     # Root for all persistent state. Every *_path default lives under here; move
     # this (config or $FLIPPERGOTCHI_CONFIG) to relocate ALL state together.

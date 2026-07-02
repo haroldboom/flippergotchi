@@ -4,7 +4,7 @@ import json
 import math
 import random
 import socket
-from datetime import datetime, timezone
+from datetime import datetime
 
 # --- Real-fix sanity clamps ---------------------------------------------------
 # The Flipper One has NO onboard GPS/GNSS and NO IMU/accelerometer (see the

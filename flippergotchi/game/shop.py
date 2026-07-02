@@ -12,7 +12,7 @@ gracefully.
 
 `Shop.buy()` NEVER raises: it returns ``(ok, message)`` and applies the item's
 effect only on success. Earn-rule helpers are exposed for the agent to wire up;
-they are pure functions and are intentionally NOT called from agent.py here.
+they are pure functions; agent.py + the CLI call them to credit scrap.
 
 Nothing in this module touches WiFi cracking outcomes — scrap is a reward for
 cracks, not an input to them.

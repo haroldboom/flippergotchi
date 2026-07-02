@@ -8,7 +8,6 @@ up nearest-neighbour by the caller, same pipeline as the other screens.
 from __future__ import annotations
 
 import html as _html
-import os
 
 from ..pet import mechanics
 from . import flipctl
