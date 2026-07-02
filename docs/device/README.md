@@ -37,6 +37,7 @@ otherwise band, and dithering is what the review recommended to fix it.
 | File | Screen |
 |---|---|
 | `face.floyd.png` | Main HUD (pet + HP/XP/food/energy + dialogue) |
+| `prime.floyd.png` | The HUD at the `prime` evolution stage (L20) |
 | `encounter.floyd.png` | WiFi-monster encounter (capture / run) |
 | `capture_0..3.floyd.png` | Net-gun capture animation frames |
 | `feed.floyd.png` | Feeding / larder screen |
