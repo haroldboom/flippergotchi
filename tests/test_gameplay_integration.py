@@ -159,6 +159,8 @@ def test_auto_duel_triggers_and_applies(tmp_path, capsys):
     cfg = _cfg(tmp_path)
     cfg.auto_duel_chance = 1.0
     cfg.auto_duel_cooldown = 0
+    cfg.auto_duel_min_odds = 0.0   # disable the fair-match gate for this wiring test
+    cfg.auto_duel_max_odds = 1.0
     state = PetState(name="T", level=30, handshakes=20)
     agent = Agent(cfg, state)
     agent._peers["11:22:33:44:55:66"] = {

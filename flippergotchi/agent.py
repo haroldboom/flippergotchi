@@ -548,20 +548,35 @@ class Agent:
         we just narrate it and credit the duel quest metric. Never raises."""
         if not self._peers:
             return
-        cooldown = int(getattr(self.cfg, "auto_duel_cooldown", 12))
+        # Occasional, not constant: a duel is a payoff beat, not the loop's
+        # heartbeat. (Playtest with the old 12-tick/15% throttle fired ~140
+        # duels/game-hour -- log spam + a scrap firehose.)
+        cooldown = int(getattr(self.cfg, "auto_duel_cooldown", 120))
         if self._tick_i - self._last_duel_tick < cooldown:
             return
-        if random.random() >= float(getattr(self.cfg, "auto_duel_chance", 0.15)):
+        if random.random() >= float(getattr(self.cfg, "auto_duel_chance", 0.05)):
             return
         # only challenge a peer that still has handshakes to wager
         candidates = [p for p in self._peers.values()
                       if int(p.get("handshakes", 0) or 0) > 0]
         if not candidates:
             return
-        peer = random.choice(candidates)
-        self._last_duel_tick = self._tick_i
         try:
-            self.inv.best_loadout(equip=True)   # auto-equip best-in-slot
+            self.inv.best_loadout(equip=True)   # auto-equip best-in-slot first
+            me = duel_mod.fighter_from_pet(self.state, self.inv,
+                                           element=self.state.element)
+            # Only pick a REASONABLY-MATCHED peer: skip hopeless stomps in either
+            # direction so the duels that fire are tense and gear/element choice
+            # actually swings them (auto-fights never see the manual matchup UI).
+            lo = float(getattr(self.cfg, "auto_duel_min_odds", 0.2))
+            hi = float(getattr(self.cfg, "auto_duel_max_odds", 0.85))
+            fair = [p for p in candidates
+                    if lo <= duel_mod.win_chance(
+                        me, duel_mod.fighter_from_peer(p)) <= hi]
+            if not fair:
+                return
+            peer = random.choice(fair)
+            self._last_duel_tick = self._tick_i
             outcome = duel_mod.auto_resolve(
                 self.state, peer, inv=self.inv, element=self.state.element,
                 cfg=self.cfg)

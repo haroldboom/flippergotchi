@@ -23,6 +23,11 @@ MAX_STAKE = 10
 
 # Turn-based duel tuning (override via cfg with getattr -- see config notes).
 DEFAULT_TURN_CAP = 30        # hard stop; highest remaining HP wins on cap
+# The winner is ROLLED from the final HP share, clamped to [floor, 1-floor], so
+# a real power gap never becomes a 0%/100% lock (a 30-turn attrition fight
+# otherwise averages out variance and the favorite wins deterministically). An
+# underdog always has this much chance; a favorite is never a certainty.
+UPSET_FLOOR = 0.05
 BLEED_DMG = 4.0             # per-tick damage for a "bleed" status
 CORRUPT_DMG = 6.0          # per-tick damage for a "corrupt" status (heavier)
 DOT_TURNS = 3              # how many ticks bleed/corrupt last
@@ -246,20 +251,24 @@ def _run_duel(you: Fighter, them: Fighter, cfg, rng) -> DuelResult:
                             else attacker.gain(eff)
         turn += 1
 
-    # Decide the winner: KO, else highest remaining HP, else power tiebreak.
-    if b.hp <= 0 < a.hp:
-        you_won = True
-    elif a.hp <= 0 < b.hp:
-        you_won = False
-    elif a.hp != b.hp:
-        you_won = a.hp > b.hp
-    else:
-        you_won = you.power() >= them.power()
+    # Decide the winner by a CLAMPED roll on the final HP share (see UPSET_FLOOR)
+    # rather than a deterministic HP compare -- so the favorite is favored but an
+    # underdog can still steal it, keeping gear/element choices meaningful instead
+    # of a foregone conclusion.
+    ha, hb = max(0.0, a.hp), max(0.0, b.hp)
+    share = ha / (ha + hb) if (ha + hb) > 0 else 0.5
+    p_you = max(UPSET_FLOOR, min(1.0 - UPSET_FLOOR, share))
+    you_won = rng.random() < p_you
 
-    if a.hp <= 0 or b.hp <= 0:
-        ko = "them" if you_won else "you"
-        log.append(f"KO! {(them if you_won else you).name} is down "
-                   f"({'you win!' if you_won else 'you lost...'})")
+    winner_c = a if you_won else b
+    loser_c = b if you_won else a
+    verdict = "you win!" if you_won else "you lost..."
+    if winner_c.hp <= 0 or loser_c.hp > winner_c.hp:
+        # the roll went against the HP state -- narrate the comeback
+        log.append(f"{(you if you_won else them).name} was on the ropes but "
+                   f"claws back for the win! ({verdict})")
+    elif a.hp <= 0 or b.hp <= 0:
+        log.append(f"KO! {(them if you_won else you).name} is down ({verdict})")
     else:
         log.append(f"turn cap reached -- HP {a.hp:.0f} vs {b.hp:.0f}: "
                    + ("YOU WIN!" if you_won else "you lost..."))
