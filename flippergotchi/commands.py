@@ -554,18 +554,25 @@ def cmd_profile(cfg) -> None:
     satiety = int(max(0, min(100, getattr(state, "satiety", 0.0))))
     unlocked, total = book.progress()
     rows = dex.all()
-    bestiary = len(rows)
+    individuals = len(rows)
+    species_caught = len(dex.species_summary())
+    species_total = monsters.species_count()
     shinies = stats.get("shinies", 0)
     equipped = len(getattr(inv, "equipped", {}) or {})
+    paragon = int(getattr(state, "paragon", 0) or 0)
 
     print(f"  == PROFILE ==   {name_line}")
-    print(f"  Lv{state.level} {state.stage}   MODE: {mode}")
+    lvl_line = f"  Lv{state.level} {state.stage}   MODE: {mode}"
+    if paragon > 0:
+        lvl_line += f"   PARAGON {paragon}"
+    print(lvl_line)
     print(f"  HP {hp}%   hunger {int(state.hunger)}   food {food}%   "
           f"satiety {satiety}%")
     print(f"  scrap: {wallet.scrap}")
     print(f"  badges: {unlocked}/{total} unlocked")
     print(f"  quests: {quests.lifetime_done} done   streak: {quests.streak}d")
-    print(f"  shinies: {shinies}   bestiary: {bestiary} species")
+    print(f"  shinies: {shinies}   species: {species_caught}/{species_total} "
+          f"({individuals} individuals)")
     print(f"  gear equipped: {equipped}/{len(equip_mod.SLOTS)}")
 
 

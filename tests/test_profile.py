@@ -52,7 +52,7 @@ def test_cmd_profile_prints_key_lines(tmp_path, capsys):
     assert "badges:" in out
     assert "quests:" in out
     assert "streak:" in out
-    assert "bestiary:" in out
+    assert "species:" in out
 
 
 def test_cmd_profile_runs_with_empty_stores(tmp_path, capsys):
@@ -61,7 +61,7 @@ def test_cmd_profile_runs_with_empty_stores(tmp_path, capsys):
     commands.cmd_profile(cfg)  # no other stores on disk -> must not raise
     out = capsys.readouterr().out
     assert "scrap: 0" in out
-    assert "bestiary: 0 species" in out
+    assert "species: 0/" in out
 
 
 def test_cmd_profile_shows_hardcore_mode(tmp_path, capsys):
@@ -88,7 +88,7 @@ def test_cmd_profile_counts_shinies_and_bestiary(tmp_path, capsys):
     commands.cmd_profile(cfg)
     out = capsys.readouterr().out
     assert "shinies: 1" in out
-    assert "bestiary: 1 species" in out
+    assert "species: 1/" in out
 
 
 def test_cmd_profile_is_read_only(tmp_path):

@@ -107,7 +107,14 @@ class Agent:
 
     def _progress(self, ups: list) -> None:
         for u in ups:
-            if u.get("type") != "level_up":
+            kind = u.get("type")
+            if kind == "paragon":
+                tier = u.get("tier", mechanics.paragon_tier(self.state))
+                self.log(f"** PARAGON tier {tier} ** (post-legend ascension)")
+                self.speak("level_up", f"paragon {tier}")
+                self._fx_set("excited")
+                continue
+            if kind != "level_up":
                 continue
             if "evolved_to" in u:
                 self.log(f"** evolved into {u['evolved_to']} **")
@@ -585,7 +592,10 @@ class Agent:
             meters = self.gps.distance()
             if meters > 0:
                 self._progress(mechanics.walk(self.state, meters, self.cfg))
-                self._forage(meters)
+                # A sick pet is too listless to forage -- neglect actually bites
+                # now (hand-`feed` still works and is how you nurse it back).
+                if mechanics.can_forage(self.state):
+                    self._forage(meters)
                 self._quest("distance_m", meters)
                 self.wallet.earn(shop_mod.scrap_for_walk(meters))
                 self._achievements()
@@ -593,6 +603,17 @@ class Agent:
             self.log(f"tick step failed: {e}")
         mechanics.maybe_sleep(self.state, self.cfg)   # energy-driven sleep/wake
         mechanics.tick(self.state, dt * self.cfg.time_scale, self.cfg)
+        # Soft-stakes (normal mode): announce the sick/recovery TRANSITION once
+        # per episode so neglect is felt, not silent. Non-lethal either way.
+        now_sick = mechanics.is_sick(self.state)
+        if now_sick and not getattr(self, "_was_sick", False):
+            self.log(f"[care] {self.state.name} fell sick from neglect -- "
+                     "feed it to nurse it back")
+            self.speak("sick")
+            self._fx_set("sick")
+        elif not now_sick and getattr(self, "_was_sick", False):
+            self.log(f"[care] {self.state.name} is feeling better again")
+        self._was_sick = now_sick
         self._starve_warn_check()
         if mechanics.is_dead(self.state):
             self._hardcore_death()
