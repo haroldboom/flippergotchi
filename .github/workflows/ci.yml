@@ -75,7 +75,7 @@ jobs:
       - name: Install with the ble extra
         run: pip install -e ".[ble]"
       - name: Validate bleak import
-        run: python -c "import bleak; from bleak import BleakScanner; print('bleak', bleak.__version__)"
+        run: python -c "import bleak; from bleak import BleakScanner; from importlib.metadata import version; print('bleak', version('bleak'))"
 
   previews:
     # Regenerate the device-accurate render previews (docs/device/) through the
