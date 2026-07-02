@@ -115,6 +115,9 @@ def test_cmd_scan_and_capture_run_in_sim(tmp_path, capsys):
     cfg = Config()
     cfg.simulate = True
     cfg.dry_run = True
+    # cmd_capture appends to the authorizer audit log -- redirect it to tmp so
+    # this test never writes the real ~/.flippergotchi/audit.log.
+    cfg.audit_log = str(tmp_path / "audit.log")
     commands.cmd_scan(cfg, rounds=4)
     assert "SCAN" in capsys.readouterr().out
     commands.cmd_capture(cfg, "AA:BB:CC:00:11:22", authorized=False)

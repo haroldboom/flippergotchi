@@ -132,10 +132,16 @@ def test_speak_fires_on_badge(tmp_path):
     assert "badge" in calls
 
 
-def test_speak_fires_on_shiny(tmp_path):
+def test_speak_fires_on_shiny(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     agent = Agent(cfg, PetState(name="T"))
     calls = _spy_speak(agent)
+    # force a deterministic catch -- the shiny line only fires on a successful
+    # capture, and the capture roll uses the global RNG (making this test
+    # order-dependent before). Pin the outcome instead of hoping for a seed.
+    import flippergotchi.game.encounter as _enc
+    monkeypatch.setattr(_enc, "auto_choice", lambda m, *a, **k: "capture")
+    monkeypatch.setattr(_enc, "capture_chance", lambda m: 1.0)
     # find a bssid whose stable shiny hash is True, then catch it
     ev = None
     for i in range(2000):
@@ -175,6 +181,25 @@ def test_auto_duel_triggers_and_applies(tmp_path, capsys):
     # a strong player vs a weak peer should win: duel_wins + drained peer pool
     assert state.duel_wins == 1
     assert peer_after < peer_before
+
+
+def test_auto_duel_skips_unfair_matchup(tmp_path, capsys):
+    # the fair-match gate (default band [0.2, 0.85]) must SKIP a hopeless
+    # mismatch: a Lv30 pet vs a Lv2 peer is a near-certain win (out of band), so
+    # no auto-duel should fire. (Regression guard: without the gate the pet would
+    # auto-stomp trivial peers.)
+    cfg = _cfg(tmp_path)
+    cfg.auto_duel_chance = 1.0
+    cfg.auto_duel_cooldown = 0
+    state = PetState(name="T", level=30, handshakes=20)
+    agent = Agent(cfg, state)
+    agent._peers["11:22:33:44:55:66"] = {
+        "name": "Weakling", "addr": "11:22:33:44:55:66", "level": 2,
+        "handshakes": 8, "gear_power": 0, "element": "Tide"}
+    agent._maybe_duel()
+    out = capsys.readouterr().out
+    assert "[duel]" not in out            # skipped -- no duel fired
+    assert state.duel_wins == 0
 
 
 # --- task 5: maybe_sleep runs every tick -----------------------------------
