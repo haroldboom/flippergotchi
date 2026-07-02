@@ -40,10 +40,15 @@ DRAIN_FRAC = 0.5           # fraction of damage healed by "drain" moves
 # How equipped PvP stats (equipment.Inventory.stat_totals(): item bonuses +
 # gear-set stat bonuses) feed the resolver. All zero-safe: a stat-less fighter
 # behaves exactly like the pre-stat engine (same rng draws, same multipliers).
-ATK_STAT_SCALE = 0.010     # atk_mult = 1 + ATK * this (outgoing damage up)
-DEF_STAT_SCALE = 0.010     # def_mult = 1 + DEF * this (incoming damage down)
-LUCK_CRIT_SCALE = 0.005    # crit_chance = LUCK * this ...
-LUCK_CRIT_CAP = 0.35       # ...capped so crits stay spicy, not dominant
+# R2/R3 rebalance (docs/playtest-notes.md): ATK/DEF scales 0.010->0.006 and
+# the _hp_from_power slope 1.2->0.8 widen the "choices matter" band (a +30
+# gear edge is ~0.83, not ~0.91); LUCK_CRIT_SCALE 0.005->0.008 + cap
+# 0.35->0.45 (with moves.CRIT_MULT 1.5->1.8) make LUCK competitive with
+# ATK/DEF at equal budget (~0.60 vs the old ~0.88 ATK-favoured trap).
+ATK_STAT_SCALE = 0.006     # atk_mult = 1 + ATK * this (outgoing damage up)
+DEF_STAT_SCALE = 0.006     # def_mult = 1 + DEF * this (incoming damage down)
+LUCK_CRIT_SCALE = 0.008    # crit_chance = LUCK * this ...
+LUCK_CRIT_CAP = 0.45       # ...capped so crits stay spicy, not dominant
 LUCK_INIT_WEIGHT = 2.0     # LUCK also weighs the initiative (first-move) roll
 
 
@@ -173,7 +178,7 @@ def _hp_from_power(power: float) -> float:
     HP scales with power so level/handshakes/gear/condition all stay relevant
     in PvP, with a floor so nobody is one-shot. (A Lv1 nobody sits ~60 HP, a
     decked-out fighter several hundred.)"""
-    return max(40.0, 30.0 + power * 1.2)
+    return max(40.0, 30.0 + power * 0.8)
 
 
 def duel(you: Fighter, them: Fighter, cfg=None, rng=random) -> DuelResult:

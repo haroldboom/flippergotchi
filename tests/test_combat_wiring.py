@@ -65,7 +65,35 @@ def test_gear_stats_change_duel_outcomes():
     state = PetState(name="Geared", level=8, handshakes=10)
     geared = duel_mod.fighter_from_pet(state, inv)
     naked = duel_mod.Fighter("Naked", level=8, handshakes=10)
-    assert _winrate(geared, naked) > 0.70
+    wr = _winrate(geared, naked)
+    # R2/R3 rebalance: a FULL kit vs naked is the extreme end of the gradient,
+    # so it rides the R1 upset ceiling (~0.95). Tightened 0.70 -> 0.85 to pin
+    # that, and bounded above: the UPSET_FLOOR means it must never be a lock.
+    assert 0.85 < wr < 1.00
+
+
+def test_gear_edge_is_a_gradient_not_a_cliff():
+    """R2/R3 rebalance: gear power differences produce a SMOOTH win-rate
+    gradient. Pre-rebalance a +30 gear edge (with the generic peer stats it
+    implies) was already ~0.91 -- barely below the +60 ceiling, so partial
+    gear was nearly as decisive as a full set. Post-rebalance (HP slope
+    1.2->0.8, ATK/DEF scale 0.010->0.006) it measures ~0.64 / ~0.83 / ~0.92
+    at +10/+30/+60: each gear step still buys a real, distinct edge."""
+    base = dict(level=8, handshakes=10)
+    plain = duel_mod.Fighter("plain", **base)
+
+    def geared(g: float) -> duel_mod.Fighter:
+        # mirror fighter_from_peer's generic stats for a gear-power number
+        return duel_mod.Fighter("geared", **base, gear=g,
+                                atk=g * 0.5, defense=g * 0.3, luck=g * 0.2)
+
+    wr10 = _winrate(geared(10.0), plain, seed=61)
+    wr30 = _winrate(geared(30.0), plain, seed=61)
+    wr60 = _winrate(geared(60.0), plain, seed=61)
+    assert 0.52 < wr10 < 0.80          # small edge: modest advantage
+    assert 0.70 < wr30 < 0.90          # medium edge: strong, NOT near-ceiling
+    assert 0.85 < wr60 < 1.00          # big edge: dominant but never a lock
+    assert wr10 < wr30 < wr60          # and the curve is monotone
 
 
 # ---------------------------------------------------------------------------
@@ -122,9 +150,24 @@ def test_luck_seeds_crit_and_crits_can_land():
 def test_stat_loadouts_beat_statless_twin():
     atk_f = duel_mod.Fighter("atk", level=8, handshakes=10, atk=50.0)
     def_f = duel_mod.Fighter("def", level=8, handshakes=10, defense=50.0)
+    luck_f = duel_mod.Fighter("luck", level=8, handshakes=10, luck=50.0)
     plain = duel_mod.Fighter("plain", level=8, handshakes=10)
     assert _winrate(atk_f, plain, seed=31) > 0.60
     assert _winrate(def_f, plain, seed=32) > 0.60
+    # R2/R3 rebalance: LUCK now clears the same bar as ATK/DEF against a
+    # stat-less twin (measured ~0.75-0.79) -- it is a real stat, not flavour.
+    assert _winrate(luck_f, plain, seed=33) > 0.60
+
+
+def test_luck_build_is_competitive_at_equal_budget():
+    """R2/R3 rebalance: LUCK is no longer a trap stat. Pre-rebalance an
+    ATK-heavy build beat a LUCK-heavy build ~0.88 at an equal stat budget
+    (docs/playtest-notes.md); post-rebalance it measures ~0.57-0.63. Pin a
+    band: ATK may stay slightly favoured, but LUCK must not be dominated --
+    and must not flip to dominating either."""
+    atk_f = duel_mod.Fighter("atk", level=8, handshakes=10, atk=90.0)
+    luck_f = duel_mod.Fighter("luck", level=8, handshakes=10, luck=90.0)
+    assert 0.45 < _winrate(atk_f, luck_f, seed=34) < 0.72
 
 
 # ---------------------------------------------------------------------------

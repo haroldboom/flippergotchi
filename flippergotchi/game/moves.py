@@ -45,8 +45,10 @@ EFFECTS = ("stun", "bleed", "corrupt", "shield", "buff", "drain")
 # Critical hits: if the attacker exposes a positive ``crit_chance`` (the duel
 # engine derives it from equipped LUCK), damaging hits may crit for extra
 # damage. Attackers without the attribute never roll, so seeded sequences for
-# stat-less fighters are unchanged.
-CRIT_MULT = 1.5
+# stat-less fighters are unchanged. R2/R3 rebalance: 1.5 -> 1.8 so a
+# capped-crit LUCK build's expected damage rivals an equal-budget ATK build
+# (LUCK was a trap stat -- see docs/playtest-notes.md).
+CRIT_MULT = 1.8
 
 
 @dataclass(frozen=True)
